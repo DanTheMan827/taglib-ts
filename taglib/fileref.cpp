@@ -245,9 +245,9 @@ namespace
                         AudioProperties::ReadStyle audioPropertiesStyle)
   {
     File *file = nullptr;
-
+    if(false){}
 #ifdef TAGLIB_WITH_VORBIS
-    if(Ogg::Vorbis::File::isSupported(stream))
+    else if(Ogg::Vorbis::File::isSupported(stream))
       file = new Ogg::Vorbis::File(stream, readAudioProperties, audioPropertiesStyle);
     else if(Ogg::FLAC::File::isSupported(stream))
       file = new Ogg::FLAC::File(stream, readAudioProperties, audioPropertiesStyle);
@@ -259,7 +259,7 @@ namespace
       file = new Ogg::Opus::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_APE
-    if(!file && MPC::File::isSupported(stream))
+    else if(MPC::File::isSupported(stream))
       file = new MPC::File(stream, readAudioProperties, audioPropertiesStyle);
     else if(WavPack::File::isSupported(stream))
       file = new WavPack::File(stream, readAudioProperties, audioPropertiesStyle);
@@ -267,38 +267,38 @@ namespace
       file = new APE::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_TRUEAUDIO
-    if(!file && TrueAudio::File::isSupported(stream))
+    else if(TrueAudio::File::isSupported(stream))
       file = new TrueAudio::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_MP4
-    if(!file && MP4::File::isSupported(stream))
+    else if(MP4::File::isSupported(stream))
       file = new MP4::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_ASF
-    if(!file && ASF::File::isSupported(stream))
+    else if(ASF::File::isSupported(stream))
       file = new ASF::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_RIFF
-    if(!file && RIFF::AIFF::File::isSupported(stream))
+    else if(RIFF::AIFF::File::isSupported(stream))
       file = new RIFF::AIFF::File(stream, readAudioProperties, audioPropertiesStyle);
     else if(RIFF::WAV::File::isSupported(stream))
       file = new RIFF::WAV::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_DSF
-    if(!file && DSF::File::isSupported(stream))
+    else if(DSF::File::isSupported(stream))
       file = new DSF::File(stream, readAudioProperties, audioPropertiesStyle);
     else if(DSDIFF::File::isSupported(stream))
       file = new DSDIFF::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_SHORTEN
-    if(!file && Shorten::File::isSupported(stream))
+    else if(Shorten::File::isSupported(stream))
       file = new Shorten::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
 #ifdef TAGLIB_WITH_MATROSKA
-    if(!file && Matroska::File::isSupported(stream))
+    else if(Matroska::File::isSupported(stream))
       file = new Matroska::File(stream, readAudioProperties, audioPropertiesStyle);
 #endif
-    if(!file && MPEG::File::isSupported(stream))
+    else if(MPEG::File::isSupported(stream))
       file = new MPEG::File(stream, readAudioProperties, audioPropertiesStyle);
 
     // isSupported() only does a quick check, so double check the file here.
