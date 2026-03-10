@@ -143,6 +143,8 @@ class TestFileRefDetectByContent : public CppUnit::TestFixture
   CPPUNIT_TEST(test_infloop_mpc);
   CPPUNIT_TEST(test_segfault_mpc);
   CPPUNIT_TEST(test_segfault2_mpc);
+  CPPUNIT_TEST(test_sv4_header_mpc);
+  CPPUNIT_TEST(test_sv5_header_mpc);
   CPPUNIT_TEST(test_sv8_header_mpc);
   CPPUNIT_TEST(test_zerodiv_mpc);
   // WavPack::File
@@ -161,9 +163,6 @@ class TestFileRefDetectByContent : public CppUnit::TestFixture
   CPPUNIT_TEST(test_mac_399_tagged_ape);
   CPPUNIT_TEST(test_mac_399_ape);
   CPPUNIT_TEST(test_zerodiv_ape);
-  // NULL
-  CPPUNIT_TEST(testNull_sv4_header_mpc);
-  CPPUNIT_TEST(testNull_sv5_header_mpc);
 #endif
 
 #ifdef TAGLIB_WITH_TRUEAUDIO
@@ -185,7 +184,7 @@ class TestFileRefDetectByContent : public CppUnit::TestFixture
   CPPUNIT_TEST(test_nonprintable_atom_type_m4a);
   CPPUNIT_TEST(test_zero_length_mdat_m4a);
   // NULL
-  CPPUNIT_TEST(testNull_64bit_mp4);
+  CPPUNIT_TEST(test_64bit_mp4);
 #endif
 
 #ifdef TAGLIB_WITH_ASF
@@ -284,11 +283,11 @@ public:
   void testNull_changed_mod()             { detectNullByContent("changed.mod"); }
   void testNull_changed_s3m()             { detectNullByContent("changed.s3m"); }
   void testNull_changed_xm()              { detectNullByContent("changed.xm"); }
-  void testNull_compressed_id3_frame_mp3() { detectNullByContent("compressed_id3_frame.mp3"); }
-  void testNull_duplicate_id3v2_mp3()     { detectNullByContent("duplicate_id3v2.mp3"); }
-  void testNull_excessive_alloc_mp3()     { detectNullByContent("excessive_alloc.mp3"); }
-  void testNull_extended_header_mp3()     { detectNullByContent("extended-header.mp3"); }
-  void testNull_garbage_mp3()             { detectNullByContent("garbage.mp3"); }
+  void testNull_compressed_id3_frame_mp3() { detectByContent<MPEG::File>("compressed_id3_frame.mp3"); }
+  void testNull_duplicate_id3v2_mp3()     { detectByContent<MPEG::File>("duplicate_id3v2.mp3"); }
+  void testNull_excessive_alloc_mp3()     { detectByContent<MPEG::File>("excessive_alloc.mp3"); }
+  void testNull_extended_header_mp3()     { detectByContent<MPEG::File>("extended-header.mp3"); }
+  void testNull_garbage_mp3()             { detectByContent<MPEG::File>("garbage.mp3"); }
   void testNull_no_extension()            { detectNullByContent("no-extension"); }
   void testNull_stripped_xm()             { detectNullByContent("stripped.xm"); }
   void testNull_test_it()                 { detectNullByContent("test.it"); }
@@ -336,6 +335,8 @@ public:
   void test_segfault2_mpc()         { detectByContent<MPC::File>("segfault2.mpc"); }
   void test_sv8_header_mpc()        { detectByContent<MPC::File>("sv8_header.mpc"); }
   void test_zerodiv_mpc()           { detectByContent<MPC::File>("zerodiv.mpc"); }
+  void test_sv4_header_mpc()    { detectByContent<MPC::File>("sv4_header.mpc"); }
+  void test_sv5_header_mpc()    { detectByContent<MPC::File>("sv5_header.mpc"); }
 
   // -- WavPack::File --
   void test_click_wv()              { detectByContent<WavPack::File>("click.wv"); }
@@ -353,11 +354,7 @@ public:
   void test_mac_399_id3v2_ape()     { detectByContent<APE::File>("mac-399-id3v2.ape"); }
   void test_mac_399_tagged_ape()    { detectByContent<APE::File>("mac-399-tagged.ape"); }
   void test_mac_399_ape()           { detectByContent<APE::File>("mac-399.ape"); }
-  void test_zerodiv_ape()           { detectByContent<APE::File>("zerodiv.ape"); }
-
-  // -- NULL (APE) --
-  void testNull_sv4_header_mpc()    { detectNullByContent("sv4_header.mpc"); }
-  void testNull_sv5_header_mpc()    { detectNullByContent("sv5_header.mpc"); }
+  void test_zerodiv_ape()           { detectByContent<APE::File>("zerodiv.ape"); 
 #endif
 
 #ifdef TAGLIB_WITH_TRUEAUDIO
@@ -382,7 +379,7 @@ public:
   void test_zero_length_mdat_m4a()  { detectByContent<MP4::File>("zero-length-mdat.m4a"); }
 
   // -- NULL (MP4) --
-  void testNull_64bit_mp4()         { detectNullByContent("64bit.mp4"); }
+  void test_64bit_mp4()         { detectByContent<MP4::File>("64bit.mp4"); }
 #endif
 
 #ifdef TAGLIB_WITH_ASF
@@ -399,6 +396,7 @@ public:
   void test_noise_aif()             { detectByContent<RIFF::AIFF::File>("noise.aif"); }
   void test_noise_odd_aif()         { detectByContent<RIFF::AIFF::File>("noise_odd.aif"); }
   void test_segfault_aif()          { detectByContent<RIFF::AIFF::File>("segfault.aif"); }
+  void testNull_excessive_alloc_aif() { detectByContent<RIFF::AIFF::File>(("excessive_alloc.aif"); }
 
   // -- RIFF::WAV::File --
   void test_alaw_wav()              { detectByContent<RIFF::WAV::File>("alaw.wav"); }
@@ -413,7 +411,7 @@ public:
   void test_zero_size_chunk_wav()   { detectByContent<RIFF::WAV::File>("zero-size-chunk.wav"); }
 
   // -- NULL (RIFF) --
-  void testNull_excessive_alloc_aif() { detectNullByContent("excessive_alloc.aif"); }
+
 #endif
 
 #ifdef TAGLIB_WITH_DSF
