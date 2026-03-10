@@ -70,41 +70,44 @@
 using namespace std;
 using namespace TagLib;
 
-// Files not covered by this test suite and the reason why:
+// Files not covered by detection tests and the reason why:
+// (All of these return null because no format's isSupported() matches them)
 //
-// no content detection for these formats (MOD/S3M/IT/XM have no isSupported()):
+// MOD/S3M/IT/XM formats have no isSupported() implementation at all,
+// so content-based detection is impossible for these files:
 //   changed.mod, test.mod, changed.s3m, test.s3m, test.it,
 //   changed.xm, test.xm, stripped.xm
 //
 // bare ID3 tag data without any surrounding audio stream:
 //   005411.id3, broken-tenc.id3, unsynch.id3
 //
-// not a valid audio file (null bytes / truly unsupported format):
+// null bytes / truly unsupported binary format:
 //   no-extension, unsupported-extension.xx
 //
-// corrupt files that fail MPEG::File::isValid() after detection:
-//   garbage.mp3 (random binary data, no valid MPEG frames),
-//   compressed_id3_frame.mp3 (compressed ID3 frame causes MPEG scan failure),
-//   duplicate_id3v2.mp3 (duplicate ID3v2 tags confuse frame scanner),
-//   excessive_alloc.mp3 (crafted to trigger excessive allocation in APIC frame),
-//   extended-header.mp3 (ID3v2.4 extended header trips up the frame scanner),
-//   w000.mp3 (malformed MPEG frames that fail MPEG::File::isValid())
+// .mp3-named files where MPEG::File::isSupported() returns false because the
+// MPEG frame scanner cannot find any valid frames in the content:
+//   garbage.mp3 (random binary data with no MPEG sync bytes),
+//   compressed_id3_frame.mp3 (zlib-compressed ID3 frame inflates to garbage
+//                              that the frame scanner cannot parse past),
+//   duplicate_id3v2.mp3 (two consecutive ID3v2 headers confuse the size
+//                         calculation, shifting the scan past any real frames),
+//   excessive_alloc.mp3 (APIC frame carries a crafted huge size field that
+//                         the ID3v2 skip overshoots the actual frames),
+//   extended-header.mp3 (ID3v2.4 extended header flag causes incorrect size
+//                         skip so the scanner starts inside the header),
+//   w000.mp3 (malformed file with no discoverable MPEG sync bytes)
 //
-// MPC SV4/SV5 streams: MPC::File::isSupported() only accepts "MPCK" (SV8)
-// and "MP+" (SV7) magic bytes; SV4 and SV5 have no standardised magic:
+// MPC SV4/SV5: MPC::File::isSupported() only recognises "MPCK" (SV8) and
+// "MP+" (SV7); older SV4/SV5 streams have no standardised magic bytes:
 //   sv4_header.mpc, sv5_header.mpc
 //
-// MP4 with 64-bit atom sizes: the first box is "moov" (not "ftyp"),
-// so MP4::File::isSupported() returns false:
+// MP4 with 64-bit atom sizes: first box is "moov" rather than the required
+// "ftyp", so MP4::File::isSupported() returns false:
 //   64bit.mp4
 //
-// corrupt Ogg/FLAC: Ogg::FLAC::File::isSupported() returns true (valid Ogg
-// container), but the FLAC metadata header inside is invalid so isValid()
-// returns false:
-//   segfault.oga
-//
-// corrupt AIFF: the "FORM????AIFF" magic is present but the AI chunk byte
-// is 0x80 (not 0x46 'F'), so RIFF::AIFF::File::isSupported() returns false:
+// corrupt AIFF: the FORM header is present but the sub-type bytes at offset 8
+// are garbled (0x80 0x46 instead of 'AIFF'/'AIFC'), so
+// RIFF::AIFF::File::isSupported() returns false:
 //   excessive_alloc.aif
 
 class TestFileRefDetectByContent : public CppUnit::TestFixture
@@ -149,6 +152,8 @@ class TestFileRefDetectByContent : public CppUnit::TestFixture
   CPPUNIT_TEST(test_empty_spx);
   // Ogg::Opus::File
   CPPUNIT_TEST(test_correctness_gain_silent_output_opus);
+  // Corrupt files: isSupported() returns true but isValid() returns false
+  CPPUNIT_TEST(testNull_segfault_oga);
 #endif
 
 #ifdef TAGLIB_WITH_APE
@@ -255,6 +260,16 @@ public:
     CPPUNIT_ASSERT(dynamic_cast<T *>(f.file()) != nullptr);
   }
 
+  void detectNullByContent(const char *testFile)
+  {
+    FileStream fs(TEST_FILE_PATH_C(testFile));
+    CPPUNIT_ASSERT(fs.isOpen());
+    ByteVector data = fs.readBlock(fs.length());
+    ByteVectorStream bvs(data);
+    FileRef f(&bvs);
+    CPPUNIT_ASSERT(f.isNull());
+  }
+
   // -- MPEG::File (always available) --
 
   void test_ape_id3v1_mp3()         { detectByContent<MPEG::File>("ape-id3v1.mp3"); }
@@ -298,6 +313,11 @@ public:
 
   // -- Ogg::Opus::File --
   void test_correctness_gain_silent_output_opus() { detectByContent<Ogg::Opus::File>("correctness_gain_silent_output.opus"); }
+
+  // segfault.oga: Ogg::FLAC::File::isSupported() returns true (valid Ogg
+  // container with a fLaC marker), but the FLAC metadata header inside is
+  // corrupt so Ogg::FLAC::File::isValid() returns false.
+  void testNull_segfault_oga()      { detectNullByContent("segfault.oga"); }
 #endif
 
 #ifdef TAGLIB_WITH_APE
