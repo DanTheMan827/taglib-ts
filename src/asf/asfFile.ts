@@ -285,10 +285,10 @@ class CodecListObject implements BaseObject {
 
       // 0x0002 = Audio codec type
       if (type === 0x0002) {
-        const name = this.data.mid(namePos, nameLength * 2).toString(StringType.UTF16LE).trim();
+        const name = this.data.mid(namePos, nameLength * 2).toString(StringType.UTF16LE).replace(/\0+$/, "").trim();
         file._properties!.setCodecName(name);
 
-        const desc = this.data.mid(descPos, descLength * 2).toString(StringType.UTF16LE).trim();
+        const desc = this.data.mid(descPos, descLength * 2).toString(StringType.UTF16LE).replace(/\0+$/, "").trim();
         file._properties!.setCodecDescription(desc);
         break;
       }
