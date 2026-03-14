@@ -4,14 +4,149 @@ import { IOStream } from "../toolkit/ioStream.js";
 import { Position } from "../toolkit/types.js";
 import { OggPageHeader } from "./oggPageHeader.js";
 
+// OGG CRC32 lookup table (polynomial 0x04C11DB7, same as used in libogg)
+const OGG_CRC_TABLE = new Uint32Array(256);
+(() => {
+  for (let i = 0; i < 256; i++) {
+    let r = i << 24;
+    for (let j = 0; j < 8; j++) {
+      r = (r & 0x80000000) ? ((r << 1) ^ 0x04C11DB7) : (r << 1);
+    }
+    OGG_CRC_TABLE[i] = r >>> 0;
+  }
+})();
+
+function oggCrc32(data: Uint8Array): number {
+  let crc = 0;
+  for (let i = 0; i < data.length; i++) {
+    crc = ((crc << 8) ^ OGG_CRC_TABLE[((crc >>> 24) & 0xFF) ^ data[i]]) >>> 0;
+  }
+  return crc >>> 0;
+}
+
+/**
+ * Render OGG pages from a list of packets with a given serial number.
+ *
+ * Produces a complete OGG bitstream (BOS on first page, EOS on last page).
+ * Each page is limited to 255 segments (max ~64KB payload, as per spec).
+ */
+function renderOggPages(
+  packets: ByteVector[],
+  serialNumber: number,
+): ByteVector {
+  const result = new ByteVector();
+  let pageSequence = 0;
+  let granulePosition = 0n;
+
+  // We need to track granule position from the original pages.
+  // For simplicity, we set granule to 0 for header pages and use -1 (0xFFFFFFFFFFFFFFFF)
+  // for the last page if we don't know.
+
+  for (let pktIdx = 0; pktIdx < packets.length; pktIdx++) {
+    const pkt = packets[pktIdx];
+    const pktData = pkt.data;
+    const isFirstPacket = pktIdx === 0;
+    const isLastPacket = pktIdx === packets.length - 1;
+
+    // Split packet into segments (each max 255 bytes)
+    const segments: number[] = [];
+    let remaining = pktData.length;
+    while (remaining >= 255) {
+      segments.push(255);
+      remaining -= 255;
+    }
+    segments.push(remaining); // final segment (0-254, terminates packet)
+
+    // Split segments across pages if needed (max 255 segments per page)
+    let segOffset = 0;
+    let dataOffset = 0;
+
+    while (segOffset < segments.length) {
+      const pageSegCount = Math.min(255, segments.length - segOffset);
+      const pageSegments = segments.slice(segOffset, segOffset + pageSegCount);
+      const pageDataSize = pageSegments.reduce((a, b) => a + b, 0);
+
+      const isContinuation = segOffset > 0;
+      const isPageLastOfPacket = segOffset + pageSegCount >= segments.length;
+
+      let headerType = 0;
+      if (isContinuation) headerType |= 0x01;
+      if (isFirstPacket && segOffset === 0) headerType |= 0x02; // BOS
+      if (isLastPacket && isPageLastOfPacket) headerType |= 0x04; // EOS
+
+      // For header packets (0, 1, 2), granule = 0
+      // For audio packets, we don't track real granule, set to 0
+      // This is acceptable for metadata-only operations
+      granulePosition = (pktIdx <= 2) ? 0n : -1n;
+      if (isLastPacket && isPageLastOfPacket) {
+        // keep whatever granule we have
+      }
+
+      // Build page header (27 bytes + segment table)
+      const headerSize = 27 + pageSegCount;
+      const header = new Uint8Array(headerSize);
+      // "OggS"
+      header[0] = 0x4F; header[1] = 0x67; header[2] = 0x67; header[3] = 0x53;
+      header[4] = 0; // version
+      header[5] = headerType;
+      // granule position (64-bit little-endian)
+      const gp = BigInt.asUintN(64, granulePosition);
+      for (let b = 0; b < 8; b++) {
+        header[6 + b] = Number((gp >> BigInt(b * 8)) & 0xFFn);
+      }
+      // serial number (32-bit little-endian)
+      header[14] = serialNumber & 0xFF;
+      header[15] = (serialNumber >> 8) & 0xFF;
+      header[16] = (serialNumber >> 16) & 0xFF;
+      header[17] = (serialNumber >> 24) & 0xFF;
+      // page sequence number (32-bit little-endian)
+      header[18] = pageSequence & 0xFF;
+      header[19] = (pageSequence >> 8) & 0xFF;
+      header[20] = (pageSequence >> 16) & 0xFF;
+      header[21] = (pageSequence >> 24) & 0xFF;
+      // CRC placeholder (bytes 22-25) — filled after
+      header[22] = 0; header[23] = 0; header[24] = 0; header[25] = 0;
+      // segment count
+      header[26] = pageSegCount;
+      // segment table
+      for (let s = 0; s < pageSegCount; s++) {
+        header[27 + s] = pageSegments[s];
+      }
+
+      // Page data
+      const pageData = pktData.slice(dataOffset, dataOffset + pageDataSize);
+
+      // Compute CRC over header + data with CRC field zeroed
+      const fullPage = new Uint8Array(headerSize + pageDataSize);
+      fullPage.set(header, 0);
+      fullPage.set(pageData, headerSize);
+      const crc = oggCrc32(fullPage);
+      fullPage[22] = crc & 0xFF;
+      fullPage[23] = (crc >> 8) & 0xFF;
+      fullPage[24] = (crc >> 16) & 0xFF;
+      fullPage[25] = (crc >> 24) & 0xFF;
+
+      result.append(ByteVector.fromByteArray(fullPage));
+
+      pageSequence++;
+      segOffset += pageSegCount;
+      dataOffset += pageDataSize;
+    }
+  }
+
+  return result;
+}
+
 /**
  * Abstract base class for OGG-based file formats. Provides packet-level
  * access to the OGG bitstream by iterating pages and reassembling packets.
  */
 export abstract class OggFile extends File {
   private _pages: OggPageHeader[] | null = null;
+  private _pageOffsets: number[] = [];
   private _packets: Map<number, ByteVector> = new Map();
   private _dirtyPackets: Map<number, ByteVector> = new Map();
+  private _serialNumber: number = 0;
 
   constructor(stream: IOStream) {
     super(stream);
@@ -73,12 +208,48 @@ export abstract class OggFile extends File {
   }
 
   // ---------------------------------------------------------------------------
-  // Save stub
+  // Save
   // ---------------------------------------------------------------------------
 
   save(): boolean {
-    // Base implementation — subclasses should override for full write support.
-    return false;
+    if (this.readOnly) {
+      return false;
+    }
+
+    // Ensure pages are read
+    this.readPages();
+
+    // Build final packet list (merging dirty packets)
+    const packetCount = Math.max(
+      this._packets.size,
+      ...Array.from(this._dirtyPackets.keys()).map(k => k + 1),
+    );
+
+    const packets: ByteVector[] = [];
+    for (let i = 0; i < packetCount; i++) {
+      const dirty = this._dirtyPackets.get(i);
+      if (dirty) {
+        packets.push(dirty);
+      } else {
+        packets.push(this._packets.get(i) ?? new ByteVector());
+      }
+    }
+
+    // Render all pages
+    const rendered = renderOggPages(packets, this._serialNumber);
+
+    // Replace entire file content
+    this._stream.seek(0, Position.Beginning);
+    this._stream.truncate(0);
+    this._stream.writeBlock(rendered);
+
+    // Clear caches
+    this._dirtyPackets.clear();
+    this._pages = null;
+    this._packets.clear();
+    this._pageOffsets = [];
+
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -91,6 +262,7 @@ export abstract class OggFile extends File {
     }
 
     this._pages = [];
+    this._pageOffsets = [];
     this._packets.clear();
 
     let offset = 0;
@@ -106,6 +278,12 @@ export abstract class OggFile extends File {
       }
 
       this._pages.push(page);
+      this._pageOffsets.push(offset);
+
+      // Capture serial number from first page
+      if (this._pages.length === 1) {
+        this._serialNumber = page.serialNumber;
+      }
 
       // Read page payload
       this._stream.seek(offset + page.headerSize, Position.Beginning);

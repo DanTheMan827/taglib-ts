@@ -39,11 +39,11 @@ describe('OGG Vorbis', () => {
     expect(f.isValid).toBe(true);
   });
 
-  it.skip('should save and re-read', () => {
+  it('should save and re-read', () => {
     const data = readTestData('empty.ogg');
     const stream = new ByteVectorStream(data);
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
-    
+
     if (f.isValid) {
       const tag = f.tag();
       if (tag) {
