@@ -156,6 +156,10 @@ export class FileRef {
           const { AsfFile } = await import('./asf/asfFile.js');
           return new AsfFile(stream, readProperties, readStyle);
         }
+        case 'matroska': {
+          const { MatroskaFile } = await import('./matroska/matroskaFile.js');
+          return new MatroskaFile(stream, readProperties, readStyle);
+        }
         default:
           return null;
       }

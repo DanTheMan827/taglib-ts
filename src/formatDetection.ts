@@ -76,6 +76,11 @@ export function detectByContent(stream: IOStream): string | null {
     if (fmt === 'AIFF' || fmt === 'AIFC') return 'aiff';
   }
 
+  // Matroska/WebM: EBML header ID 0x1A45DFA3
+  if (header.length >= 4 &&
+      header.get(0) === 0x1A && header.get(1) === 0x45 &&
+      header.get(2) === 0xDF && header.get(3) === 0xA3) return 'matroska';
+
   // MPC: "MPCK" (SV8) or "MP+" (SV7)
   if (header.containsAt(ByteVector.fromString('MPCK', StringType.Latin1), 0) ||
       header.containsAt(ByteVector.fromString('MP+', StringType.Latin1), 0)) return 'mpc';
