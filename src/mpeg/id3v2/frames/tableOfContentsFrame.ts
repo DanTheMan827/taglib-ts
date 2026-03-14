@@ -1,8 +1,8 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Table of contents frame (CTOC).
@@ -20,7 +20,7 @@ export class TableOfContentsFrame extends Id3v2Frame {
 
   constructor(elementId: ByteVector) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('CTOC', StringType.Latin1),
+      ByteVector.fromString("CTOC", StringType.Latin1),
     );
     super(header);
     this._elementId = elementId;
@@ -69,7 +69,7 @@ export class TableOfContentsFrame extends Id3v2Frame {
   }
 
   removeChildElement(id: ByteVector): void {
-    const idx = this._childElements.findIndex((e) => e.equals(id));
+    const idx = this._childElements.findIndex(e => e.equals(id));
     if (idx >= 0) {
       this._childElements.splice(idx, 1);
     }

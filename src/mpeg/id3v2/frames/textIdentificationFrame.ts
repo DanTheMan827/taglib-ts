@@ -1,10 +1,10 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
   nullTerminatorSize,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Text identification frame (T*** except TXXX).
@@ -47,7 +47,7 @@ export class TextIdentificationFrame extends Id3v2Frame {
 
   get text(): string {
     this._parseRawData();
-    return this._fieldList.length > 0 ? this._fieldList.join(', ') : '';
+    return this._fieldList.length > 0 ? this._fieldList.join(", ") : "";
   }
 
   set text(value: string) {
@@ -90,7 +90,7 @@ export class TextIdentificationFrame extends Id3v2Frame {
     this._rawVersion = version;
   }
 
-  protected renderFields(version: number): ByteVector {
+  protected renderFields(_version: number): ByteVector {
     this._parseRawData();
     const v = new ByteVector();
     v.append(this._encoding);
@@ -155,12 +155,12 @@ export class TextIdentificationFrame extends Id3v2Frame {
  */
 export class UserTextIdentificationFrame extends TextIdentificationFrame {
   constructor(encoding: StringType = StringType.UTF8) {
-    super(ByteVector.fromString('TXXX', StringType.Latin1), encoding);
+    super(ByteVector.fromString("TXXX", StringType.Latin1), encoding);
   }
 
   get description(): string {
     const fl = this.fieldList;
-    return fl.length > 0 ? fl[0] : '';
+    return fl.length > 0 ? fl[0] : "";
   }
 
   set description(value: string) {
@@ -183,7 +183,7 @@ export class UserTextIdentificationFrame extends TextIdentificationFrame {
 
   override get text(): string {
     const fl = this.fieldList;
-    return fl.length > 1 ? fl.slice(1).join(', ') : '';
+    return fl.length > 1 ? fl.slice(1).join(", ") : "";
   }
 
   override set text(value: string) {
@@ -191,7 +191,7 @@ export class UserTextIdentificationFrame extends TextIdentificationFrame {
     if (fl.length > 0) {
       this.fieldList = [fl[0], value];
     } else {
-      this.fieldList = ['', value];
+      this.fieldList = ["", value];
     }
   }
 

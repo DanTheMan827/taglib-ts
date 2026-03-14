@@ -1,10 +1,10 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
   nullTerminatorSize,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Comments frame (COMM).
@@ -13,13 +13,13 @@ import {
  */
 export class CommentsFrame extends Id3v2Frame {
   private _encoding: StringType = StringType.UTF8;
-  private _language: ByteVector = ByteVector.fromString('XXX', StringType.Latin1);
-  private _description: string = '';
-  private _text: string = '';
+  private _language: ByteVector = ByteVector.fromString("XXX", StringType.Latin1);
+  private _description: string = "";
+  private _text: string = "";
 
   constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('COMM', StringType.Latin1),
+      ByteVector.fromString("COMM", StringType.Latin1),
     );
     super(header);
     this._encoding = encoding;
@@ -110,7 +110,7 @@ export class CommentsFrame extends Id3v2Frame {
 
     if (nullIdx < 0) {
       this._description = data.mid(descStart).toString(this._encoding);
-      this._text = '';
+      this._text = "";
     } else {
       this._description = data
         .mid(descStart, nullIdx - descStart)

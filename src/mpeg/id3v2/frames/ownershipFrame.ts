@@ -1,9 +1,9 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Ownership frame (OWNE).
@@ -13,13 +13,13 @@ import {
  */
 export class OwnershipFrame extends Id3v2Frame {
   private _encoding: StringType = StringType.UTF8;
-  private _pricePaid: string = '';
-  private _datePurchased: string = '';
-  private _seller: string = '';
+  private _pricePaid: string = "";
+  private _datePurchased: string = "";
+  private _seller: string = "";
 
   constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('OWNE', StringType.Latin1),
+      ByteVector.fromString("OWNE", StringType.Latin1),
     );
     super(header);
     this._encoding = encoding;
@@ -109,7 +109,7 @@ export class OwnershipFrame extends Id3v2Frame {
     v.append(ByteVector.fromString(this._pricePaid, StringType.Latin1));
     v.append(0); // null terminator
     // Ensure date is exactly 8 bytes
-    const dateStr = this._datePurchased.padEnd(8, ' ').slice(0, 8);
+    const dateStr = this._datePurchased.padEnd(8, " ").slice(0, 8);
     v.append(ByteVector.fromString(dateStr, StringType.Latin1));
     v.append(ByteVector.fromString(this._seller, this._encoding));
     return v;

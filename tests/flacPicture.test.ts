@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { FlacPicture } from '../src/flac/flacPicture.js';
-import { ByteVector, StringType } from '../src/byteVector.js';
+import { describe, it, expect } from "vitest";
+import { FlacPicture } from "../src/flac/flacPicture.js";
+import { ByteVector } from "../src/byteVector.js";
 
-describe('FlacPicture', () => {
+describe("FlacPicture", () => {
   const pictureData = new Uint8Array([
     0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x09, 0x69, 0x6D, 0x61, 0x67,
     0x65, 0x2F, 0x70, 0x6E, 0x67, 0x00, 0x00, 0x00, 0x08, 0x41, 0x20, 0x70,
@@ -23,19 +23,19 @@ describe('FlacPicture', () => {
     0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
   ]);
 
-  it('should parse picture data', () => {
+  it("should parse picture data", () => {
     const pic = FlacPicture.parse(ByteVector.fromByteArray(pictureData));
     expect(pic.pictureType).toBe(3);
     expect(pic.width).toBe(1);
     expect(pic.height).toBe(1);
     expect(pic.colorDepth).toBe(24);
     expect(pic.numColors).toBe(0);
-    expect(pic.mimeType).toBe('image/png');
-    expect(pic.description).toBe('A pixel.');
+    expect(pic.mimeType).toBe("image/png");
+    expect(pic.description).toBe("A pixel.");
     expect(pic.data.length).toBe(150);
   });
 
-  it('should round-trip render', () => {
+  it("should round-trip render", () => {
     const original = ByteVector.fromByteArray(pictureData);
     const pic = FlacPicture.parse(original);
     const rendered = pic.render();

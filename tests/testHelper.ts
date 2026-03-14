@@ -1,13 +1,13 @@
 /**
  * Test helper utilities for loading test data files.
  */
-import { readFileSync, writeFileSync, copyFileSync, mkdtempSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
-import { join, resolve } from 'path';
-import { ByteVector } from '../src/byteVector.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
+import { readFileSync, copyFileSync, mkdtempSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
+import { ByteVector } from "../src/byteVector.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 
-const TEST_DATA_DIR = resolve(import.meta.dirname ?? __dirname, 'data');
+const TEST_DATA_DIR = resolve(import.meta.dirname ?? __dirname, "data");
 
 export function testDataPath(filename: string): string {
   return join(TEST_DATA_DIR, filename);
@@ -30,9 +30,9 @@ export function openTestStream(filename: string): ByteVectorStream {
  * Returns the path to the temporary file and a cleanup function.
  */
 export function copyTestFile(filename: string, ext?: string): { path: string; cleanup: () => void } {
-  const suffix = ext ?? filename.substring(filename.lastIndexOf('.'));
-  const dir = mkdtempSync(join(tmpdir(), 'taglib-test-'));
-  const dest = join(dir, 'test' + suffix);
+  const suffix = ext ?? filename.substring(filename.lastIndexOf("."));
+  const dir = mkdtempSync(join(tmpdir(), "taglib-test-"));
+  const dest = join(dir, "test" + suffix);
   copyFileSync(testDataPath(filename), dest);
   return {
     path: dest,

@@ -1,13 +1,13 @@
-import { File } from './file.js';
-import { Tag } from './tag.js';
-import { AudioProperties } from './audioProperties.js';
-import { IOStream } from './toolkit/ioStream.js';
-import { ByteVectorStream } from './toolkit/byteVectorStream.js';
-import { ByteVector } from './byteVector.js';
-import { PropertyMap } from './toolkit/propertyMap.js';
-import { ReadStyle } from './toolkit/types.js';
-import type { VariantMap } from './toolkit/variant.js';
-import { detectByExtension, detectByContent, detectOggSubFormat, defaultFileExtensions } from './formatDetection.js';
+import { File } from "./file.js";
+import { Tag } from "./tag.js";
+import { AudioProperties } from "./audioProperties.js";
+import { IOStream } from "./toolkit/ioStream.js";
+import { ByteVectorStream } from "./toolkit/byteVectorStream.js";
+import { ByteVector } from "./byteVector.js";
+import { PropertyMap } from "./toolkit/propertyMap.js";
+import { ReadStyle } from "./toolkit/types.js";
+import type { VariantMap } from "./toolkit/variant.js";
+import { detectByExtension, detectByContent, detectOggSubFormat, defaultFileExtensions } from "./formatDetection.js";
 
 export class FileRef {
   private _file: File | null = null;
@@ -21,7 +21,7 @@ export class FileRef {
     return new FileRef(file);
   }
 
-  static async fromByteArray(data: Uint8Array, filename: string = '', readProperties: boolean = true, readStyle: ReadStyle = ReadStyle.Average): Promise<FileRef> {
+  static async fromByteArray(data: Uint8Array, filename: string = "", readProperties: boolean = true, readStyle: ReadStyle = ReadStyle.Average): Promise<FileRef> {
     const bv = ByteVector.fromByteArray(data);
     const stream = filename ? new NamedByteVectorStream(bv, filename) : new ByteVectorStream(bv);
     const file = await FileRef.createFile(stream, readProperties, readStyle);
@@ -31,7 +31,7 @@ export class FileRef {
   static async fromBlob(blob: Blob, filename?: string, readProperties?: boolean, readStyle?: ReadStyle): Promise<FileRef> {
     const buffer = await blob.arrayBuffer();
     const data = new Uint8Array(buffer);
-    const name = filename ?? (blob instanceof File ? blob.name : '');
+    const name = filename ?? (blob instanceof File ? blob.name : "");
     return FileRef.fromByteArray(data, name, readProperties, readStyle);
   }
 
@@ -56,7 +56,7 @@ export class FileRef {
     let format = detectByExtension(stream.name());
 
     // For generic 'ogg' extension, detect sub-format from content
-    if (format === 'ogg') {
+    if (format === "ogg") {
       format = detectOggSubFormat(stream);
     }
 
@@ -72,92 +72,92 @@ export class FileRef {
   private static async instantiateFormat(format: string, stream: IOStream, readProperties: boolean, readStyle: ReadStyle): Promise<File | null> {
     try {
       switch (format) {
-        case 'mpeg': {
-          const { MpegFile } = await import('./mpeg/mpegFile.js');
+        case "mpeg": {
+          const { MpegFile } = await import("./mpeg/mpegFile.js");
           return new MpegFile(stream, readProperties, readStyle);
         }
-        case 'flac': {
-          const { FlacFile } = await import('./flac/flacFile.js');
+        case "flac": {
+          const { FlacFile } = await import("./flac/flacFile.js");
           return new FlacFile(stream, readProperties, readStyle);
         }
-        case 'mp4': {
-          const { Mp4File } = await import('./mp4/mp4File.js');
+        case "mp4": {
+          const { Mp4File } = await import("./mp4/mp4File.js");
           return new Mp4File(stream, readProperties, readStyle);
         }
-        case 'ogg-vorbis': {
-          const { OggVorbisFile } = await import('./ogg/vorbis/vorbisFile.js');
+        case "ogg-vorbis": {
+          const { OggVorbisFile } = await import("./ogg/vorbis/vorbisFile.js");
           return new OggVorbisFile(stream, readProperties, readStyle);
         }
-        case 'ogg-opus': {
-          const { OggOpusFile } = await import('./ogg/opus/opusFile.js');
+        case "ogg-opus": {
+          const { OggOpusFile } = await import("./ogg/opus/opusFile.js");
           return new OggOpusFile(stream, readProperties, readStyle);
         }
-        case 'ogg-speex': {
-          const { OggSpeexFile } = await import('./ogg/speex/speexFile.js');
+        case "ogg-speex": {
+          const { OggSpeexFile } = await import("./ogg/speex/speexFile.js");
           return new OggSpeexFile(stream, readProperties, readStyle);
         }
-        case 'ogg-flac': {
-          const { OggFlacFile } = await import('./ogg/flac/oggFlacFile.js');
+        case "ogg-flac": {
+          const { OggFlacFile } = await import("./ogg/flac/oggFlacFile.js");
           return new OggFlacFile(stream, readProperties, readStyle);
         }
-        case 'wav': {
-          const { WavFile } = await import('./riff/wav/wavFile.js');
+        case "wav": {
+          const { WavFile } = await import("./riff/wav/wavFile.js");
           return new WavFile(stream, readProperties, readStyle);
         }
-        case 'aiff': {
-          const { AiffFile } = await import('./riff/aiff/aiffFile.js');
+        case "aiff": {
+          const { AiffFile } = await import("./riff/aiff/aiffFile.js");
           return new AiffFile(stream, readProperties, readStyle);
         }
-        case 'mpc': {
-          const { MpcFile } = await import('./mpc/mpcFile.js');
+        case "mpc": {
+          const { MpcFile } = await import("./mpc/mpcFile.js");
           return new MpcFile(stream, readProperties, readStyle);
         }
-        case 'wavpack': {
-          const { WavPackFile } = await import('./wavpack/wavpackFile.js');
+        case "wavpack": {
+          const { WavPackFile } = await import("./wavpack/wavpackFile.js");
           return new WavPackFile(stream, readProperties, readStyle);
         }
-        case 'ape-file': {
-          const { ApeFile } = await import('./ape/apeFile.js');
+        case "ape-file": {
+          const { ApeFile } = await import("./ape/apeFile.js");
           return new ApeFile(stream, readProperties, readStyle);
         }
-        case 'trueaudio': {
-          const { TrueAudioFile } = await import('./trueaudio/trueAudioFile.js');
+        case "trueaudio": {
+          const { TrueAudioFile } = await import("./trueaudio/trueAudioFile.js");
           return new TrueAudioFile(stream, readProperties, readStyle);
         }
-        case 'dsf': {
-          const { DsfFile } = await import('./dsf/dsfFile.js');
+        case "dsf": {
+          const { DsfFile } = await import("./dsf/dsfFile.js");
           return new DsfFile(stream, readProperties, readStyle);
         }
-        case 'dsdiff': {
-          const { DsdiffFile } = await import('./dsdiff/dsdiffFile.js');
+        case "dsdiff": {
+          const { DsdiffFile } = await import("./dsdiff/dsdiffFile.js");
           return new DsdiffFile(stream, readProperties, readStyle);
         }
-        case 'mod': {
-          const { ModFile } = await import('./mod/modFile.js');
+        case "mod": {
+          const { ModFile } = await import("./mod/modFile.js");
           return new ModFile(stream, readProperties, readStyle);
         }
-        case 's3m': {
-          const { S3mFile } = await import('./s3m/s3mFile.js');
+        case "s3m": {
+          const { S3mFile } = await import("./s3m/s3mFile.js");
           return new S3mFile(stream, readProperties, readStyle);
         }
-        case 'xm': {
-          const { XmFile } = await import('./xm/xmFile.js');
+        case "xm": {
+          const { XmFile } = await import("./xm/xmFile.js");
           return new XmFile(stream, readProperties, readStyle);
         }
-        case 'it': {
-          const { ItFile } = await import('./it/itFile.js');
+        case "it": {
+          const { ItFile } = await import("./it/itFile.js");
           return new ItFile(stream, readProperties, readStyle);
         }
-        case 'shorten': {
-          const { ShortenFile } = await import('./shorten/shortenFile.js');
+        case "shorten": {
+          const { ShortenFile } = await import("./shorten/shortenFile.js");
           return new ShortenFile(stream, readProperties, readStyle);
         }
-        case 'asf': {
-          const { AsfFile } = await import('./asf/asfFile.js');
+        case "asf": {
+          const { AsfFile } = await import("./asf/asfFile.js");
           return new AsfFile(stream, readProperties, readStyle);
         }
-        case 'matroska': {
-          const { MatroskaFile } = await import('./matroska/matroskaFile.js');
+        case "matroska": {
+          const { MatroskaFile } = await import("./matroska/matroskaFile.js");
           return new MatroskaFile(stream, readProperties, readStyle);
         }
         default:

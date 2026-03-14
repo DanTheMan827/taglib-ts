@@ -635,28 +635,28 @@ export class ByteVector {
 
   toFloat32BE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 4);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     const dv = new DataView(bytes.buffer);
     return dv.getFloat32(0, false);
   }
 
   toFloat32LE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 4);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     const dv = new DataView(bytes.buffer);
     return dv.getFloat32(0, true);
   }
 
   toFloat64BE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 8);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     const dv = new DataView(bytes.buffer);
     return dv.getFloat64(0, false);
   }
 
   toFloat64LE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 8);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     const dv = new DataView(bytes.buffer);
     return dv.getFloat64(0, true);
   }
@@ -668,7 +668,7 @@ export class ByteVector {
    */
   toFloat80BE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 10);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     return decodeFloat80(bytes, false);
   }
 
@@ -677,7 +677,7 @@ export class ByteVector {
    */
   toFloat80LE(offset: number): number {
     const bytes = readBytesFromArray(this._data, offset, 10);
-    if (bytes.every((b) => b === 0)) return 0;
+    if (bytes.every(b => b === 0)) return 0;
     return decodeFloat80(bytes, true);
   }
 

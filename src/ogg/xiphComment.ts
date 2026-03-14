@@ -230,7 +230,7 @@ export class XiphComment extends Tag {
     const target = rendered.toBase64().toString(StringType.Latin1);
     const entries = this._fields.get("METADATA_BLOCK_PICTURE");
     if (!entries) return;
-    const filtered = entries.filter((v) => v !== target);
+    const filtered = entries.filter(v => v !== target);
     if (filtered.length === 0) {
       this._fields.delete("METADATA_BLOCK_PICTURE");
     } else {

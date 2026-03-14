@@ -1,48 +1,45 @@
-import { describe, it, expect } from 'vitest';
-import { ByteVector, StringType } from '../src/byteVector.js';
-import { Id3v2Header } from '../src/mpeg/id3v2/id3v2Header.js';
-import { Id3v2Frame, Id3v2FrameHeader } from '../src/mpeg/id3v2/id3v2Frame.js';
-import { Id3v2FrameFactory } from '../src/mpeg/id3v2/id3v2FrameFactory.js';
-import { Id3v2Tag } from '../src/mpeg/id3v2/id3v2Tag.js';
-import { SynchData } from '../src/mpeg/id3v2/id3v2SynchData.js';
+import { describe, it, expect } from "vitest";
+import { ByteVector, StringType } from "../src/byteVector.js";
+import { Id3v2Header } from "../src/mpeg/id3v2/id3v2Header.js";
+import { Id3v2FrameHeader } from "../src/mpeg/id3v2/id3v2Frame.js";
+import { Id3v2FrameFactory } from "../src/mpeg/id3v2/id3v2FrameFactory.js";
+import { Id3v2Tag } from "../src/mpeg/id3v2/id3v2Tag.js";
+import { SynchData } from "../src/mpeg/id3v2/id3v2SynchData.js";
 import {
   TextIdentificationFrame,
   UserTextIdentificationFrame,
-} from '../src/mpeg/id3v2/frames/textIdentificationFrame.js';
-import { CommentsFrame } from '../src/mpeg/id3v2/frames/commentsFrame.js';
+} from "../src/mpeg/id3v2/frames/textIdentificationFrame.js";
+import { CommentsFrame } from "../src/mpeg/id3v2/frames/commentsFrame.js";
 import {
   AttachedPictureFrame,
   PictureType,
-} from '../src/mpeg/id3v2/frames/attachedPictureFrame.js';
-import { UniqueFileIdentifierFrame } from '../src/mpeg/id3v2/frames/uniqueFileIdentifierFrame.js';
-import { UrlLinkFrame, UserUrlLinkFrame } from '../src/mpeg/id3v2/frames/urlLinkFrame.js';
-import { PopularimeterFrame } from '../src/mpeg/id3v2/frames/popularimeterFrame.js';
+} from "../src/mpeg/id3v2/frames/attachedPictureFrame.js";
+import { UniqueFileIdentifierFrame } from "../src/mpeg/id3v2/frames/uniqueFileIdentifierFrame.js";
+import { UrlLinkFrame, UserUrlLinkFrame } from "../src/mpeg/id3v2/frames/urlLinkFrame.js";
+import { PopularimeterFrame } from "../src/mpeg/id3v2/frames/popularimeterFrame.js";
 import {
   RelativeVolumeFrame,
   ChannelType,
   PeakVolume,
-} from '../src/mpeg/id3v2/frames/relativeVolumeFrame.js';
-import { GeneralEncapsulatedObjectFrame } from '../src/mpeg/id3v2/frames/generalEncapsulatedObjectFrame.js';
-import { PrivateFrame } from '../src/mpeg/id3v2/frames/privateFrame.js';
-import { UnsynchronizedLyricsFrame } from '../src/mpeg/id3v2/frames/unsynchronizedLyricsFrame.js';
+} from "../src/mpeg/id3v2/frames/relativeVolumeFrame.js";
+import { GeneralEncapsulatedObjectFrame } from "../src/mpeg/id3v2/frames/generalEncapsulatedObjectFrame.js";
+import { PrivateFrame } from "../src/mpeg/id3v2/frames/privateFrame.js";
 import {
   SynchronizedLyricsFrame,
   SynchedTextType,
-  SynchedText,
-} from '../src/mpeg/id3v2/frames/synchronizedLyricsFrame.js';
+} from "../src/mpeg/id3v2/frames/synchronizedLyricsFrame.js";
 import {
   EventTimingCodesFrame,
   EventType,
-  SynchedEvent,
-} from '../src/mpeg/id3v2/frames/eventTimingCodesFrame.js';
-import { ChapterFrame } from '../src/mpeg/id3v2/frames/chapterFrame.js';
-import { TableOfContentsFrame } from '../src/mpeg/id3v2/frames/tableOfContentsFrame.js';
-import { OwnershipFrame } from '../src/mpeg/id3v2/frames/ownershipFrame.js';
-import { PodcastFrame } from '../src/mpeg/id3v2/frames/podcastFrame.js';
-import { MpegFile } from '../src/mpeg/mpegFile.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { byteVectorFromArray, openTestStream, readTestData } from './testHelper.js';
+} from "../src/mpeg/id3v2/frames/eventTimingCodesFrame.js";
+import { ChapterFrame } from "../src/mpeg/id3v2/frames/chapterFrame.js";
+import { TableOfContentsFrame } from "../src/mpeg/id3v2/frames/tableOfContentsFrame.js";
+import { OwnershipFrame } from "../src/mpeg/id3v2/frames/ownershipFrame.js";
+import { PodcastFrame } from "../src/mpeg/id3v2/frames/podcastFrame.js";
+import { MpegFile } from "../src/mpeg/mpegFile.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { byteVectorFromArray, openTestStream, readTestData } from "./testHelper.js";
 
 /**
  * Helper: build raw frame data from individual bytes.
@@ -77,12 +74,12 @@ function parseHeader(rawFrame: ByteVector, version = 4): Id3v2FrameHeader {
   return new Id3v2FrameHeader(rawFrame.mid(0, Id3v2FrameHeader.size(version)), version);
 }
 
-describe('ID3v2', () => {
+describe("ID3v2", () => {
   // =========================================================================
   // APIC (Attached Picture)
   // =========================================================================
-  describe('AttachedPictureFrame', () => {
-    it('should parse APIC frame', () => {
+  describe("AttachedPictureFrame", () => {
+    it("should parse APIC frame", () => {
       // From C++ testParseAPIC:
       // APIC \x00\x00\x00\x07 \x00\x00  \x00 m\x00 \x01 d\x00 \x00
       const raw = byteVectorFromArray([
@@ -97,12 +94,12 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = AttachedPictureFrame.fromData(raw, header, 4);
-      expect(f.mimeType).toBe('m');
+      expect(f.mimeType).toBe("m");
       expect(f.pictureType).toBe(PictureType.FileIcon);
-      expect(f.description).toBe('d');
+      expect(f.description).toBe("d");
     });
 
-    it('should parse APIC frame with UTF16 BOM', () => {
+    it("should parse APIC frame with UTF16 BOM", () => {
       const raw = byteVectorFromArray([
         0x41, 0x50, 0x49, 0x43, // "APIC"
         0x00, 0x00, 0x00, 0x26, // size = 38
@@ -121,19 +118,19 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = AttachedPictureFrame.fromData(raw, header, 4);
-      expect(f.mimeType).toBe('image/jpeg');
+      expect(f.mimeType).toBe("image/jpeg");
       expect(f.pictureType).toBe(PictureType.Other);
-      expect(f.description).toBe('cover.jpg');
+      expect(f.description).toBe("cover.jpg");
       expect(f.picture.length).toBe(3);
       expect(f.picture.equals(byteVectorFromArray([0xff, 0xd8, 0xff]))).toBe(true);
     });
 
-    it('should render APIC frame', () => {
+    it("should render APIC frame", () => {
       const f = new AttachedPictureFrame(StringType.UTF8);
-      f.mimeType = 'image/png';
+      f.mimeType = "image/png";
       f.pictureType = PictureType.BackCover;
-      f.description = 'Description';
-      f.picture = ByteVector.fromString('PNG data', StringType.Latin1);
+      f.description = "Description";
+      f.picture = ByteVector.fromString("PNG data", StringType.Latin1);
 
       const rendered = f.render(4);
 
@@ -160,8 +157,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // GEOB (General Encapsulated Object)
   // =========================================================================
-  describe('GeneralEncapsulatedObjectFrame', () => {
-    it('should parse GEOB frame', () => {
+  describe("GeneralEncapsulatedObjectFrame", () => {
+    it("should parse GEOB frame", () => {
       // GEOB \x00\x00\x00\x08 \x00\x00 \x00 m\x00 f\x00 d\x00 \x00
       const raw = byteVectorFromArray([
         0x47, 0x45, 0x4f, 0x42, // "GEOB"
@@ -175,16 +172,16 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = GeneralEncapsulatedObjectFrame.fromData(raw, header, 4);
-      expect(f.mimeType).toBe('m');
-      expect(f.fileName).toBe('f');
-      expect(f.description).toBe('d');
+      expect(f.mimeType).toBe("m");
+      expect(f.fileName).toBe("f");
+      expect(f.description).toBe("d");
     });
 
-    it('should render GEOB frame', () => {
+    it("should render GEOB frame", () => {
       const f = new GeneralEncapsulatedObjectFrame(StringType.Latin1);
-      f.mimeType = 'application/octet-stream';
-      f.fileName = 'test.bin';
-      f.description = 'Description';
+      f.mimeType = "application/octet-stream";
+      f.fileName = "test.bin";
+      f.description = "Description";
       f.object = byteVectorFromArray([0x01, 0x01, 0x01]);
 
       const rendered = f.render(4);
@@ -197,11 +194,11 @@ describe('ID3v2', () => {
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
         // "application/octet-stream" + null (25 bytes)
-        ...Array.from(new TextEncoder().encode('application/octet-stream')), 0x00,
+        ...Array.from(new TextEncoder().encode("application/octet-stream")), 0x00,
         // "test.bin" + null (9 bytes)
-        ...Array.from(new TextEncoder().encode('test.bin')), 0x00,
+        ...Array.from(new TextEncoder().encode("test.bin")), 0x00,
         // "Description" + null (12 bytes)
-        ...Array.from(new TextEncoder().encode('Description')), 0x00,
+        ...Array.from(new TextEncoder().encode("Description")), 0x00,
         // object data
         0x01, 0x01, 0x01,
       ]);
@@ -213,41 +210,41 @@ describe('ID3v2', () => {
   // =========================================================================
   // POPM (Popularimeter)
   // =========================================================================
-  describe('PopularimeterFrame', () => {
-    it('should parse POPM frame', () => {
+  describe("PopularimeterFrame", () => {
+    it("should parse POPM frame", () => {
       // POPM \x00\x00\x00\x17 \x00\x00 email@example.com\x00 \x02 \x00\x00\x00\x03
-      const emailBytes = Array.from(new TextEncoder().encode('email@example.com'));
+      const emailBytes = Array.from(new TextEncoder().encode("email@example.com"));
       const body = [...emailBytes, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03];
-      const raw = buildRawFrame('POPM', body);
+      const raw = buildRawFrame("POPM", body);
       const header = parseHeader(raw);
       const f = PopularimeterFrame.fromData(raw, header, 4);
-      expect(f.email).toBe('email@example.com');
+      expect(f.email).toBe("email@example.com");
       expect(f.rating).toBe(2);
       expect(f.counter).toBe(3);
     });
 
-    it('should parse POPM without counter', () => {
-      const emailBytes = Array.from(new TextEncoder().encode('email@example.com'));
+    it("should parse POPM without counter", () => {
+      const emailBytes = Array.from(new TextEncoder().encode("email@example.com"));
       const body = [...emailBytes, 0x00, 0x02];
-      const raw = buildRawFrame('POPM', body);
+      const raw = buildRawFrame("POPM", body);
       const header = parseHeader(raw);
       const f = PopularimeterFrame.fromData(raw, header, 4);
-      expect(f.email).toBe('email@example.com');
+      expect(f.email).toBe("email@example.com");
       expect(f.rating).toBe(2);
       expect(f.counter).toBe(0);
     });
 
-    it('should render POPM frame', () => {
+    it("should render POPM frame", () => {
       const f = new PopularimeterFrame();
-      f.email = 'email@example.com';
+      f.email = "email@example.com";
       f.rating = 2;
       f.counter = 3;
 
       const rendered = f.render(4);
 
-      const emailBytes = Array.from(new TextEncoder().encode('email@example.com'));
+      const emailBytes = Array.from(new TextEncoder().encode("email@example.com"));
       const expectedBody = [...emailBytes, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03];
-      const expected = buildRawFrame('POPM', expectedBody);
+      const expected = buildRawFrame("POPM", expectedBody);
       expect(rendered.length).toBe(expected.length);
       expect(rendered.equals(expected)).toBe(true);
     });
@@ -256,8 +253,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // RVA2 (Relative Volume)
   // =========================================================================
-  describe('RelativeVolumeFrame', () => {
-    it('should parse relative volume frame', () => {
+  describe("RelativeVolumeFrame", () => {
+    it("should parse relative volume frame", () => {
       // RVA2 \x00\x00\x00\x0B \x00\x00 ident\x00 \x02 \x00\x0F \x08 \x45
       const raw = byteVectorFromArray([
         0x52, 0x56, 0x41, 0x32, // "RVA2"
@@ -272,7 +269,7 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = RelativeVolumeFrame.fromData(raw, header, 4);
-      expect(f.identification).toBe('ident');
+      expect(f.identification).toBe("ident");
       expect(f.volumeAdjustmentIndex(ChannelType.FrontRight)).toBe(15);
       expect(f.volumeAdjustment(ChannelType.FrontRight)).toBeCloseTo(15.0 / 512.0, 5);
       const peak = f.peakVolume(ChannelType.FrontRight);
@@ -282,9 +279,9 @@ describe('ID3v2', () => {
       expect(f.channels.length).toBe(1);
     });
 
-    it('should render relative volume frame', () => {
+    it("should render relative volume frame", () => {
       const f = new RelativeVolumeFrame();
-      f.identification = 'ident';
+      f.identification = "ident";
       f.setVolumeAdjustment(15.0 / 512.0, ChannelType.FrontRight);
       const peak: PeakVolume = {
         bitsRepresentingPeak: 8,
@@ -311,8 +308,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // UFID (Unique File Identifier)
   // =========================================================================
-  describe('UniqueFileIdentifierFrame', () => {
-    it('should parse UFID frame', () => {
+  describe("UniqueFileIdentifierFrame", () => {
+    it("should parse UFID frame", () => {
       // UFID \x00\x00\x00\x09 \x00\x00 owner\x00 \x00\x01\x02
       const raw = byteVectorFromArray([
         0x55, 0x46, 0x49, 0x44, // "UFID"
@@ -325,11 +322,11 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = UniqueFileIdentifierFrame.fromData(raw, header, 4);
-      expect(f.owner).toBe('owner');
+      expect(f.owner).toBe("owner");
       expect(f.identifier.equals(byteVectorFromArray([0x00, 0x01, 0x02]))).toBe(true);
     });
 
-    it('should parse empty UFID frame', () => {
+    it("should parse empty UFID frame", () => {
       const raw = byteVectorFromArray([
         0x55, 0x46, 0x49, 0x44, // "UFID"
         0x00, 0x00, 0x00, 0x01, // size = 1
@@ -338,13 +335,13 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = UniqueFileIdentifierFrame.fromData(raw, header, 4);
-      expect(f.owner).toBe('');
+      expect(f.owner).toBe("");
       expect(f.identifier.length).toBe(0);
     });
 
-    it('should render UFID frame', () => {
+    it("should render UFID frame", () => {
       const f = new UniqueFileIdentifierFrame(
-        'owner',
+        "owner",
         byteVectorFromArray([0x01, 0x02, 0x03]),
       );
 
@@ -364,23 +361,23 @@ describe('ID3v2', () => {
   // =========================================================================
   // WOAF / URL Link
   // =========================================================================
-  describe('UrlLinkFrame', () => {
-    it('should parse URL link frame', () => {
+  describe("UrlLinkFrame", () => {
+    it("should parse URL link frame", () => {
       // WOAF \x00\x00\x00\x12 \x00\x00 http://example.com
-      const urlBytes = Array.from(new TextEncoder().encode('http://example.com'));
-      const raw = buildRawFrame('WOAF', urlBytes);
+      const urlBytes = Array.from(new TextEncoder().encode("http://example.com"));
+      const raw = buildRawFrame("WOAF", urlBytes);
       const header = parseHeader(raw);
       const f = UrlLinkFrame.fromData(raw, header, 4);
-      expect(f.url).toBe('http://example.com');
+      expect(f.url).toBe("http://example.com");
     });
 
-    it('should render URL link frame', () => {
-      const f = new UrlLinkFrame(ByteVector.fromString('WOAF', StringType.Latin1));
-      f.url = 'http://example.com';
+    it("should render URL link frame", () => {
+      const f = new UrlLinkFrame(ByteVector.fromString("WOAF", StringType.Latin1));
+      f.url = "http://example.com";
 
       const rendered = f.render(4);
-      const urlBytes = Array.from(new TextEncoder().encode('http://example.com'));
-      const expected = buildRawFrame('WOAF', urlBytes);
+      const urlBytes = Array.from(new TextEncoder().encode("http://example.com"));
+      const expected = buildRawFrame("WOAF", urlBytes);
       expect(rendered.length).toBe(expected.length);
       expect(rendered.equals(expected)).toBe(true);
     });
@@ -389,8 +386,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // WXXX (User URL Link)
   // =========================================================================
-  describe('UserUrlLinkFrame', () => {
-    it('should parse user URL link frame', () => {
+  describe("UserUrlLinkFrame", () => {
+    it("should parse user URL link frame", () => {
       // WXXX \x00\x00\x00\x17 \x00\x00 \x00 foo\x00 http://example.com
       const raw = byteVectorFromArray([
         0x57, 0x58, 0x58, 0x58, // "WXXX"
@@ -400,18 +397,18 @@ describe('ID3v2', () => {
         // "foo" + null
         0x66, 0x6f, 0x6f, 0x00,
         // "http://example.com"
-        ...Array.from(new TextEncoder().encode('http://example.com')),
+        ...Array.from(new TextEncoder().encode("http://example.com")),
       ]);
       const header = parseHeader(raw);
       const f = UserUrlLinkFrame.fromRawData(raw, header, 4);
-      expect(f.description).toBe('foo');
-      expect(f.url).toBe('http://example.com');
+      expect(f.description).toBe("foo");
+      expect(f.url).toBe("http://example.com");
     });
 
-    it('should render user URL link frame', () => {
+    it("should render user URL link frame", () => {
       const f = new UserUrlLinkFrame(StringType.Latin1);
-      f.description = 'foo';
-      f.url = 'http://example.com';
+      f.description = "foo";
+      f.url = "http://example.com";
 
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
@@ -420,7 +417,7 @@ describe('ID3v2', () => {
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
         0x66, 0x6f, 0x6f, 0x00, // "foo\0"
-        ...Array.from(new TextEncoder().encode('http://example.com')),
+        ...Array.from(new TextEncoder().encode("http://example.com")),
       ]);
       expect(rendered.length).toBe(expected.length);
       expect(rendered.equals(expected)).toBe(true);
@@ -430,8 +427,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // OWNE (Ownership)
   // =========================================================================
-  describe('OwnershipFrame', () => {
-    it('should parse ownership frame', () => {
+  describe("OwnershipFrame", () => {
+    it("should parse ownership frame", () => {
       // OWNE \x00\x00\x00\x19 \x00\x00 \x00 GBP1.99\x00 20120905 Beatport
       const raw = byteVectorFromArray([
         0x4f, 0x57, 0x4e, 0x45, // "OWNE"
@@ -439,24 +436,24 @@ describe('ID3v2', () => {
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
         // "GBP1.99" + null
-        ...Array.from(new TextEncoder().encode('GBP1.99')), 0x00,
+        ...Array.from(new TextEncoder().encode("GBP1.99")), 0x00,
         // "20120905"
-        ...Array.from(new TextEncoder().encode('20120905')),
+        ...Array.from(new TextEncoder().encode("20120905")),
         // "Beatport"
-        ...Array.from(new TextEncoder().encode('Beatport')),
+        ...Array.from(new TextEncoder().encode("Beatport")),
       ]);
       const header = parseHeader(raw);
       const f = OwnershipFrame.fromData(raw, header, 4);
-      expect(f.pricePaid).toBe('GBP1.99');
-      expect(f.datePurchased).toBe('20120905');
-      expect(f.seller).toBe('Beatport');
+      expect(f.pricePaid).toBe("GBP1.99");
+      expect(f.datePurchased).toBe("20120905");
+      expect(f.seller).toBe("Beatport");
     });
 
-    it('should render ownership frame', () => {
+    it("should render ownership frame", () => {
       const f = new OwnershipFrame(StringType.Latin1);
-      f.pricePaid = 'GBP1.99';
-      f.datePurchased = '20120905';
-      f.seller = 'Beatport';
+      f.pricePaid = "GBP1.99";
+      f.datePurchased = "20120905";
+      f.seller = "Beatport";
 
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
@@ -464,9 +461,9 @@ describe('ID3v2', () => {
         0x00, 0x00, 0x00, 0x19, // size = 25
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
-        ...Array.from(new TextEncoder().encode('GBP1.99')), 0x00,
-        ...Array.from(new TextEncoder().encode('20120905')),
-        ...Array.from(new TextEncoder().encode('Beatport')),
+        ...Array.from(new TextEncoder().encode("GBP1.99")), 0x00,
+        ...Array.from(new TextEncoder().encode("20120905")),
+        ...Array.from(new TextEncoder().encode("Beatport")),
       ]);
       expect(rendered.length).toBe(expected.length);
       expect(rendered.equals(expected)).toBe(true);
@@ -476,8 +473,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // SYLT (Synchronized Lyrics)
   // =========================================================================
-  describe('SynchronizedLyricsFrame', () => {
-    it('should parse synchronized lyrics frame', () => {
+  describe("SynchronizedLyricsFrame", () => {
+    it("should parse synchronized lyrics frame", () => {
       // SYLT \x00\x00\x00\x21 \x00\x00 \x00 eng \x02 \x01 foo\x00
       // Example\x00 \x00\x00\x04\xd2 Lyrics\x00 \x00\x00\x11\xd7
       const raw = byteVectorFromArray([
@@ -502,19 +499,19 @@ describe('ID3v2', () => {
       const header = parseHeader(raw);
       const f = SynchronizedLyricsFrame.fromData(raw, header, 4);
       expect(f.encoding).toBe(StringType.Latin1);
-      expect(f.language.equals(ByteVector.fromString('eng', StringType.Latin1))).toBe(true);
+      expect(f.language.equals(ByteVector.fromString("eng", StringType.Latin1))).toBe(true);
       expect(f.timestampFormat).toBe(2);
       expect(f.textType).toBe(SynchedTextType.Lyrics);
-      expect(f.description).toBe('foo');
+      expect(f.description).toBe("foo");
       const stl = f.synchedText;
       expect(stl.length).toBe(2);
-      expect(stl[0].text).toBe('Example');
+      expect(stl[0].text).toBe("Example");
       expect(stl[0].time).toBe(1234);
-      expect(stl[1].text).toBe('Lyrics');
+      expect(stl[1].text).toBe("Lyrics");
       expect(stl[1].time).toBe(4567);
     });
 
-    it('should parse synchronized lyrics frame with empty description', () => {
+    it("should parse synchronized lyrics frame with empty description", () => {
       const raw = byteVectorFromArray([
         0x53, 0x59, 0x4c, 0x54, // "SYLT"
         0x00, 0x00, 0x00, 0x1e, // size = 30
@@ -533,24 +530,24 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = SynchronizedLyricsFrame.fromData(raw, header, 4);
-      expect(f.description).toBe('');
+      expect(f.description).toBe("");
       const stl = f.synchedText;
       expect(stl.length).toBe(2);
-      expect(stl[0].text).toBe('Example');
+      expect(stl[0].text).toBe("Example");
       expect(stl[0].time).toBe(1234);
-      expect(stl[1].text).toBe('Lyrics');
+      expect(stl[1].text).toBe("Lyrics");
       expect(stl[1].time).toBe(4567);
     });
 
-    it('should render synchronized lyrics frame', () => {
+    it("should render synchronized lyrics frame", () => {
       const f = new SynchronizedLyricsFrame(StringType.Latin1);
-      f.language = ByteVector.fromString('eng', StringType.Latin1);
+      f.language = ByteVector.fromString("eng", StringType.Latin1);
       f.timestampFormat = 2;
       f.textType = SynchedTextType.Lyrics;
-      f.description = 'foo';
+      f.description = "foo";
       f.synchedText = [
-        { time: 1234, text: 'Example' },
-        { time: 4567, text: 'Lyrics' },
+        { time: 1234, text: "Example" },
+        { time: 4567, text: "Lyrics" },
       ];
 
       const rendered = f.render(4);
@@ -576,8 +573,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // ETCO (Event Timing Codes)
   // =========================================================================
-  describe('EventTimingCodesFrame', () => {
-    it('should parse event timing codes frame', () => {
+  describe("EventTimingCodesFrame", () => {
+    it("should parse event timing codes frame", () => {
       // ETCO \x00\x00\x00\x0b \x00\x00 \x02 \x02 \x00\x00\xf3\x5c \xfe \x00\x36\xee\x80
       const raw = byteVectorFromArray([
         0x45, 0x54, 0x43, 0x4f, // "ETCO"
@@ -600,7 +597,7 @@ describe('ID3v2', () => {
       expect(events[1].time).toBe(3600000);
     });
 
-    it('should render event timing codes frame', () => {
+    it("should render event timing codes frame", () => {
       const f = new EventTimingCodesFrame();
       f.timestampFormat = 2;
       f.synchedEvents = [
@@ -627,8 +624,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // COMM (Comments)
   // =========================================================================
-  describe('CommentsFrame', () => {
-    it('should parse comments frame', () => {
+  describe("CommentsFrame", () => {
+    it("should parse comments frame", () => {
       // COMM \x00\x00\x00\x14 \x00\x00 \x03 deu Description\x00 Text
       const raw = byteVectorFromArray([
         0x43, 0x4f, 0x4d, 0x4d, // "COMM"
@@ -637,23 +634,23 @@ describe('ID3v2', () => {
         0x03,                   // encoding = UTF8
         0x64, 0x65, 0x75,       // language = "deu"
         // "Description" + null
-        ...Array.from(new TextEncoder().encode('Description')), 0x00,
+        ...Array.from(new TextEncoder().encode("Description")), 0x00,
         // "Text"
-        ...Array.from(new TextEncoder().encode('Text')),
+        ...Array.from(new TextEncoder().encode("Text")),
       ]);
       const header = parseHeader(raw);
       const f = CommentsFrame.fromData(raw, header, 4);
       expect(f.encoding).toBe(StringType.UTF8);
-      expect(f.language.equals(ByteVector.fromString('deu', StringType.Latin1))).toBe(true);
-      expect(f.description).toBe('Description');
-      expect(f.text).toBe('Text');
+      expect(f.language.equals(ByteVector.fromString("deu", StringType.Latin1))).toBe(true);
+      expect(f.description).toBe("Description");
+      expect(f.text).toBe("Text");
     });
 
-    it('should render comments frame with UTF16', () => {
+    it("should render comments frame with UTF16", () => {
       const f = new CommentsFrame(StringType.UTF16);
-      f.language = ByteVector.fromString('eng', StringType.Latin1);
-      f.description = 'Description';
-      f.text = 'Text';
+      f.language = ByteVector.fromString("eng", StringType.Latin1);
+      f.description = "Description";
+      f.text = "Text";
 
       const rendered = f.render(4);
 
@@ -684,8 +681,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // PCST (Podcast)
   // =========================================================================
-  describe('PodcastFrame', () => {
-    it('should parse podcast frame via factory', () => {
+  describe("PodcastFrame", () => {
+    it("should parse podcast frame via factory", () => {
       const raw = byteVectorFromArray([
         0x50, 0x43, 0x53, 0x54, // "PCST"
         0x00, 0x00, 0x00, 0x04, // size = 4
@@ -698,7 +695,7 @@ describe('ID3v2', () => {
       expect(result.frame).toBeInstanceOf(PodcastFrame);
     });
 
-    it('should render podcast frame', () => {
+    it("should render podcast frame", () => {
       const f = new PodcastFrame();
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
@@ -715,35 +712,35 @@ describe('ID3v2', () => {
   // =========================================================================
   // PRIV (Private)
   // =========================================================================
-  describe('PrivateFrame', () => {
-    it('should parse private frame', () => {
+  describe("PrivateFrame", () => {
+    it("should parse private frame", () => {
       // PRIV \x00\x00\x00\x0e \x00\x00 WM/Provider\x00 TL
       const raw = byteVectorFromArray([
         0x50, 0x52, 0x49, 0x56, // "PRIV"
         0x00, 0x00, 0x00, 0x0e, // size = 14
         0x00, 0x00,             // flags
         // "WM/Provider" + null
-        ...Array.from(new TextEncoder().encode('WM/Provider')), 0x00,
+        ...Array.from(new TextEncoder().encode("WM/Provider")), 0x00,
         // "TL"
         0x54, 0x4c,
       ]);
       const header = parseHeader(raw);
       const f = PrivateFrame.fromData(raw, header, 4);
-      expect(f.owner).toBe('WM/Provider');
-      expect(f.data.equals(ByteVector.fromString('TL', StringType.Latin1))).toBe(true);
+      expect(f.owner).toBe("WM/Provider");
+      expect(f.data.equals(ByteVector.fromString("TL", StringType.Latin1))).toBe(true);
     });
 
-    it('should render private frame', () => {
+    it("should render private frame", () => {
       const f = new PrivateFrame();
-      f.owner = 'WM/Provider';
-      f.data = ByteVector.fromString('TL', StringType.Latin1);
+      f.owner = "WM/Provider";
+      f.data = ByteVector.fromString("TL", StringType.Latin1);
 
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
         0x50, 0x52, 0x49, 0x56, // "PRIV"
         0x00, 0x00, 0x00, 0x0e, // size = 14
         0x00, 0x00,             // flags
-        ...Array.from(new TextEncoder().encode('WM/Provider')), 0x00,
+        ...Array.from(new TextEncoder().encode("WM/Provider")), 0x00,
         0x54, 0x4c,
       ]);
       expect(rendered.length).toBe(expected.length);
@@ -754,8 +751,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // TXXX (User Text Identification)
   // =========================================================================
-  describe('UserTextIdentificationFrame', () => {
-    it('should parse TXXX without description', () => {
+  describe("UserTextIdentificationFrame", () => {
+    it("should parse TXXX without description", () => {
       // TXXX \x00\x00\x00\x06 \x00\x00 \x00 \x00 Text
       const raw = byteVectorFromArray([
         0x54, 0x58, 0x58, 0x58, // "TXXX"
@@ -768,12 +765,12 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = UserTextIdentificationFrame.fromRawData(raw, header, 4);
-      expect(f.description).toBe('');
+      expect(f.description).toBe("");
       expect(f.fieldList.length).toBeGreaterThanOrEqual(2);
-      expect(f.fieldList[1]).toBe('Text');
+      expect(f.fieldList[1]).toBe("Text");
     });
 
-    it('should parse TXXX with description', () => {
+    it("should parse TXXX with description", () => {
       // TXXX \x00\x00\x00\x11 \x00\x00 \x00 Description\x00 Text
       const raw = byteVectorFromArray([
         0x54, 0x58, 0x58, 0x58, // "TXXX"
@@ -781,20 +778,20 @@ describe('ID3v2', () => {
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
         // "Description" + null
-        ...Array.from(new TextEncoder().encode('Description')), 0x00,
+        ...Array.from(new TextEncoder().encode("Description")), 0x00,
         // "Text"
-        ...Array.from(new TextEncoder().encode('Text')),
+        ...Array.from(new TextEncoder().encode("Text")),
       ]);
       const header = parseHeader(raw);
       const f = UserTextIdentificationFrame.fromRawData(raw, header, 4);
-      expect(f.description).toBe('Description');
-      expect(f.fieldList[1]).toBe('Text');
+      expect(f.description).toBe("Description");
+      expect(f.fieldList[1]).toBe("Text");
     });
 
-    it('should render TXXX without description', () => {
+    it("should render TXXX without description", () => {
       const f = new UserTextIdentificationFrame(StringType.Latin1);
-      f.description = '';
-      f.text = 'Text';
+      f.description = "";
+      f.text = "Text";
 
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
@@ -809,10 +806,10 @@ describe('ID3v2', () => {
       expect(rendered.equals(expected)).toBe(true);
     });
 
-    it('should render TXXX with description', () => {
+    it("should render TXXX with description", () => {
       const f = new UserTextIdentificationFrame(StringType.Latin1);
-      f.description = 'Description';
-      f.text = 'Text';
+      f.description = "Description";
+      f.text = "Text";
 
       const rendered = f.render(4);
       const expected = byteVectorFromArray([
@@ -820,8 +817,8 @@ describe('ID3v2', () => {
         0x00, 0x00, 0x00, 0x11, // size = 17
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
-        ...Array.from(new TextEncoder().encode('Description')), 0x00,
-        ...Array.from(new TextEncoder().encode('Text')),
+        ...Array.from(new TextEncoder().encode("Description")), 0x00,
+        ...Array.from(new TextEncoder().encode("Text")),
       ]);
       expect(rendered.length).toBe(expected.length);
       expect(rendered.equals(expected)).toBe(true);
@@ -831,8 +828,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // CHAP (Chapter)
   // =========================================================================
-  describe('ChapterFrame', () => {
-    it('should parse chapter frame without embedded frames', () => {
+  describe("ChapterFrame", () => {
+    it("should parse chapter frame without embedded frames", () => {
       // CHAP \x00\x00\x00\x12 \x00\x00 C\x00 times/offsets...
       const raw = byteVectorFromArray([
         0x43, 0x48, 0x41, 0x50, // "CHAP"
@@ -846,7 +843,7 @@ describe('ID3v2', () => {
       ]);
       const header = parseHeader(raw);
       const f = ChapterFrame.fromData(raw, header, 4);
-      expect(f.elementId.equals(ByteVector.fromString('C', StringType.Latin1))).toBe(true);
+      expect(f.elementId.equals(ByteVector.fromString("C", StringType.Latin1))).toBe(true);
       expect(f.startTime).toBe(3);
       expect(f.endTime).toBe(5);
       expect(f.startOffset).toBe(2);
@@ -854,7 +851,7 @@ describe('ID3v2', () => {
       expect(f.embeddedFrameList.length).toBe(0);
     });
 
-    it('should parse chapter frame with embedded TIT2 frame', () => {
+    it("should parse chapter frame with embedded TIT2 frame", () => {
       const raw = byteVectorFromArray([
         0x43, 0x48, 0x41, 0x50, // "CHAP"
         0x00, 0x00, 0x00, 0x20, // size = 32 (18 + 14)
@@ -876,33 +873,33 @@ describe('ID3v2', () => {
       // Use the factory as frame parser for embedded frames
       const factory = Id3v2FrameFactory.instance;
       const tagHeader = new Id3v2Header();
-      const frameParser = (data: ByteVector, version: number) => {
+      const frameParser = (data: ByteVector, _version: number) => {
         const result = factory.createFrame(data, tagHeader);
         return result.frame ?? undefined;
       };
 
       const f = ChapterFrame.fromData(raw, header, 4, frameParser);
-      expect(f.elementId.equals(ByteVector.fromString('C', StringType.Latin1))).toBe(true);
+      expect(f.elementId.equals(ByteVector.fromString("C", StringType.Latin1))).toBe(true);
       expect(f.startTime).toBe(3);
       expect(f.endTime).toBe(5);
       expect(f.startOffset).toBe(2);
       expect(f.endOffset).toBe(3);
       expect(f.embeddedFrameList.length).toBe(1);
-      expect(f.embeddedFrameList[0].toString()).toBe('CH1');
+      expect(f.embeddedFrameList[0].toString()).toBe("CH1");
     });
 
-    it('should render chapter frame', () => {
+    it("should render chapter frame", () => {
       // The TS ChapterFrame render appends a null terminator to the element ID,
       // so pass just "C" (without null) as the element ID.
       const f = new ChapterFrame(
-        ByteVector.fromString('C', StringType.Latin1),
+        ByteVector.fromString("C", StringType.Latin1),
         3, 5, 2, 3,
       );
       const tit2 = new TextIdentificationFrame(
-        ByteVector.fromString('TIT2', StringType.Latin1),
+        ByteVector.fromString("TIT2", StringType.Latin1),
         StringType.Latin1,
       );
-      tit2.text = 'CH1';
+      tit2.text = "CH1";
       f.addEmbeddedFrame(tit2);
 
       const rendered = f.render(4);
@@ -930,8 +927,8 @@ describe('ID3v2', () => {
   // =========================================================================
   // CTOC (Table of Contents)
   // =========================================================================
-  describe('TableOfContentsFrame', () => {
-    it('should parse table of contents frame', () => {
+  describe("TableOfContentsFrame", () => {
+    it("should parse table of contents frame", () => {
       const raw = byteVectorFromArray([
         0x43, 0x54, 0x4f, 0x43, // "CTOC"
         0x00, 0x00, 0x00, 0x16, // size = 22
@@ -952,33 +949,33 @@ describe('ID3v2', () => {
 
       const factory = Id3v2FrameFactory.instance;
       const tagHeader = new Id3v2Header();
-      const frameParser = (data: ByteVector, version: number) => {
+      const frameParser = (data: ByteVector, _version: number) => {
         const result = factory.createFrame(data, tagHeader);
         return result.frame ?? undefined;
       };
 
       const f = TableOfContentsFrame.fromData(raw, header, 4, frameParser);
-      expect(f.elementId.equals(ByteVector.fromString('T', StringType.Latin1))).toBe(true);
+      expect(f.elementId.equals(ByteVector.fromString("T", StringType.Latin1))).toBe(true);
       expect(f.isTopLevel).toBe(false);
       expect(f.isOrdered).toBe(true);
       expect(f.childElements.length).toBe(2);
-      expect(f.childElements[0].equals(ByteVector.fromString('C', StringType.Latin1))).toBe(true);
-      expect(f.childElements[1].equals(ByteVector.fromString('D', StringType.Latin1))).toBe(true);
+      expect(f.childElements[0].equals(ByteVector.fromString("C", StringType.Latin1))).toBe(true);
+      expect(f.childElements[1].equals(ByteVector.fromString("D", StringType.Latin1))).toBe(true);
       expect(f.embeddedFrameList.length).toBe(1);
-      expect(f.embeddedFrameList[0].toString()).toBe('TC1');
+      expect(f.embeddedFrameList[0].toString()).toBe("TC1");
     });
 
-    it('should render table of contents frame', () => {
-      const f = new TableOfContentsFrame(ByteVector.fromString('T', StringType.Latin1));
+    it("should render table of contents frame", () => {
+      const f = new TableOfContentsFrame(ByteVector.fromString("T", StringType.Latin1));
       f.isTopLevel = false;
       f.isOrdered = true;
-      f.addChildElement(ByteVector.fromString('C', StringType.Latin1));
-      f.addChildElement(ByteVector.fromString('D', StringType.Latin1));
+      f.addChildElement(ByteVector.fromString("C", StringType.Latin1));
+      f.addChildElement(ByteVector.fromString("D", StringType.Latin1));
       const tit2 = new TextIdentificationFrame(
-        ByteVector.fromString('TIT2', StringType.Latin1),
+        ByteVector.fromString("TIT2", StringType.Latin1),
         StringType.Latin1,
       );
-      tit2.text = 'TC1';
+      tit2.text = "TC1";
       f.addEmbeddedFrame(tit2);
 
       const rendered = f.render(4);
@@ -1005,15 +1002,15 @@ describe('ID3v2', () => {
   // =========================================================================
   // Genre update tests
   // =========================================================================
-  describe('Genre handling', () => {
-    it('should update genre 23_1 - v2.3 parenthesized genre', () => {
+  describe("Genre handling", () => {
+    it("should update genre 23_1 - v2.3 parenthesized genre", () => {
       // TCON with "(22)Death Metal" in v2.3 format
       const raw = byteVectorFromArray([
         0x54, 0x43, 0x4f, 0x4e, // "TCON"
         0x00, 0x00, 0x00, 0x10, // size = 16
         0x00, 0x00,             // flags
         0x00,                   // encoding = Latin1
-        ...Array.from(new TextEncoder().encode('(22)Death Metal')),
+        ...Array.from(new TextEncoder().encode("(22)Death Metal")),
       ]);
       const tagHeader = new Id3v2Header();
       tagHeader.majorVersion = 3;
@@ -1029,10 +1026,10 @@ describe('ID3v2', () => {
       // The tag.genre getter parses "(22)" → "Death Metal", then the
       // remaining text "Death Metal" is also included; the TS implementation
       // resolves the parenthesized reference and retains the refinement.
-      expect(tag.genre).toContain('Death Metal');
+      expect(tag.genre).toContain("Death Metal");
     });
 
-    it('should update genre 24 - numeric genres with null separator', () => {
+    it("should update genre 24 - numeric genres with null separator", () => {
       // TCON with "14\0Eurodisco" in v2.4 format
       const raw = byteVectorFromArray([
         0x54, 0x43, 0x4f, 0x4e, // "TCON"
@@ -1041,7 +1038,7 @@ describe('ID3v2', () => {
         0x00,                   // encoding = Latin1
         // "14" + null + "Eurodisco"
         0x31, 0x34, 0x00,
-        ...Array.from(new TextEncoder().encode('Eurodisco')),
+        ...Array.from(new TextEncoder().encode("Eurodisco")),
       ]);
       const tagHeader = new Id3v2Header();
       // Default version 4
@@ -1049,8 +1046,8 @@ describe('ID3v2', () => {
       expect(result.frame).not.toBeNull();
       const frame = result.frame as TextIdentificationFrame;
       expect(frame.fieldList.length).toBe(2);
-      expect(frame.fieldList[0]).toBe('14');
-      expect(frame.fieldList[1]).toBe('Eurodisco');
+      expect(frame.fieldList[0]).toBe("14");
+      expect(frame.fieldList[1]).toBe("Eurodisco");
 
       // The tag.genre getter joins and parses the field values.
       // In the TS implementation, the text getter joins with ", " so the genre
@@ -1058,16 +1055,16 @@ describe('ID3v2', () => {
       const tag = new Id3v2Tag();
       tag.addFrame(frame);
       const genre = tag.genre;
-      expect(genre).toContain('Eurodisco');
+      expect(genre).toContain("Eurodisco");
     });
   });
 
   // =========================================================================
   // Duplicate ID3v2 tags
   // =========================================================================
-  describe('duplicate tags', () => {
-    it('should handle duplicate ID3v2 tags', () => {
-      const stream = openTestStream('duplicate_id3v2.mp3');
+  describe("duplicate tags", () => {
+    it("should handle duplicate ID3v2 tags", () => {
+      const stream = openTestStream("duplicate_id3v2.mp3");
       const f = new MpegFile(stream, true, ReadStyle.Average);
 
       expect(f.isValid).toBe(true);
@@ -1082,9 +1079,9 @@ describe('ID3v2', () => {
   // =========================================================================
   // Empty frame
   // =========================================================================
-  describe('empty frame handling', () => {
-    it('should save and re-read with empty WOAF frame', () => {
-      const data = readTestData('xing.mp3');
+  describe("empty frame handling", () => {
+    it("should save and re-read with empty WOAF frame", () => {
+      const data = readTestData("xing.mp3");
       const stream = new ByteVectorStream(data);
       const f = new MpegFile(stream, true, ReadStyle.Average);
 
@@ -1103,10 +1100,10 @@ describe('ID3v2', () => {
 
       // Add a TIT2 frame with real content
       const tit2 = new TextIdentificationFrame(
-        ByteVector.fromString('TIT2', StringType.Latin1),
+        ByteVector.fromString("TIT2", StringType.Latin1),
         StringType.Latin1,
       );
-      tit2.text = 'Title';
+      tit2.text = "Title";
       tag.addFrame(tit2);
 
       f.save();
@@ -1115,94 +1112,94 @@ describe('ID3v2', () => {
       stream.seek(0);
       const f2 = new MpegFile(stream, true, ReadStyle.Average);
       const tag2 = f2.tag();
-      expect(tag2?.title).toBe('Title');
+      expect(tag2?.title).toBe("Title");
     });
   });
 
   // =========================================================================
   // Round-trip tests: create, render, re-parse
   // =========================================================================
-  describe('round-trip rendering', () => {
-    it('should round-trip POPM frame', () => {
+  describe("round-trip rendering", () => {
+    it("should round-trip POPM frame", () => {
       const f = new PopularimeterFrame();
-      f.email = 'test@example.com';
+      f.email = "test@example.com";
       f.rating = 128;
       f.counter = 42;
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = PopularimeterFrame.fromData(rendered, header, 4);
-      expect(f2.email).toBe('test@example.com');
+      expect(f2.email).toBe("test@example.com");
       expect(f2.rating).toBe(128);
       expect(f2.counter).toBe(42);
     });
 
-    it('should round-trip UFID frame', () => {
-      const f = new UniqueFileIdentifierFrame('http://musicbrainz.org', byteVectorFromArray([0xDE, 0xAD, 0xBE, 0xEF]));
+    it("should round-trip UFID frame", () => {
+      const f = new UniqueFileIdentifierFrame("http://musicbrainz.org", byteVectorFromArray([0xDE, 0xAD, 0xBE, 0xEF]));
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = UniqueFileIdentifierFrame.fromData(rendered, header, 4);
-      expect(f2.owner).toBe('http://musicbrainz.org');
+      expect(f2.owner).toBe("http://musicbrainz.org");
       expect(f2.identifier.equals(byteVectorFromArray([0xDE, 0xAD, 0xBE, 0xEF]))).toBe(true);
     });
 
-    it('should round-trip comments frame', () => {
+    it("should round-trip comments frame", () => {
       const f = new CommentsFrame(StringType.UTF8);
-      f.language = ByteVector.fromString('eng', StringType.Latin1);
-      f.description = 'My Comment';
-      f.text = 'This is a comment.';
+      f.language = ByteVector.fromString("eng", StringType.Latin1);
+      f.description = "My Comment";
+      f.text = "This is a comment.";
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = CommentsFrame.fromData(rendered, header, 4);
-      expect(f2.description).toBe('My Comment');
-      expect(f2.text).toBe('This is a comment.');
+      expect(f2.description).toBe("My Comment");
+      expect(f2.text).toBe("This is a comment.");
       expect(f2.encoding).toBe(StringType.UTF8);
     });
 
-    it('should round-trip APIC frame', () => {
+    it("should round-trip APIC frame", () => {
       const f = new AttachedPictureFrame(StringType.Latin1);
-      f.mimeType = 'image/jpeg';
+      f.mimeType = "image/jpeg";
       f.pictureType = PictureType.FrontCover;
-      f.description = 'Cover';
+      f.description = "Cover";
       f.picture = byteVectorFromArray([0xff, 0xd8, 0xff, 0xe0]);
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = AttachedPictureFrame.fromData(rendered, header, 4);
-      expect(f2.mimeType).toBe('image/jpeg');
+      expect(f2.mimeType).toBe("image/jpeg");
       expect(f2.pictureType).toBe(PictureType.FrontCover);
-      expect(f2.description).toBe('Cover');
+      expect(f2.description).toBe("Cover");
       expect(f2.picture.equals(byteVectorFromArray([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
     });
 
-    it('should round-trip ownership frame', () => {
+    it("should round-trip ownership frame", () => {
       const f = new OwnershipFrame(StringType.Latin1);
-      f.pricePaid = 'USD9.99';
-      f.datePurchased = '20230101';
-      f.seller = 'iTunes';
+      f.pricePaid = "USD9.99";
+      f.datePurchased = "20230101";
+      f.seller = "iTunes";
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = OwnershipFrame.fromData(rendered, header, 4);
-      expect(f2.pricePaid).toBe('USD9.99');
-      expect(f2.datePurchased).toBe('20230101');
-      expect(f2.seller).toBe('iTunes');
+      expect(f2.pricePaid).toBe("USD9.99");
+      expect(f2.datePurchased).toBe("20230101");
+      expect(f2.seller).toBe("iTunes");
     });
 
-    it('should round-trip private frame', () => {
+    it("should round-trip private frame", () => {
       const f = new PrivateFrame();
-      f.owner = 'com.example.app';
+      f.owner = "com.example.app";
       f.data = byteVectorFromArray([0x01, 0x02, 0x03, 0x04]);
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = PrivateFrame.fromData(rendered, header, 4);
-      expect(f2.owner).toBe('com.example.app');
+      expect(f2.owner).toBe("com.example.app");
       expect(f2.data.equals(byteVectorFromArray([0x01, 0x02, 0x03, 0x04]))).toBe(true);
     });
 
-    it('should round-trip event timing codes frame', () => {
+    it("should round-trip event timing codes frame", () => {
       const f = new EventTimingCodesFrame();
       f.timestampFormat = 2;
       f.synchedEvents = [
@@ -1224,101 +1221,101 @@ describe('ID3v2', () => {
       expect(f2.synchedEvents[2].time).toBe(180000);
     });
 
-    it('should round-trip synchronized lyrics frame', () => {
+    it("should round-trip synchronized lyrics frame", () => {
       const f = new SynchronizedLyricsFrame(StringType.Latin1);
-      f.language = ByteVector.fromString('fra', StringType.Latin1);
+      f.language = ByteVector.fromString("fra", StringType.Latin1);
       f.timestampFormat = 2;
       f.textType = SynchedTextType.Lyrics;
-      f.description = 'Paroles';
+      f.description = "Paroles";
       f.synchedText = [
-        { time: 100, text: 'Bonjour' },
-        { time: 2000, text: 'Au revoir' },
+        { time: 100, text: "Bonjour" },
+        { time: 2000, text: "Au revoir" },
       ];
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = SynchronizedLyricsFrame.fromData(rendered, header, 4);
-      expect(f2.description).toBe('Paroles');
+      expect(f2.description).toBe("Paroles");
       expect(f2.synchedText.length).toBe(2);
-      expect(f2.synchedText[0].text).toBe('Bonjour');
+      expect(f2.synchedText[0].text).toBe("Bonjour");
       expect(f2.synchedText[0].time).toBe(100);
-      expect(f2.synchedText[1].text).toBe('Au revoir');
+      expect(f2.synchedText[1].text).toBe("Au revoir");
       expect(f2.synchedText[1].time).toBe(2000);
     });
 
-    it('should round-trip URL link frame', () => {
-      const f = new UrlLinkFrame(ByteVector.fromString('WOAF', StringType.Latin1));
-      f.url = 'https://example.com/music';
+    it("should round-trip URL link frame", () => {
+      const f = new UrlLinkFrame(ByteVector.fromString("WOAF", StringType.Latin1));
+      f.url = "https://example.com/music";
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = UrlLinkFrame.fromData(rendered, header, 4);
-      expect(f2.url).toBe('https://example.com/music');
+      expect(f2.url).toBe("https://example.com/music");
     });
 
-    it('should round-trip user URL link frame', () => {
+    it("should round-trip user URL link frame", () => {
       const f = new UserUrlLinkFrame(StringType.Latin1);
-      f.description = 'Artist Website';
-      f.url = 'https://example.com/artist';
+      f.description = "Artist Website";
+      f.url = "https://example.com/artist";
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = UserUrlLinkFrame.fromRawData(rendered, header, 4);
-      expect(f2.description).toBe('Artist Website');
-      expect(f2.url).toBe('https://example.com/artist');
+      expect(f2.description).toBe("Artist Website");
+      expect(f2.url).toBe("https://example.com/artist");
     });
 
-    it('should round-trip GEOB frame', () => {
+    it("should round-trip GEOB frame", () => {
       const f = new GeneralEncapsulatedObjectFrame(StringType.Latin1);
-      f.mimeType = 'text/plain';
-      f.fileName = 'notes.txt';
-      f.description = 'Notes';
-      f.object = ByteVector.fromString('Hello World', StringType.Latin1);
+      f.mimeType = "text/plain";
+      f.fileName = "notes.txt";
+      f.description = "Notes";
+      f.object = ByteVector.fromString("Hello World", StringType.Latin1);
 
       const rendered = f.render(4);
       const header = parseHeader(rendered);
       const f2 = GeneralEncapsulatedObjectFrame.fromData(rendered, header, 4);
-      expect(f2.mimeType).toBe('text/plain');
-      expect(f2.fileName).toBe('notes.txt');
-      expect(f2.description).toBe('Notes');
-      expect(f2.object.toString(StringType.Latin1)).toBe('Hello World');
+      expect(f2.mimeType).toBe("text/plain");
+      expect(f2.fileName).toBe("notes.txt");
+      expect(f2.description).toBe("Notes");
+      expect(f2.object.toString(StringType.Latin1)).toBe("Hello World");
     });
   });
 
   // =========================================================================
   // Tag-level operations
   // =========================================================================
-  describe('Id3v2Tag', () => {
-    it('should add and retrieve frames', () => {
+  describe("Id3v2Tag", () => {
+    it("should add and retrieve frames", () => {
       const tag = new Id3v2Tag();
       const frame = new TextIdentificationFrame(
-        ByteVector.fromString('TIT2', StringType.Latin1),
+        ByteVector.fromString("TIT2", StringType.Latin1),
         StringType.Latin1,
       );
-      frame.text = 'Test Title';
+      frame.text = "Test Title";
       tag.addFrame(frame);
 
-      expect(tag.title).toBe('Test Title');
+      expect(tag.title).toBe("Test Title");
     });
 
-    it('should set genre with numeric ID', () => {
+    it("should set genre with numeric ID", () => {
       const tag = new Id3v2Tag();
-      tag.genre = 'Rock';
-      expect(tag.genre).toBe('Rock');
+      tag.genre = "Rock";
+      expect(tag.genre).toBe("Rock");
     });
 
-    it('should remove frames', () => {
+    it("should remove frames", () => {
       const tag = new Id3v2Tag();
       const frame = new TextIdentificationFrame(
-        ByteVector.fromString('TPE1', StringType.Latin1),
+        ByteVector.fromString("TPE1", StringType.Latin1),
         StringType.Latin1,
       );
-      frame.text = 'Artist';
+      frame.text = "Artist";
       tag.addFrame(frame);
-      expect(tag.artist).toBe('Artist');
+      expect(tag.artist).toBe("Artist");
 
       tag.removeFrame(frame);
-      expect(tag.artist).toBe('');
+      expect(tag.artist).toBe("");
     });
   });
 });

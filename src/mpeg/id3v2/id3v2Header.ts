@@ -1,5 +1,5 @@
-import { ByteVector } from '../../byteVector.js';
-import { SynchData } from './id3v2SynchData.js';
+import { ByteVector } from "../../byteVector.js";
+import { SynchData } from "./id3v2SynchData.js";
 
 /**
  * ID3v2 tag header (10 bytes).
@@ -28,7 +28,7 @@ export class Id3v2Header {
   static readonly size: number = 10;
 
   /** The file identifier "ID3". */
-  static readonly fileIdentifier: ByteVector = ByteVector.fromString('ID3');
+  static readonly fileIdentifier: ByteVector = ByteVector.fromString("ID3");
 
   constructor() {}
 

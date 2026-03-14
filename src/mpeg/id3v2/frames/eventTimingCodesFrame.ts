@@ -1,5 +1,5 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
-import { Id3v2Frame, Id3v2FrameHeader } from '../id3v2Frame.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
+import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 
 /** Synched event types for the ETCO frame. */
 export enum EventType {
@@ -62,7 +62,7 @@ export class EventTimingCodesFrame extends Id3v2Frame {
 
   constructor() {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('ETCO', StringType.Latin1),
+      ByteVector.fromString("ETCO", StringType.Latin1),
     );
     super(header);
   }

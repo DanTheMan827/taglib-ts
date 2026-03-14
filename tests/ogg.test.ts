@@ -1,22 +1,22 @@
-import { describe, it, expect } from 'vitest';
-import { OggVorbisFile } from '../src/ogg/vorbis/vorbisFile.js';
-import { OggOpusFile } from '../src/ogg/opus/opusFile.js';
-import { OggSpeexFile } from '../src/ogg/speex/speexFile.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { openTestStream, readTestData } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { OggVorbisFile } from "../src/ogg/vorbis/vorbisFile.js";
+import { OggOpusFile } from "../src/ogg/opus/opusFile.js";
+import { OggSpeexFile } from "../src/ogg/speex/speexFile.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { openTestStream, readTestData } from "./testHelper.js";
 
-describe('OGG Vorbis', () => {
-  it('should read empty ogg file', () => {
-    const stream = openTestStream('empty.ogg');
+describe("OGG Vorbis", () => {
+  it("should read empty ogg file", () => {
+    const stream = openTestStream("empty.ogg");
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const tag = f.tag();
     expect(tag).not.toBeNull();
   });
 
-  it('should read test ogg file', () => {
-    const stream = openTestStream('test.ogg');
+  it("should read test ogg file", () => {
+    const stream = openTestStream("test.ogg");
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
@@ -27,28 +27,28 @@ describe('OGG Vorbis', () => {
     }
   });
 
-  it('should read lowercase fields ogg', () => {
-    const stream = openTestStream('lowercase-fields.ogg');
+  it("should read lowercase fields ogg", () => {
+    const stream = openTestStream("lowercase-fields.ogg");
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
-  it('should read empty_vorbis.oga', () => {
-    const stream = openTestStream('empty_vorbis.oga');
+  it("should read empty_vorbis.oga", () => {
+    const stream = openTestStream("empty_vorbis.oga");
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
-  it('should save and re-read', () => {
-    const data = readTestData('empty.ogg');
+  it("should save and re-read", () => {
+    const data = readTestData("empty.ogg");
     const stream = new ByteVectorStream(data);
     const f = new OggVorbisFile(stream, true, ReadStyle.Average);
 
     if (f.isValid) {
       const tag = f.tag();
       if (tag) {
-        tag.title = 'Ogg Test';
-        tag.artist = 'Test Artist';
+        tag.title = "Ogg Test";
+        tag.artist = "Test Artist";
         f.save();
       }
 
@@ -56,16 +56,16 @@ describe('OGG Vorbis', () => {
       const f2 = new OggVorbisFile(stream, true, ReadStyle.Average);
       const tag2 = f2.tag();
       if (tag2) {
-        expect(tag2.title).toBe('Ogg Test');
-        expect(tag2.artist).toBe('Test Artist');
+        expect(tag2.title).toBe("Ogg Test");
+        expect(tag2.artist).toBe("Test Artist");
       }
     }
   });
 });
 
-describe('OGG Opus', () => {
-  it('should read opus file', () => {
-    const stream = openTestStream('correctness_gain_silent_output.opus');
+describe("OGG Opus", () => {
+  it("should read opus file", () => {
+    const stream = openTestStream("correctness_gain_silent_output.opus");
     const f = new OggOpusFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
@@ -77,9 +77,9 @@ describe('OGG Opus', () => {
   });
 });
 
-describe('OGG Speex', () => {
-  it('should read speex file', () => {
-    const stream = openTestStream('empty.spx');
+describe("OGG Speex", () => {
+  it("should read speex file", () => {
+    const stream = openTestStream("empty.spx");
     const f = new OggSpeexFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();

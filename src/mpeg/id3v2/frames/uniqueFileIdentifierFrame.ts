@@ -1,9 +1,9 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Unique file identifier frame (UFID).
@@ -11,12 +11,12 @@ import {
  * Structure: owner(null-terminated Latin1) + identifier(bytes).
  */
 export class UniqueFileIdentifierFrame extends Id3v2Frame {
-  private _owner: string = '';
+  private _owner: string = "";
   private _identifier: ByteVector = new ByteVector();
 
   constructor(owner?: string, identifier?: ByteVector) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('UFID', StringType.Latin1),
+      ByteVector.fromString("UFID", StringType.Latin1),
     );
     super(header);
     if (owner !== undefined) this._owner = owner;

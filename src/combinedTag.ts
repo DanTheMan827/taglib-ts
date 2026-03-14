@@ -29,29 +29,29 @@ export class CombinedTag extends Tag {
   // Tag interface – getters return first non-empty value
   // ---------------------------------------------------------------------------
 
-  get title(): string { return this.firstString((t) => t.title); }
-  set title(v: string) { this.setOnAll((t) => { t.title = v; }); }
+  get title(): string { return this.firstString(t => t.title); }
+  set title(v: string) { this.setOnAll(t => { t.title = v; }); }
 
-  get artist(): string { return this.firstString((t) => t.artist); }
-  set artist(v: string) { this.setOnAll((t) => { t.artist = v; }); }
+  get artist(): string { return this.firstString(t => t.artist); }
+  set artist(v: string) { this.setOnAll(t => { t.artist = v; }); }
 
-  get album(): string { return this.firstString((t) => t.album); }
-  set album(v: string) { this.setOnAll((t) => { t.album = v; }); }
+  get album(): string { return this.firstString(t => t.album); }
+  set album(v: string) { this.setOnAll(t => { t.album = v; }); }
 
-  get comment(): string { return this.firstString((t) => t.comment); }
-  set comment(v: string) { this.setOnAll((t) => { t.comment = v; }); }
+  get comment(): string { return this.firstString(t => t.comment); }
+  set comment(v: string) { this.setOnAll(t => { t.comment = v; }); }
 
-  get genre(): string { return this.firstString((t) => t.genre); }
-  set genre(v: string) { this.setOnAll((t) => { t.genre = v; }); }
+  get genre(): string { return this.firstString(t => t.genre); }
+  set genre(v: string) { this.setOnAll(t => { t.genre = v; }); }
 
-  get year(): number { return this.firstNumber((t) => t.year); }
-  set year(v: number) { this.setOnAll((t) => { t.year = v; }); }
+  get year(): number { return this.firstNumber(t => t.year); }
+  set year(v: number) { this.setOnAll(t => { t.year = v; }); }
 
-  get track(): number { return this.firstNumber((t) => t.track); }
-  set track(v: number) { this.setOnAll((t) => { t.track = v; }); }
+  get track(): number { return this.firstNumber(t => t.track); }
+  set track(v: number) { this.setOnAll(t => { t.track = v; }); }
 
   get isEmpty(): boolean {
-    return this.tags.every((t) => t.isEmpty);
+    return this.tags.every(t => t.isEmpty);
   }
 
   // ---------------------------------------------------------------------------

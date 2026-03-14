@@ -1,4 +1,4 @@
-import { ByteVector, StringType } from "../byteVector.js";
+import { StringType } from "../byteVector.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 import { type offset_t, Position } from "../toolkit/types.js";
 
@@ -101,7 +101,7 @@ export class Mp4Atom {
   find(...names: string[]): Mp4Atom | null {
     if (names.length === 0) return this;
     const [first, ...rest] = names;
-    const child = this.children.find((c) => c.name === first);
+    const child = this.children.find(c => c.name === first);
     return child ? child.find(...rest) : null;
   }
 
@@ -123,7 +123,7 @@ export class Mp4Atom {
     result.push(this);
     if (names.length === 0) return true;
     const [first, ...rest] = names;
-    const child = this.children.find((c) => c.name === first);
+    const child = this.children.find(c => c.name === first);
     return child ? child.path(result, ...rest) : false;
   }
 
@@ -168,7 +168,7 @@ export class Mp4Atoms {
   find(...names: string[]): Mp4Atom | null {
     if (names.length === 0) return null;
     const [first, ...rest] = names;
-    const root = this.atoms.find((a) => a.name === first);
+    const root = this.atoms.find(a => a.name === first);
     return root ? root.find(...rest) : null;
   }
 
@@ -177,7 +177,7 @@ export class Mp4Atoms {
     const result: Mp4Atom[] = [];
     if (names.length === 0) return result;
     const [first, ...rest] = names;
-    const root = this.atoms.find((a) => a.name === first);
+    const root = this.atoms.find(a => a.name === first);
     if (root && !root.path(result, ...rest)) {
       result.length = 0;
     }
@@ -213,6 +213,6 @@ export class Mp4Atoms {
 
 function checkValid(children: Mp4Atom[]): boolean {
   return children.every(
-    (a) => a.length !== 0 && checkValid(a.children),
+    a => a.length !== 0 && checkValid(a.children),
   );
 }

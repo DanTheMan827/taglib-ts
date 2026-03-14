@@ -1,5 +1,5 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
-import { Id3v2Frame, Id3v2FrameHeader } from '../id3v2Frame.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
+import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 
 /**
  * Unknown frame – used for any frame type that we don't have a specific parser for.

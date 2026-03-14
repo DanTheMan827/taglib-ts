@@ -107,7 +107,7 @@ export function readString(file: File, length: number): string {
 export function renderString(str: string, includeLength = false): ByteVector {
   const encoded = ByteVector.fromString(str, StringType.UTF16LE);
   const nullTerminator = ByteVector.fromUShort(0, false);
-  let data = ByteVector.fromByteVector(encoded);
+  const data = ByteVector.fromByteVector(encoded);
   data.append(nullTerminator);
   if (includeLength) {
     const lenPrefix = ByteVector.fromUShort(data.length, false);

@@ -80,7 +80,7 @@ export class Variant {
   static fromByteVectorList(v: ByteVector[]): Variant {
     return new Variant(
       VariantType.ByteVectorList,
-      v.map((bv) => ByteVector.fromByteVector(bv)),
+      v.map(bv => ByteVector.fromByteVector(bv)),
     );
   }
 
@@ -195,7 +195,7 @@ export class Variant {
 
   toByteVectorList(): ByteVector[] {
     if (this._type === VariantType.ByteVectorList) {
-      return (this._value as ByteVector[]).map((bv) =>
+      return (this._value as ByteVector[]).map(bv =>
         ByteVector.fromByteVector(bv),
       );
     }

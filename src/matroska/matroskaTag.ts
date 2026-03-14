@@ -4,7 +4,6 @@ import type { VariantMap } from "../toolkit/variant.js";
 import { Variant } from "../toolkit/variant.js";
 import { ByteVector } from "../byteVector.js";
 import { IOStream } from "../toolkit/ioStream.js";
-import { Position } from "../toolkit/types.js";
 import {
   EbmlId,
   readChildElements,
@@ -225,7 +224,7 @@ export class MatroskaTag extends Tag {
 
   override removeUnsupportedProperties(properties: string[]): void {
     this._simpleTags = this._simpleTags.filter(
-      st => !properties.includes(st.name)
+      st => !properties.includes(st.name),
     );
   }
 
@@ -315,7 +314,7 @@ export class MatroskaTag extends Tag {
 
     // Remove existing tag with same name and target
     this._simpleTags = this._simpleTags.filter(st =>
-      !(st.name === name && st.targetTypeValue === ttv)
+      !(st.name === name && st.targetTypeValue === ttv),
     );
 
     if (value) {

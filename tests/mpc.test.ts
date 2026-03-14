@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { MpcFile, MpcTagTypes } from '../src/mpc/mpcFile.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { openTestStream, readTestDataBV } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { MpcFile, MpcTagTypes } from "../src/mpc/mpcFile.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
 function openMpcFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): MpcFile {
   const stream = openTestStream(filename);
   return new MpcFile(stream, readProperties, readStyle);
 }
 
-describe('MPC', () => {
-  describe('properties', () => {
-    it('should read SV8 properties', () => {
-      const f = openMpcFile('sv8_header.mpc');
+describe("MPC", () => {
+  describe("properties", () => {
+    it("should read SV8 properties", () => {
+      const f = openMpcFile("sv8_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -26,8 +26,8 @@ describe('MPC', () => {
       }
     });
 
-    it('should read SV7 properties', () => {
-      const f = openMpcFile('click.mpc');
+    it("should read SV7 properties", () => {
+      const f = openMpcFile("click.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -45,8 +45,8 @@ describe('MPC', () => {
       }
     });
 
-    it('should read SV5 properties', () => {
-      const f = openMpcFile('sv5_header.mpc');
+    it("should read SV5 properties", () => {
+      const f = openMpcFile("sv5_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -60,8 +60,8 @@ describe('MPC', () => {
       }
     });
 
-    it('should read SV4 properties', () => {
-      const f = openMpcFile('sv4_header.mpc');
+    it("should read SV4 properties", () => {
+      const f = openMpcFile("sv4_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -76,50 +76,50 @@ describe('MPC', () => {
     });
   });
 
-  describe('fuzzed files', () => {
-    it('should handle zerodiv.mpc without crashing', () => {
-      const f = openMpcFile('zerodiv.mpc');
+  describe("fuzzed files", () => {
+    it("should handle zerodiv.mpc without crashing", () => {
+      const f = openMpcFile("zerodiv.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it('should handle infloop.mpc without crashing', () => {
-      const f = openMpcFile('infloop.mpc');
+    it("should handle infloop.mpc without crashing", () => {
+      const f = openMpcFile("infloop.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it('should handle segfault.mpc without crashing', () => {
-      const f = openMpcFile('segfault.mpc');
+    it("should handle segfault.mpc without crashing", () => {
+      const f = openMpcFile("segfault.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it('should handle segfault2.mpc without crashing', () => {
-      const f = openMpcFile('segfault2.mpc');
+    it("should handle segfault2.mpc without crashing", () => {
+      const f = openMpcFile("segfault2.mpc");
       expect(f.isValid).toBe(true);
     });
   });
 
-  describe('strip and properties', () => {
-    it('should strip tags in-memory and reflect in properties', () => {
-      const data = readTestDataBV('click.mpc');
+  describe("strip and properties", () => {
+    it("should strip tags in-memory and reflect in properties", () => {
+      const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
       const f = new MpcFile(stream, true, ReadStyle.Average);
 
       // Create both tags and set titles
-      f.apeTag(true)!.title = 'APE';
-      f.id3v1Tag(true)!.title = 'ID3v1';
+      f.apeTag(true)!.title = "APE";
+      f.id3v1Tag(true)!.title = "ID3v1";
 
       // Combined tag should expose both titles
       const props = f.tag().properties();
-      const titles = props.get('TITLE');
+      const titles = props.get("TITLE");
       expect(titles).toBeDefined();
       expect(titles!.length).toBeGreaterThanOrEqual(1);
 
       // Strip APE tag — ID3v1 should become visible
       f.strip(MpcTagTypes.APE);
       const props2 = f.tag().properties();
-      const titles2 = props2.get('TITLE');
+      const titles2 = props2.get("TITLE");
       expect(titles2).toBeDefined();
-      expect(titles2![0]).toBe('ID3v1');
+      expect(titles2![0]).toBe("ID3v1");
 
       // Strip ID3v1 tag — no titles left
       f.strip(MpcTagTypes.ID3v1);
@@ -127,15 +127,15 @@ describe('MPC', () => {
       expect(props3.size).toBe(0);
     });
 
-    it('should persist tag removal after save', () => {
-      const data = readTestDataBV('click.mpc');
+    it("should persist tag removal after save", () => {
+      const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
       // Add both tags and save
       {
         const f = new MpcFile(stream, true, ReadStyle.Average);
-        f.apeTag(true)!.title = 'APE';
-        f.id3v1Tag(true)!.title = 'ID3v1';
+        f.apeTag(true)!.title = "APE";
+        f.id3v1Tag(true)!.title = "ID3v1";
         f.save();
       }
 
@@ -159,9 +159,9 @@ describe('MPC', () => {
     });
   });
 
-  describe('repeated save', () => {
-    it('should handle multiple saves correctly', () => {
-      const data = readTestDataBV('click.mpc');
+  describe("repeated save", () => {
+    it("should handle multiple saves correctly", () => {
+      const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
       // Phase 1: Multiple saves with different tag values
@@ -170,14 +170,14 @@ describe('MPC', () => {
         expect(f.hasAPETag).toBe(false);
         expect(f.hasID3v1Tag).toBe(false);
 
-        f.apeTag(true)!.title = '01234 56789 ABCDE FGHIJ';
+        f.apeTag(true)!.title = "01234 56789 ABCDE FGHIJ";
         f.save();
 
-        f.apeTag()!.title = '0';
+        f.apeTag()!.title = "0";
         f.save();
 
-        f.id3v1Tag(true)!.title = '01234 56789 ABCDE FGHIJ';
-        f.apeTag()!.title = '01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789';
+        f.id3v1Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
+        f.apeTag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
         f.save();
       }
 

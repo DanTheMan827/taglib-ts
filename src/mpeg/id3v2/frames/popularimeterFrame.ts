@@ -1,9 +1,9 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Popularimeter frame (POPM).
@@ -11,13 +11,13 @@ import {
  * Structure: email(null-terminated Latin1) + rating(1 byte) + counter(variable, big-endian).
  */
 export class PopularimeterFrame extends Id3v2Frame {
-  private _email: string = '';
+  private _email: string = "";
   private _rating: number = 0;
   private _counter: number = 0;
 
   constructor() {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('POPM', StringType.Latin1),
+      ByteVector.fromString("POPM", StringType.Latin1),
     );
     super(header);
   }

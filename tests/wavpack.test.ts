@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { WavPackFile, WavPackTagTypes } from '../src/wavpack/wavpackFile.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { openTestStream, readTestDataBV } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { WavPackFile, WavPackTagTypes } from "../src/wavpack/wavpackFile.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
 function openWavPackFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): WavPackFile {
   const stream = openTestStream(filename);
   return new WavPackFile(stream, readProperties, readStyle);
 }
 
-describe('WavPack', () => {
-  describe('properties', () => {
-    it('should read no_length properties', () => {
-      const f = openWavPackFile('no_length.wv');
+describe("WavPack", () => {
+  describe("properties", () => {
+    it("should read no_length properties", () => {
+      const f = openWavPackFile("no_length.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -28,8 +28,8 @@ describe('WavPack', () => {
       }
     });
 
-    it('should read multi-channel properties', () => {
-      const f = openWavPackFile('four_channels.wv');
+    it("should read multi-channel properties", () => {
+      const f = openWavPackFile("four_channels.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -43,8 +43,8 @@ describe('WavPack', () => {
       }
     });
 
-    it('should read DSD stereo properties', () => {
-      const f = openWavPackFile('dsd_stereo.wv');
+    it("should read DSD stereo properties", () => {
+      const f = openWavPackFile("dsd_stereo.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -61,8 +61,8 @@ describe('WavPack', () => {
       }
     });
 
-    it('should read non-standard rate properties', () => {
-      const f = openWavPackFile('non_standard_rate.wv');
+    it("should read non-standard rate properties", () => {
+      const f = openWavPackFile("non_standard_rate.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -73,8 +73,8 @@ describe('WavPack', () => {
       }
     });
 
-    it('should read tagged file properties', () => {
-      const f = openWavPackFile('tagged.wv');
+    it("should read tagged file properties", () => {
+      const f = openWavPackFile("tagged.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -86,35 +86,35 @@ describe('WavPack', () => {
     });
   });
 
-  describe('fuzzed files', () => {
-    it('should handle infloop.wv without crashing', () => {
-      const f = openWavPackFile('infloop.wv');
+  describe("fuzzed files", () => {
+    it("should handle infloop.wv without crashing", () => {
+      const f = openWavPackFile("infloop.wv");
       expect(f.isValid).toBe(true);
     });
   });
 
-  describe('strip and properties', () => {
-    it('should strip tags in-memory and reflect in properties', () => {
-      const data = readTestDataBV('click.wv');
+  describe("strip and properties", () => {
+    it("should strip tags in-memory and reflect in properties", () => {
+      const data = readTestDataBV("click.wv");
       const stream = new ByteVectorStream(data);
       const f = new WavPackFile(stream, true, ReadStyle.Average);
 
       // Create both tags and set titles
-      f.apeTag(true)!.title = 'APE';
-      f.id3v1Tag(true)!.title = 'ID3v1';
+      f.apeTag(true)!.title = "APE";
+      f.id3v1Tag(true)!.title = "ID3v1";
 
       // Combined tag should expose both titles
       const props = f.tag().properties();
-      const titles = props.get('TITLE');
+      const titles = props.get("TITLE");
       expect(titles).toBeDefined();
       expect(titles!.length).toBeGreaterThanOrEqual(1);
 
       // Strip APE tag — ID3v1 should become visible
       f.strip(WavPackTagTypes.APE);
       const props2 = f.tag().properties();
-      const titles2 = props2.get('TITLE');
+      const titles2 = props2.get("TITLE");
       expect(titles2).toBeDefined();
-      expect(titles2![0]).toBe('ID3v1');
+      expect(titles2![0]).toBe("ID3v1");
 
       // Strip ID3v1 tag — no titles left
       f.strip(WavPackTagTypes.ID3v1);
@@ -122,15 +122,15 @@ describe('WavPack', () => {
       expect(props3.size).toBe(0);
     });
 
-    it('should persist tag changes after save', () => {
-      const data = readTestDataBV('click.wv');
+    it("should persist tag changes after save", () => {
+      const data = readTestDataBV("click.wv");
       const stream = new ByteVectorStream(data);
 
       // Add both tags and save
       {
         const f = new WavPackFile(stream, true, ReadStyle.Average);
-        f.apeTag(true)!.title = 'APE';
-        f.id3v1Tag(true)!.title = 'ID3v1';
+        f.apeTag(true)!.title = "APE";
+        f.id3v1Tag(true)!.title = "ID3v1";
         f.save();
       }
 
@@ -143,11 +143,11 @@ describe('WavPack', () => {
 
         // Verify title is present
         const props = f.tag().properties();
-        expect(props.get('TITLE')).toBeDefined();
+        expect(props.get("TITLE")).toBeDefined();
 
         f.strip(WavPackTagTypes.APE);
         const props2 = f.tag().properties();
-        expect(props2.get('TITLE')![0]).toBe('ID3v1');
+        expect(props2.get("TITLE")![0]).toBe("ID3v1");
 
         f.strip(WavPackTagTypes.ID3v1);
         expect(f.tag().properties().size).toBe(0);
@@ -155,9 +155,9 @@ describe('WavPack', () => {
     });
   });
 
-  describe('repeated save', () => {
-    it('should handle multiple saves correctly', () => {
-      const data = readTestDataBV('click.wv');
+  describe("repeated save", () => {
+    it("should handle multiple saves correctly", () => {
+      const data = readTestDataBV("click.wv");
       const stream = new ByteVectorStream(data);
 
       // Phase 1: Multiple saves with different tag values
@@ -166,14 +166,14 @@ describe('WavPack', () => {
         expect(f.hasAPETag).toBe(false);
         expect(f.hasID3v1Tag).toBe(false);
 
-        f.apeTag(true)!.title = '01234 56789 ABCDE FGHIJ';
+        f.apeTag(true)!.title = "01234 56789 ABCDE FGHIJ";
         f.save();
 
-        f.apeTag()!.title = '0';
+        f.apeTag()!.title = "0";
         f.save();
 
-        f.id3v1Tag(true)!.title = '01234 56789 ABCDE FGHIJ';
-        f.apeTag()!.title = '01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789';
+        f.id3v1Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
+        f.apeTag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
         f.save();
       }
 

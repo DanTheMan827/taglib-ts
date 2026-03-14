@@ -331,14 +331,14 @@ export class ApeTag extends Tag {
   /** Find an item by key (case-insensitive). */
   item(key: string): ApeItem | undefined {
     const upper = key.toUpperCase();
-    return this._items.find((it) => it.key.toUpperCase() === upper);
+    return this._items.find(it => it.key.toUpperCase() === upper);
   }
 
   /** Set (or replace) an item. Matching is case-insensitive by key. */
   setItem(item: ApeItem): void {
     const upper = item.key.toUpperCase();
     const idx = this._items.findIndex(
-      (it) => it.key.toUpperCase() === upper,
+      it => it.key.toUpperCase() === upper,
     );
     if (idx >= 0) {
       this._items[idx] = item;
@@ -351,7 +351,7 @@ export class ApeTag extends Tag {
   removeItem(key: string): void {
     const upper = key.toUpperCase();
     this._items = this._items.filter(
-      (it) => it.key.toUpperCase() !== upper,
+      it => it.key.toUpperCase() !== upper,
     );
   }
 

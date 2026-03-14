@@ -107,7 +107,7 @@ export class FlacFile extends File {
 
     // Start with non-comment, non-picture, non-padding blocks (e.g. STREAMINFO)
     const newBlocks: MetadataBlock[] = this._blocks.filter(
-      (b) =>
+      b =>
         b.code !== BlockType.VorbisComment &&
         b.code !== BlockType.Picture &&
         b.code !== BlockType.Padding,
@@ -125,7 +125,7 @@ export class FlacFile extends File {
     // Render all metadata blocks into a single buffer
     // -----------------------------------------------------------------------
 
-    let data = new ByteVector();
+    const data = new ByteVector();
     for (const block of newBlocks) {
       const blockData = block.data;
       const header = ByteVector.fromUInt(blockData.length, true);

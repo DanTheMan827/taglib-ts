@@ -248,7 +248,7 @@ export class XmFile extends File {
       tempo = headerFieldsData.toUShort(offset, false); offset += 2;
     }
     if (offset + 2 <= headerFieldsData.length) {
-      bpmSpeed = headerFieldsData.toUShort(offset, false); offset += 2;
+      bpmSpeed = headerFieldsData.toUShort(offset, false);
     }
 
     // Seek past the full header

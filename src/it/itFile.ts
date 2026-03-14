@@ -131,7 +131,7 @@ export class ItFile extends File {
     this.seek(46);
     const specialData = this.readBlock(2);
     if (specialData.length < 2) return false;
-    let special = specialData.toUShort(0, false);
+    const special = specialData.toUShort(0, false);
 
     const fileSize = this.fileLength;
 

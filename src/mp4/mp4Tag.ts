@@ -474,7 +474,7 @@ function parseDataVectors(
   expectedFlags = -1,
   freeForm = false,
 ): ByteVector[] {
-  return parseData2(data, expectedFlags, freeForm).map((d) => d.data);
+  return parseData2(data, expectedFlags, freeForm).map(d => d.data);
 }
 
 // ---------------------------------------------------------------------------
@@ -590,7 +590,7 @@ function parseText(
 ): [string, Mp4Item] {
   const data = parseDataVectors(bytes, expectedFlags);
   if (data.length > 0) {
-    const values = data.map((d) => d.toString(StringType.UTF8));
+    const values = data.map(d => d.toString(StringType.UTF8));
     return [name, Mp4Item.fromStringList(values)];
   }
   return [name, Mp4Item.invalid()];
@@ -672,7 +672,7 @@ function renderDataAtom(
   flags: number,
   dataList: ByteVector[],
 ): ByteVector {
-  let result = new ByteVector();
+  const result = new ByteVector();
   for (const d of dataList) {
     const payload = ByteVector.fromUInt(flags);
     payload.append(ByteVector.fromSize(4, 0));
@@ -734,14 +734,14 @@ function renderText(
   item: Mp4Item,
   flags: number = AtomDataType.TypeUTF8,
 ): ByteVector {
-  const data = item.toStringList().map((s) =>
+  const data = item.toStringList().map(s =>
     ByteVector.fromString(s, StringType.UTF8),
   );
   return renderDataAtom(name, flags, data);
 }
 
 function renderCovr(name: ByteVector, item: Mp4Item): ByteVector {
-  let data = new ByteVector();
+  const data = new ByteVector();
   for (const art of item.toCoverArtList()) {
     const payload = ByteVector.fromUInt(art.format as number);
     payload.append(ByteVector.fromSize(4, 0));
@@ -755,7 +755,7 @@ function renderFreeForm(itemName: string, item: Mp4Item): ByteVector {
   const parts = itemName.split(":");
   if (parts.length !== 3) return new ByteVector();
 
-  let data = new ByteVector();
+  const data = new ByteVector();
   // mean atom
   const meanPayload = ByteVector.fromUInt(0);
   meanPayload.append(ByteVector.fromString(parts[1], StringType.UTF8));
@@ -1094,7 +1094,7 @@ export class Mp4Tag extends Tag {
   // -- Rendering / Saving --
 
   render(): ByteVector {
-    let ilstData = new ByteVector();
+    const ilstData = new ByteVector();
     for (const [name, itm] of this._items) {
       ilstData.append(itm.render(name));
     }

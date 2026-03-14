@@ -36,6 +36,7 @@ function renderOggPages(
 ): ByteVector {
   const result = new ByteVector();
   let pageSequence = 0;
+  // eslint-disable-next-line no-useless-assignment
   let granulePosition = 0n;
 
   // We need to track granule position from the original pages.

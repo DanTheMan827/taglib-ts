@@ -129,7 +129,7 @@ export class MpegProperties extends AudioProperties {
     let sameBytesPerFrameCount = 0;
     let lastBytesPerFrame = 0;
 
-    // eslint-disable-next-line no-constant-condition
+
     while (true) {
       const nextOffset = file.nextFrameOffset(offset + frameLen);
       if (nextOffset <= offset) break;
@@ -175,7 +175,7 @@ export class MpegProperties extends AudioProperties {
   private computeLength(
     file: MpegFile,
     firstOffset: number,
-    firstHeader: MpegHeader,
+    _firstHeader: MpegHeader,
   ): void {
     const lastOffset = file.lastFrameOffset();
     if (lastOffset < 0) return;

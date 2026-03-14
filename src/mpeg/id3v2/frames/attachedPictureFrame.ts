@@ -1,10 +1,10 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
   nullTerminatorSize,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /** Standard picture types as defined in the ID3v2 specification. */
 export enum PictureType {
@@ -39,14 +39,14 @@ export enum PictureType {
  */
 export class AttachedPictureFrame extends Id3v2Frame {
   private _encoding: StringType = StringType.UTF8;
-  private _mimeType: string = '';
+  private _mimeType: string = "";
   private _pictureType: PictureType = PictureType.Other;
-  private _description: string = '';
+  private _description: string = "";
   private _picture: ByteVector = new ByteVector();
 
   constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('APIC', StringType.Latin1),
+      ByteVector.fromString("APIC", StringType.Latin1),
     );
     super(header);
     this._encoding = encoding;

@@ -5,7 +5,7 @@ import { RiffInfoTag } from "../infoTag.js";
 import { Id3v2Tag } from "../../mpeg/id3v2/id3v2Tag.js";
 import { CombinedTag } from "../../combinedTag.js";
 import type { Tag } from "../../tag.js";
-import type { offset_t, ReadStyle } from "../../toolkit/types.js";
+import type { ReadStyle } from "../../toolkit/types.js";
 import type { IOStream } from "../../toolkit/ioStream.js";
 
 /**

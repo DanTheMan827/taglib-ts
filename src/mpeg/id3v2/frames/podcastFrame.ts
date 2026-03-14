@@ -1,5 +1,5 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
-import { Id3v2Frame, Id3v2FrameHeader } from '../id3v2Frame.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
+import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 
 /**
  * Podcast frame (PCST) – an iTunes-specific marker frame.
@@ -9,13 +9,13 @@ import { Id3v2Frame, Id3v2FrameHeader } from '../id3v2Frame.js';
 export class PodcastFrame extends Id3v2Frame {
   constructor() {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('PCST', StringType.Latin1),
+      ByteVector.fromString("PCST", StringType.Latin1),
     );
     super(header);
   }
 
   toString(): string {
-    return 'PCST';
+    return "PCST";
   }
 
   // -- Static -----------------------------------------------------------------

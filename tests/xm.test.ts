@@ -1,82 +1,82 @@
-import { describe, it, expect } from 'vitest';
-import { XmFile } from '../src/xm/xmFile.js';
-import { ModTag } from '../src/mod/modTag.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { openTestStream, readTestDataBV } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { XmFile } from "../src/xm/xmFile.js";
+import { ModTag } from "../src/mod/modTag.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
-const titleBefore = 'title of song';
-const titleAfter = 'changed title';
+const titleBefore = "title of song";
+const titleAfter = "changed title";
 
-const trackerNameBefore = 'MilkyTracker        ';
-const trackerNameAfter = 'TagLib';
+const trackerNameBefore = "MilkyTracker        ";
+const trackerNameAfter = "TagLib";
 
 const commentBefore =
-  'Instrument names\n' +
-  'are abused as\n' +
-  'comments in\n' +
-  'module file formats.\n' +
-  '-+-+-+-+-+-+-+-+-+-+-+\n' +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n\n\n' +
-  'Sample\n' +
-  'names\n' +
-  'are sometimes\n' +
-  'also abused as\n' +
-  'comments.';
+  "Instrument names\n" +
+  "are abused as\n" +
+  "comments in\n" +
+  "module file formats.\n" +
+  "-+-+-+-+-+-+-+-+-+-+-+\n" +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n\n\n" +
+  "Sample\n" +
+  "names\n" +
+  "are sometimes\n" +
+  "also abused as\n" +
+  "comments.";
 
 const newCommentShort =
-  'Instrument names\n' +
-  'are abused as\n' +
-  'comments in\n' +
-  'module file formats.\n' +
-  '======================\n' +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n\n\n' +
-  'Sample names\n' +
-  'are sometimes\n' +
-  'also abused as\n' +
-  'comments.';
+  "Instrument names\n" +
+  "are abused as\n" +
+  "comments in\n" +
+  "module file formats.\n" +
+  "======================\n" +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n\n\n" +
+  "Sample names\n" +
+  "are sometimes\n" +
+  "also abused as\n" +
+  "comments.";
 
 const newCommentLong =
-  'Instrument names\n' +
-  'are abused as\n' +
-  'comments in\n' +
-  'module file formats.\n' +
-  '======================\n' +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n\n\n' +
-  'Sample names\n' +
-  'are sometimes\n' +
-  'also abused as\n' +
-  'comments.\n' +
-  '\n\n\n\n\n\n\n' +
-  'TEST';
+  "Instrument names\n" +
+  "are abused as\n" +
+  "comments in\n" +
+  "module file formats.\n" +
+  "======================\n" +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n\n\n" +
+  "Sample names\n" +
+  "are sometimes\n" +
+  "also abused as\n" +
+  "comments.\n" +
+  "\n\n\n\n\n\n\n" +
+  "TEST";
 
 const commentAfter =
-  'Instrument names\n' +
-  'are abused as\n' +
-  'comments in\n' +
-  'module file formats.\n' +
-  '======================\n' +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n'.repeat(30) +
-  '\n\n\n' +
-  'Sample names\n' +
-  'are sometimes\n' +
-  'also abused as\n' +
-  'comments.\n';
+  "Instrument names\n" +
+  "are abused as\n" +
+  "comments in\n" +
+  "module file formats.\n" +
+  "======================\n" +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n".repeat(30) +
+  "\n\n\n" +
+  "Sample names\n" +
+  "are sometimes\n" +
+  "also abused as\n" +
+  "comments.\n";
 
 function testRead(
   stream: ByteVectorStream,
@@ -105,23 +105,23 @@ function testRead(
   expect(p!.tempo).toBe(6);
   expect(p!.bpmSpeed).toBe(125);
   expect(t!.title).toBe(title);
-  expect(t!.artist).toBe('');
-  expect(t!.album).toBe('');
+  expect(t!.artist).toBe("");
+  expect(t!.album).toBe("");
   expect(t!.comment).toBe(comment);
-  expect(t!.genre).toBe('');
+  expect(t!.genre).toBe("");
   expect(t!.year).toBe(0);
   expect(t!.track).toBe(0);
   expect((t as ModTag).trackerName).toBe(trackerName);
 }
 
-describe('XM', () => {
-  it('should read tags', () => {
-    const stream = openTestStream('test.xm');
+describe("XM", () => {
+  it("should read tags", () => {
+    const stream = openTestStream("test.xm");
     testRead(stream, titleBefore, commentBefore, trackerNameBefore);
   });
 
-  it('should read stripped tags', () => {
-    const stream = openTestStream('stripped.xm');
+  it("should read stripped tags", () => {
+    const stream = openTestStream("stripped.xm");
     const file = new XmFile(stream, true, ReadStyle.Average);
     expect(file.isValid).toBe(true);
 
@@ -143,17 +143,17 @@ describe('XM', () => {
     expect(p!.tempo).toBe(6);
     expect(p!.bpmSpeed).toBe(125);
     expect(t!.title).toBe(titleBefore);
-    expect(t!.artist).toBe('');
-    expect(t!.album).toBe('');
-    expect(t!.comment).toBe('');
-    expect(t!.genre).toBe('');
+    expect(t!.artist).toBe("");
+    expect(t!.album).toBe("");
+    expect(t!.comment).toBe("");
+    expect(t!.genre).toBe("");
     expect(t!.year).toBe(0);
     expect(t!.track).toBe(0);
-    expect((t as ModTag).trackerName).toBe('');
+    expect((t as ModTag).trackerName).toBe("");
   });
 
-  it('should write tags (short comment)', () => {
-    const data = readTestDataBV('test.xm');
+  it("should write tags (short comment)", () => {
+    const data = readTestDataBV("test.xm");
     const stream = new ByteVectorStream(data);
     const file = new XmFile(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();
@@ -166,8 +166,8 @@ describe('XM', () => {
     testRead(stream, titleAfter, commentAfter, trackerNameAfter);
   });
 
-  it('should write tags (long comment)', () => {
-    const data = readTestDataBV('test.xm');
+  it("should write tags (long comment)", () => {
+    const data = readTestDataBV("test.xm");
     const stream = new ByteVectorStream(data);
     const file = new XmFile(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();

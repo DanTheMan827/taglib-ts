@@ -1,10 +1,10 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
   nullTerminatorSize,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /** Content types for the SYLT frame. */
 export enum SynchedTextType {
@@ -33,15 +33,15 @@ export interface SynchedText {
  */
 export class SynchronizedLyricsFrame extends Id3v2Frame {
   private _encoding: StringType = StringType.UTF8;
-  private _language: ByteVector = ByteVector.fromString('XXX', StringType.Latin1);
-  private _description: string = '';
+  private _language: ByteVector = ByteVector.fromString("XXX", StringType.Latin1);
+  private _description: string = "";
   private _timestampFormat: number = 2;
   private _textType: SynchedTextType = SynchedTextType.Other;
   private _synchedText: SynchedText[] = [];
 
   constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('SYLT', StringType.Latin1),
+      ByteVector.fromString("SYLT", StringType.Latin1),
     );
     super(header);
     this._encoding = encoding;

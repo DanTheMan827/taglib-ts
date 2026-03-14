@@ -104,25 +104,26 @@ export class ModFile extends File {
 
     const modId = modIdData.toString(StringType.Latin1);
 
-    let channels = 4;
+    // eslint-disable-next-line no-useless-assignment
+    let _channels = 4;
     let instruments = 31;
 
     if (modId === "M.K." || modId === "M!K!" || modId === "M&K!" || modId === "N.T.") {
       this._tag.trackerName = "ProTracker";
-      channels = 4;
+      _channels = 4;
     } else if (modId.startsWith("FLT") || modId.startsWith("TDZ")) {
       this._tag.trackerName = "StarTrekker";
       const digit = modId.charCodeAt(3);
       if (digit < 0x30 || digit > 0x39) { this._valid = false; return; }
-      channels = digit - 0x30;
+      _channels = digit - 0x30;
     } else if (modId.endsWith("CHN")) {
       this._tag.trackerName = "StarTrekker";
       const digit = modId.charCodeAt(0);
       if (digit < 0x30 || digit > 0x39) { this._valid = false; return; }
-      channels = digit - 0x30;
+      _channels = digit - 0x30;
     } else if (modId === "CD81" || modId === "OKTA") {
       this._tag.trackerName = "Atari Oktalyzer";
-      channels = 8;
+      _channels = 8;
     } else if (modId.endsWith("CH") || modId.endsWith("CN")) {
       this._tag.trackerName = "TakeTracker";
       const d0 = modId.charCodeAt(0);
@@ -130,10 +131,10 @@ export class ModFile extends File {
       if (d0 < 0x30 || d0 > 0x39 || d1 < 0x30 || d1 > 0x39) {
         this._valid = false; return;
       }
-      channels = (d0 - 0x30) * 10 + (d1 - 0x30);
+      _channels = (d0 - 0x30) * 10 + (d1 - 0x30);
     } else {
       this._tag.trackerName = "NoiseTracker";
-      channels = 4;
+      _channels = 4;
       instruments = 15;
     }
 
@@ -162,7 +163,7 @@ export class ModFile extends File {
 
     if (readProperties) {
       const props = new ModProperties(readStyle);
-      props.channels = channels;
+      props.channels = _channels;
       props.instrumentCount = instruments;
       props.lengthInPatterns = lengthInPatterns;
       this._properties = props;

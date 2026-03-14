@@ -1,8 +1,8 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Chapter frame (CHAP).
@@ -27,7 +27,7 @@ export class ChapterFrame extends Id3v2Frame {
     endOffset: number = 0xffffffff,
   ) {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('CHAP', StringType.Latin1),
+      ByteVector.fromString("CHAP", StringType.Latin1),
     );
     super(header);
     this._elementId = elementId;

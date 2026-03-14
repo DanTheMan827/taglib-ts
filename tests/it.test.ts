@@ -1,45 +1,45 @@
-import { describe, it, expect } from 'vitest';
-import { ItFile } from '../src/it/itFile.js';
-import { ModTag } from '../src/mod/modTag.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { openTestStream, readTestDataBV } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { ItFile } from "../src/it/itFile.js";
+import { ModTag } from "../src/mod/modTag.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
-const titleBefore = 'test song name';
-const titleAfter = 'changed title';
+const titleBefore = "test song name";
+const titleAfter = "changed title";
 
 const commentBefore =
-  'This is a sample name.\n' +
-  'In module file formats\n' +
-  'sample names are abused\n' +
-  'as multiline comments.\n' +
-  ' ';
+  "This is a sample name.\n" +
+  "In module file formats\n" +
+  "sample names are abused\n" +
+  "as multiline comments.\n" +
+  " ";
 
 const newComment =
-  'This is a sample name!\n' +
-  'In module file formats\n' +
-  'sample names are abused\n' +
-  'as multiline comments.\n' +
-  '-----------------------------------\n' +
-  'The previous line is truncated but starting with this line\n' +
-  'the comment is not limeted in the line length but to 8000\n' +
-  'additional characters (bytes).\n' +
-  '\n' +
-  'This is because it is saved in the \'message\' proportion of\n' +
-  'IT files.';
+  "This is a sample name!\n" +
+  "In module file formats\n" +
+  "sample names are abused\n" +
+  "as multiline comments.\n" +
+  "-----------------------------------\n" +
+  "The previous line is truncated but starting with this line\n" +
+  "the comment is not limeted in the line length but to 8000\n" +
+  "additional characters (bytes).\n" +
+  "\n" +
+  "This is because it is saved in the 'message' proportion of\n" +
+  "IT files.";
 
 const commentAfter =
-  'This is a sample name!\n' +
-  'In module file formats\n' +
-  'sample names are abused\n' +
-  'as multiline comments.\n' +
-  '-------------------------\n' +
-  'The previous line is truncated but starting with this line\n' +
-  'the comment is not limeted in the line length but to 8000\n' +
-  'additional characters (bytes).\n' +
-  '\n' +
-  'This is because it is saved in the \'message\' proportion of\n' +
-  'IT files.';
+  "This is a sample name!\n" +
+  "In module file formats\n" +
+  "sample names are abused\n" +
+  "as multiline comments.\n" +
+  "-------------------------\n" +
+  "The previous line is truncated but starting with this line\n" +
+  "the comment is not limeted in the line length but to 8000\n" +
+  "additional characters (bytes).\n" +
+  "\n" +
+  "This is because it is saved in the 'message' proportion of\n" +
+  "IT files.";
 
 function testRead(stream: ByteVectorStream, title: string, comment: string) {
   const file = new ItFile(stream, true, ReadStyle.Average);
@@ -69,23 +69,23 @@ function testRead(stream: ByteVectorStream, title: string, comment: string) {
   expect(p!.panningSeparation).toBe(128);
   expect(p!.pitchWheelDepth).toBe(0);
   expect(t!.title).toBe(title);
-  expect(t!.artist).toBe('');
-  expect(t!.album).toBe('');
+  expect(t!.artist).toBe("");
+  expect(t!.album).toBe("");
   expect(t!.comment).toBe(comment);
-  expect(t!.genre).toBe('');
+  expect(t!.genre).toBe("");
   expect(t!.year).toBe(0);
   expect(t!.track).toBe(0);
-  expect((t as ModTag).trackerName).toBe('Impulse Tracker');
+  expect((t as ModTag).trackerName).toBe("Impulse Tracker");
 }
 
-describe('IT', () => {
-  it('should read tags', () => {
-    const stream = openTestStream('test.it');
+describe("IT", () => {
+  it("should read tags", () => {
+    const stream = openTestStream("test.it");
     testRead(stream, titleBefore, commentBefore);
   });
 
-  it('should write tags', () => {
-    const data = readTestDataBV('test.it');
+  it("should write tags", () => {
+    const data = readTestDataBV("test.it");
     const stream = new ByteVectorStream(data);
     const file = new ItFile(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();

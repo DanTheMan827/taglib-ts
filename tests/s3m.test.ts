@@ -1,34 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { S3mFile } from '../src/s3m/s3mFile.js';
-import { ModTag } from '../src/mod/modTag.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { ByteVectorStream } from '../src/toolkit/byteVectorStream.js';
-import { openTestStream, readTestDataBV } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { S3mFile } from "../src/s3m/s3mFile.js";
+import { ModTag } from "../src/mod/modTag.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
-const titleBefore = 'test song name';
-const titleAfter = 'changed title';
+const titleBefore = "test song name";
+const titleAfter = "changed title";
 
 const commentBefore =
-  'This is an instrument name.\n' +
-  'Module file formats\n' +
-  'abuse instrument names\n' +
-  'as multiline comments.\n' +
-  ' ';
+  "This is an instrument name.\n" +
+  "Module file formats\n" +
+  "abuse instrument names\n" +
+  "as multiline comments.\n" +
+  " ";
 
 const newComment =
-  'This is an instrument name!\n' +
-  'Module file formats\n' +
-  'abuse instrument names\n' +
-  'as multiline comments.\n' +
-  '-----------------------------------\n' +
-  'This line will be dropped and the previous is truncated.';
+  "This is an instrument name!\n" +
+  "Module file formats\n" +
+  "abuse instrument names\n" +
+  "as multiline comments.\n" +
+  "-----------------------------------\n" +
+  "This line will be dropped and the previous is truncated.";
 
 const commentAfter =
-  'This is an instrument name!\n' +
-  'Module file formats\n' +
-  'abuse instrument names\n' +
-  'as multiline comments.\n' +
-  '---------------------------';
+  "This is an instrument name!\n" +
+  "Module file formats\n" +
+  "abuse instrument names\n" +
+  "as multiline comments.\n" +
+  "---------------------------";
 
 function testRead(stream: ByteVectorStream, title: string, comment: string) {
   const file = new S3mFile(stream, true, ReadStyle.Average);
@@ -55,23 +55,23 @@ function testRead(stream: ByteVectorStream, title: string, comment: string) {
   expect(p!.tempo).toBe(125);
   expect(p!.bpmSpeed).toBe(6);
   expect(t!.title).toBe(title);
-  expect(t!.artist).toBe('');
-  expect(t!.album).toBe('');
+  expect(t!.artist).toBe("");
+  expect(t!.album).toBe("");
   expect(t!.comment).toBe(comment);
-  expect(t!.genre).toBe('');
+  expect(t!.genre).toBe("");
   expect(t!.year).toBe(0);
   expect(t!.track).toBe(0);
-  expect((t as ModTag).trackerName).toBe('ScreamTracker III');
+  expect((t as ModTag).trackerName).toBe("ScreamTracker III");
 }
 
-describe('S3M', () => {
-  it('should read tags', () => {
-    const stream = openTestStream('test.s3m');
+describe("S3M", () => {
+  it("should read tags", () => {
+    const stream = openTestStream("test.s3m");
     testRead(stream, titleBefore, commentBefore);
   });
 
-  it('should write tags', () => {
-    const data = readTestDataBV('test.s3m');
+  it("should write tags", () => {
+    const data = readTestDataBV("test.s3m");
     const stream = new ByteVectorStream(data);
     const file = new S3mFile(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();

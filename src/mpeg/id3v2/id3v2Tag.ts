@@ -1,78 +1,78 @@
-import { ByteVector, StringType } from '../../byteVector.js';
-import { Tag } from '../../tag.js';
-import { PropertyMap } from '../../toolkit/propertyMap.js';
-import type { VariantMap } from '../../toolkit/variant.js';
-import { Variant } from '../../toolkit/variant.js';
-import type { offset_t } from '../../toolkit/types.js';
-import type { IOStream } from '../../toolkit/ioStream.js';
-import { Id3v2Header } from './id3v2Header.js';
-import { Id3v2ExtendedHeader } from './id3v2ExtendedHeader.js';
-import { Id3v2Footer } from './id3v2Footer.js';
-import { Id3v2Frame, Id3v2FrameHeader } from './id3v2Frame.js';
-import { Id3v2FrameFactory } from './id3v2FrameFactory.js';
-import { SynchData } from './id3v2SynchData.js';
-import { TextIdentificationFrame, UserTextIdentificationFrame } from './frames/textIdentificationFrame.js';
-import { CommentsFrame } from './frames/commentsFrame.js';
-import { AttachedPictureFrame, PictureType } from './frames/attachedPictureFrame.js';
-import { UniqueFileIdentifierFrame } from './frames/uniqueFileIdentifierFrame.js';
-import { UnsynchronizedLyricsFrame } from './frames/unsynchronizedLyricsFrame.js';
-import { UserUrlLinkFrame } from './frames/urlLinkFrame.js';
-import { genre as id3v1Genre } from '../id3v1/id3v1Genres.js';
+import { ByteVector, StringType } from "../../byteVector.js";
+import { Tag } from "../../tag.js";
+import { PropertyMap } from "../../toolkit/propertyMap.js";
+import type { VariantMap } from "../../toolkit/variant.js";
+import { Variant } from "../../toolkit/variant.js";
+import type { offset_t } from "../../toolkit/types.js";
+import type { IOStream } from "../../toolkit/ioStream.js";
+import { Id3v2Header } from "./id3v2Header.js";
+import { Id3v2ExtendedHeader } from "./id3v2ExtendedHeader.js";
+import { Id3v2Footer } from "./id3v2Footer.js";
+import type { Id3v2Frame } from "./id3v2Frame.js";
+import { Id3v2FrameFactory } from "./id3v2FrameFactory.js";
+import { SynchData } from "./id3v2SynchData.js";
+import { TextIdentificationFrame, UserTextIdentificationFrame } from "./frames/textIdentificationFrame.js";
+import { CommentsFrame } from "./frames/commentsFrame.js";
+import { AttachedPictureFrame, PictureType } from "./frames/attachedPictureFrame.js";
+import { UniqueFileIdentifierFrame } from "./frames/uniqueFileIdentifierFrame.js";
+import { UnsynchronizedLyricsFrame } from "./frames/unsynchronizedLyricsFrame.js";
+import { UserUrlLinkFrame } from "./frames/urlLinkFrame.js";
+import { genre as id3v1Genre } from "../id3v1/id3v1Genres.js";
 
 /**
  * Standard frame ID → property name mapping for ID3v2.
  */
 const frameIdToProperty = new Map<string, string>([
-  ['TIT1', 'CONTENTGROUP'],
-  ['TIT2', 'TITLE'],
-  ['TIT3', 'SUBTITLE'],
-  ['TPE1', 'ARTIST'],
-  ['TPE2', 'ALBUMARTIST'],
-  ['TPE3', 'CONDUCTOR'],
-  ['TPE4', 'REMIXER'],
-  ['TALB', 'ALBUM'],
-  ['TCOM', 'COMPOSER'],
-  ['TEXT', 'LYRICIST'],
-  ['TRCK', 'TRACKNUMBER'],
-  ['TPOS', 'DISCNUMBER'],
-  ['TDRC', 'DATE'],
-  ['TDOR', 'ORIGINALDATE'],
-  ['TYER', 'DATE'],
-  ['TCON', 'GENRE'],
-  ['TSRC', 'ISRC'],
-  ['TBPM', 'BPM'],
-  ['TCOP', 'COPYRIGHT'],
-  ['TENC', 'ENCODEDBY'],
-  ['TMOO', 'MOOD'],
-  ['TMED', 'MEDIA'],
-  ['TPUB', 'LABEL'],
-  ['TCMP', 'COMPILATION'],
-  ['TSOA', 'ALBUMSORT'],
-  ['TSOT', 'TITLESORT'],
-  ['TSOP', 'ARTISTSORT'],
-  ['TLAN', 'LANGUAGE'],
-  ['WCOP', 'COPYRIGHTURL'],
-  ['WOAF', 'URL'],
-  ['WOAR', 'ARTISTWEBPAGE'],
-  ['TSSE', 'ENCODING'],
-  ['TKEY', 'INITIALKEY'],
-  ['TOAL', 'ORIGINALALBUM'],
-  ['TOLY', 'ORIGINALLYRICIST'],
-  ['TOFN', 'ORIGINALFILENAME'],
-  ['TDLY', 'PLAYLISTDELAY'],
-  ['TFLT', 'FILETYPE'],
-  ['TLEN', 'LENGTH'],
-  ['TSO2', 'ALBUMARTISTSORT'],
-  ['TSOC', 'COMPOSERSORT'],
-  ['TCAT', 'PODCASTCATEGORY'],
-  ['TDES', 'PODCASTDESC'],
-  ['TGID', 'PODCASTID'],
-  ['TDRL', 'RELEASEDATE'],
-  ['WFED', 'PODCASTURL'],
-  ['MVNM', 'MOVEMENTNAME'],
-  ['MVIN', 'MOVEMENTNUMBER'],
-  ['GRP1', 'GROUPING'],
-  ['TIPL', 'INVOLVEDPEOPLE'],
+  ["TIT1", "CONTENTGROUP"],
+  ["TIT2", "TITLE"],
+  ["TIT3", "SUBTITLE"],
+  ["TPE1", "ARTIST"],
+  ["TPE2", "ALBUMARTIST"],
+  ["TPE3", "CONDUCTOR"],
+  ["TPE4", "REMIXER"],
+  ["TALB", "ALBUM"],
+  ["TCOM", "COMPOSER"],
+  ["TEXT", "LYRICIST"],
+  ["TRCK", "TRACKNUMBER"],
+  ["TPOS", "DISCNUMBER"],
+  ["TDRC", "DATE"],
+  ["TDOR", "ORIGINALDATE"],
+  ["TYER", "DATE"],
+  ["TCON", "GENRE"],
+  ["TSRC", "ISRC"],
+  ["TBPM", "BPM"],
+  ["TCOP", "COPYRIGHT"],
+  ["TENC", "ENCODEDBY"],
+  ["TMOO", "MOOD"],
+  ["TMED", "MEDIA"],
+  ["TPUB", "LABEL"],
+  ["TCMP", "COMPILATION"],
+  ["TSOA", "ALBUMSORT"],
+  ["TSOT", "TITLESORT"],
+  ["TSOP", "ARTISTSORT"],
+  ["TLAN", "LANGUAGE"],
+  ["WCOP", "COPYRIGHTURL"],
+  ["WOAF", "URL"],
+  ["WOAR", "ARTISTWEBPAGE"],
+  ["TSSE", "ENCODING"],
+  ["TKEY", "INITIALKEY"],
+  ["TOAL", "ORIGINALALBUM"],
+  ["TOLY", "ORIGINALLYRICIST"],
+  ["TOFN", "ORIGINALFILENAME"],
+  ["TDLY", "PLAYLISTDELAY"],
+  ["TFLT", "FILETYPE"],
+  ["TLEN", "LENGTH"],
+  ["TSO2", "ALBUMARTISTSORT"],
+  ["TSOC", "COMPOSERSORT"],
+  ["TCAT", "PODCASTCATEGORY"],
+  ["TDES", "PODCASTDESC"],
+  ["TGID", "PODCASTID"],
+  ["TDRL", "RELEASEDATE"],
+  ["WFED", "PODCASTURL"],
+  ["MVNM", "MOVEMENTNAME"],
+  ["MVIN", "MOVEMENTNUMBER"],
+  ["GRP1", "GROUPING"],
+  ["TIPL", "INVOLVEDPEOPLE"],
 ]);
 
 // Reverse mapping: property name → frame ID
@@ -88,7 +88,7 @@ for (const [fid, prop] of frameIdToProperty) {
  * Handles formats like "(17)", "17", "(17)Rock", "(17)(18)", etc.
  */
 function parseGenreString(genreStr: string): string {
-  if (!genreStr) return '';
+  if (!genreStr) return "";
 
   const results: string[] = [];
   let remaining = genreStr;
@@ -123,7 +123,7 @@ function parseGenreString(genreStr: string): string {
     }
 
     // Find the next paren group or take the rest as-is
-    const nextParen = remaining.indexOf('(');
+    const nextParen = remaining.indexOf("(");
     if (nextParen > 0) {
       results.push(remaining.substring(0, nextParen));
       remaining = remaining.substring(nextParen);
@@ -133,7 +133,7 @@ function parseGenreString(genreStr: string): string {
     }
   }
 
-  return results.join(' / ');
+  return results.join(" / ");
 }
 
 /**
@@ -223,47 +223,47 @@ export class Id3v2Tag extends Tag {
   // ---------------------------------------------------------------------------
 
   get title(): string {
-    return this._getTextFrameValue('TIT2');
+    return this._getTextFrameValue("TIT2");
   }
 
   set title(value: string) {
-    this._setTextFrameValue('TIT2', value);
+    this._setTextFrameValue("TIT2", value);
   }
 
   get artist(): string {
-    return this._getTextFrameValue('TPE1');
+    return this._getTextFrameValue("TPE1");
   }
 
   set artist(value: string) {
-    this._setTextFrameValue('TPE1', value);
+    this._setTextFrameValue("TPE1", value);
   }
 
   get album(): string {
-    return this._getTextFrameValue('TALB');
+    return this._getTextFrameValue("TALB");
   }
 
   set album(value: string) {
-    this._setTextFrameValue('TALB', value);
+    this._setTextFrameValue("TALB", value);
   }
 
   get comment(): string {
-    const frames = this.frameListByFrameId('COMM');
+    const frames = this.frameListByFrameId("COMM");
     for (const f of frames) {
       if (f instanceof CommentsFrame) {
         const text = f.text;
         if (text) return text;
       }
     }
-    return '';
+    return "";
   }
 
   set comment(value: string) {
     if (!value) {
-      this.removeFrames('COMM');
+      this.removeFrames("COMM");
       return;
     }
     let existing: CommentsFrame | null = null;
-    for (const f of this.frameListByFrameId('COMM')) {
+    for (const f of this.frameListByFrameId("COMM")) {
       if (f instanceof CommentsFrame) {
         existing = f;
         break;
@@ -279,16 +279,16 @@ export class Id3v2Tag extends Tag {
   }
 
   get genre(): string {
-    const raw = this._getTextFrameValue('TCON');
+    const raw = this._getTextFrameValue("TCON");
     return parseGenreString(raw);
   }
 
   set genre(value: string) {
-    this._setTextFrameValue('TCON', value);
+    this._setTextFrameValue("TCON", value);
   }
 
   get year(): number {
-    const dateStr = this._getTextFrameValue('TDRC') || this._getTextFrameValue('TYER');
+    const dateStr = this._getTextFrameValue("TDRC") || this._getTextFrameValue("TYER");
     if (!dateStr) return 0;
     const parsed = parseInt(dateStr.substring(0, 4), 10);
     return isNaN(parsed) ? 0 : parsed;
@@ -296,18 +296,18 @@ export class Id3v2Tag extends Tag {
 
   set year(value: number) {
     if (value === 0) {
-      this.removeFrames('TDRC');
-      this.removeFrames('TYER');
+      this.removeFrames("TDRC");
+      this.removeFrames("TYER");
       return;
     }
-    this._setTextFrameValue('TDRC', String(value));
+    this._setTextFrameValue("TDRC", String(value));
   }
 
   get track(): number {
-    const trackStr = this._getTextFrameValue('TRCK');
+    const trackStr = this._getTextFrameValue("TRCK");
     if (!trackStr) return 0;
     // May contain "3/12" format
-    const slashIndex = trackStr.indexOf('/');
+    const slashIndex = trackStr.indexOf("/");
     const numStr = slashIndex >= 0 ? trackStr.substring(0, slashIndex) : trackStr;
     const parsed = parseInt(numStr, 10);
     return isNaN(parsed) ? 0 : parsed;
@@ -315,10 +315,10 @@ export class Id3v2Tag extends Tag {
 
   set track(value: number) {
     if (value === 0) {
-      this.removeFrames('TRCK');
+      this.removeFrames("TRCK");
       return;
     }
-    this._setTextFrameValue('TRCK', String(value));
+    this._setTextFrameValue("TRCK", String(value));
   }
 
   // ---------------------------------------------------------------------------
@@ -346,11 +346,11 @@ export class Id3v2Tag extends Tag {
   }
 
   frameListByFrameId(frameId: ByteVector | string): Id3v2Frame[] {
-    const id = typeof frameId === 'string'
+    const id = typeof frameId === "string"
       ? ByteVector.fromString(frameId, StringType.Latin1)
       : frameId;
     return this._frames.filter(
-      (f) => f.header.frameId.equals(id),
+      f => f.header.frameId.equals(id),
     );
   }
 
@@ -366,11 +366,11 @@ export class Id3v2Tag extends Tag {
   }
 
   removeFrames(frameId: ByteVector | string): void {
-    const id = typeof frameId === 'string'
+    const id = typeof frameId === "string"
       ? ByteVector.fromString(frameId, StringType.Latin1)
       : frameId;
     this._frames = this._frames.filter(
-      (f) => !f.header.frameId.equals(id),
+      f => !f.header.frameId.equals(id),
     );
   }
 
@@ -420,7 +420,7 @@ export class Id3v2Tag extends Tag {
       const frameId = frame.header.frameId.toString(StringType.Latin1);
       const propName = frameIdToProperty.get(frameId);
 
-      if (frameId === 'TXXX' && frame instanceof UserTextIdentificationFrame) {
+      if (frameId === "TXXX" && frame instanceof UserTextIdentificationFrame) {
         const desc = frame.description;
         if (desc) {
           const values = frame.text ? [frame.text] : [];
@@ -431,38 +431,38 @@ export class Id3v2Tag extends Tag {
         continue;
       }
 
-      if (frameId === 'UFID' && frame instanceof UniqueFileIdentifierFrame) {
-        if (frame.owner === 'http://musicbrainz.org') {
+      if (frameId === "UFID" && frame instanceof UniqueFileIdentifierFrame) {
+        if (frame.owner === "http://musicbrainz.org") {
           const id = frame.identifier;
           if (id && id.length > 0) {
-            map.replace('MUSICBRAINZ_TRACKID', [id.toString(StringType.Latin1)]);
+            map.replace("MUSICBRAINZ_TRACKID", [id.toString(StringType.Latin1)]);
           }
         }
         continue;
       }
 
-      if (frameId === 'COMM' && frame instanceof CommentsFrame) {
+      if (frameId === "COMM" && frame instanceof CommentsFrame) {
         const text = frame.text;
         if (text) {
-          const existing = map.get('COMMENT');
+          const existing = map.get("COMMENT");
           if (existing) {
             existing.push(text);
           } else {
-            map.replace('COMMENT', [text]);
+            map.replace("COMMENT", [text]);
           }
         }
         continue;
       }
 
-      if (frameId === 'USLT' && frame instanceof UnsynchronizedLyricsFrame) {
+      if (frameId === "USLT" && frame instanceof UnsynchronizedLyricsFrame) {
         const text = frame.text;
         if (text) {
-          map.replace('LYRICS', [text]);
+          map.replace("LYRICS", [text]);
         }
         continue;
       }
 
-      if (frameId === 'WXXX' && frame instanceof UserUrlLinkFrame) {
+      if (frameId === "WXXX" && frame instanceof UserUrlLinkFrame) {
         const desc = frame.description;
         const url = frame.url;
         if (desc && url) {
@@ -474,7 +474,7 @@ export class Id3v2Tag extends Tag {
       if (propName && frame instanceof TextIdentificationFrame) {
         const text = frame.text;
         if (text) {
-          if (frameId === 'TCON') {
+          if (frameId === "TCON") {
             // Parse genre references
             const parsed = parseGenreString(text);
             if (parsed) {
@@ -503,12 +503,12 @@ export class Id3v2Tag extends Tag {
       const frameId = propertyToFrameId.get(key);
       if (frameId) {
         this.removeFrames(frameId);
-      } else if (key === 'COMMENT') {
-        this.removeFrames('COMM');
-      } else if (key === 'LYRICS') {
-        this.removeFrames('USLT');
-      } else if (key === 'MUSICBRAINZ_TRACKID') {
-        this.removeFrames('UFID');
+      } else if (key === "COMMENT") {
+        this.removeFrames("COMM");
+      } else if (key === "LYRICS") {
+        this.removeFrames("USLT");
+      } else if (key === "MUSICBRAINZ_TRACKID") {
+        this.removeFrames("UFID");
       }
     }
 
@@ -526,7 +526,7 @@ export class Id3v2Tag extends Tag {
         continue;
       }
 
-      if (key === 'COMMENT') {
+      if (key === "COMMENT") {
         for (const val of values) {
           const frame = new CommentsFrame();
           frame.text = val;
@@ -535,16 +535,16 @@ export class Id3v2Tag extends Tag {
         continue;
       }
 
-      if (key === 'LYRICS') {
+      if (key === "LYRICS") {
         const frame = new UnsynchronizedLyricsFrame();
         frame.text = values[0];
         this.addFrame(frame);
         continue;
       }
 
-      if (key === 'MUSICBRAINZ_TRACKID') {
+      if (key === "MUSICBRAINZ_TRACKID") {
         const frame = new UniqueFileIdentifierFrame(
-          'http://musicbrainz.org',
+          "http://musicbrainz.org",
           ByteVector.fromString(values[0], StringType.Latin1),
         );
         this.addFrame(frame);
@@ -564,22 +564,22 @@ export class Id3v2Tag extends Tag {
   override complexPropertyKeys(): string[] {
     const keys: string[] = [];
     const hasPicture = this._frames.some(
-      (f) => f.header.frameId.toString(StringType.Latin1) === 'APIC',
+      f => f.header.frameId.toString(StringType.Latin1) === "APIC",
     );
-    if (hasPicture) keys.push('PICTURE');
+    if (hasPicture) keys.push("PICTURE");
     return keys;
   }
 
   override complexProperties(key: string): VariantMap[] {
-    if (key.toUpperCase() === 'PICTURE') {
+    if (key.toUpperCase() === "PICTURE") {
       const result: VariantMap[] = [];
-      for (const f of this.frameListByFrameId('APIC')) {
+      for (const f of this.frameListByFrameId("APIC")) {
         if (f instanceof AttachedPictureFrame) {
           const m = new Map<string, Variant>();
-          m.set('data', Variant.fromByteVector(f.picture));
-          m.set('mimeType', Variant.fromString(f.mimeType));
-          m.set('description', Variant.fromString(f.description));
-          m.set('pictureType', Variant.fromString(String(f.pictureType)));
+          m.set("data", Variant.fromByteVector(f.picture));
+          m.set("mimeType", Variant.fromString(f.mimeType));
+          m.set("description", Variant.fromString(f.description));
+          m.set("pictureType", Variant.fromString(String(f.pictureType)));
           result.push(m);
         }
       }
@@ -589,17 +589,17 @@ export class Id3v2Tag extends Tag {
   }
 
   override setComplexProperties(key: string, value: VariantMap[]): boolean {
-    if (key.toUpperCase() === 'PICTURE') {
-      this.removeFrames('APIC');
+    if (key.toUpperCase() === "PICTURE") {
+      this.removeFrames("APIC");
       for (const m of value) {
         const frame = new AttachedPictureFrame();
-        const data = m.get('data');
+        const data = m.get("data");
         if (data) frame.picture = data.toByteVector();
-        const mimeType = m.get('mimeType');
+        const mimeType = m.get("mimeType");
         if (mimeType) frame.mimeType = mimeType.toString();
-        const desc = m.get('description');
+        const desc = m.get("description");
         if (desc) frame.description = desc.toString();
-        const picType = m.get('pictureType');
+        const picType = m.get("pictureType");
         if (picType) {
           const typeNum = parseInt(picType.toString(), 10);
           if (!isNaN(typeNum)) frame.pictureType = typeNum as PictureType;
@@ -619,10 +619,10 @@ export class Id3v2Tag extends Tag {
     const frames = this.frameListByFrameId(frameId);
     for (const f of frames) {
       if (f instanceof TextIdentificationFrame) {
-        return f.text || '';
+        return f.text || "";
       }
     }
-    return '';
+    return "";
   }
 
   private _setTextFrameValue(frameId: string, value: string): void {

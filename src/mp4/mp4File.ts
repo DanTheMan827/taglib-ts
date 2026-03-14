@@ -1,8 +1,6 @@
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
-import { AudioProperties } from "../audioProperties.js";
-import { Tag } from "../tag.js";
-import { type offset_t, Position, ReadStyle } from "../toolkit/types.js";
+import { ReadStyle } from "../toolkit/types.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 import type { VariantMap } from "../toolkit/variant.js";

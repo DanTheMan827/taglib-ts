@@ -1,4 +1,4 @@
-import { ByteVector } from '../../byteVector.js';
+import { ByteVector } from "../../byteVector.js";
 
 /**
  * Synchsafe integer encoding/decoding for ID3v2.
@@ -75,7 +75,7 @@ export class SynchData {
     }
 
     if (srcIdx < src.length) {
-      result[dstIdx++] = src[srcIdx++];
+      result[dstIdx++] = src[srcIdx];
     }
 
     return new ByteVector(result.slice(0, dstIdx));

@@ -1,5 +1,5 @@
-import { ByteVector } from '../../byteVector.js';
-import { Id3v2Header } from './id3v2Header.js';
+import { ByteVector } from "../../byteVector.js";
+import { Id3v2Header } from "./id3v2Header.js";
 
 /**
  * ID3v2 footer (v2.4 only).
@@ -13,7 +13,7 @@ export class Id3v2Footer {
   static readonly size: number = 10;
 
   /** The footer file identifier "3DI". */
-  static readonly fileIdentifier: ByteVector = ByteVector.fromString('3DI');
+  static readonly fileIdentifier: ByteVector = ByteVector.fromString("3DI");
 
   constructor() {}
 

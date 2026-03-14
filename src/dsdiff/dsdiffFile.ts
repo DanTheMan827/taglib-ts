@@ -2,7 +2,7 @@ import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";
 import { CombinedTag } from "../combinedTag.js";
-import { type offset_t, Position, ReadStyle } from "../toolkit/types.js";
+import { Position, ReadStyle } from "../toolkit/types.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 import { Id3v2Tag } from "../mpeg/id3v2/id3v2Tag.js";
 import { DsdiffProperties } from "./dsdiffProperties.js";

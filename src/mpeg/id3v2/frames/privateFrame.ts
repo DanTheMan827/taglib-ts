@@ -1,9 +1,9 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * Private frame (PRIV).
@@ -11,12 +11,12 @@ import {
  * Structure: owner(null-terminated Latin1) + data.
  */
 export class PrivateFrame extends Id3v2Frame {
-  private _owner: string = '';
+  private _owner: string = "";
   private _data: ByteVector = new ByteVector();
 
   constructor() {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('PRIV', StringType.Latin1),
+      ByteVector.fromString("PRIV", StringType.Latin1),
     );
     super(header);
   }

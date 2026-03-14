@@ -22,10 +22,8 @@
  * ```
  */
 
-import { FileRef } from './fileRef.js';
-import { ByteVector } from './byteVector.js';
-import { ByteVectorStream } from './toolkit/byteVectorStream.js';
-import { ReadStyle } from './toolkit/types.js';
+import { FileRef } from "./fileRef.js";
+import { ByteVectorStream } from "./toolkit/byteVectorStream.js";
 
 /**
  * Plain-object representation of audio file tags.
@@ -138,11 +136,11 @@ export async function readTags(
   const ref = await openFileRef(input, readAudioProperties);
 
   const empty: Tags = {
-    title: '',
-    artist: '',
-    album: '',
-    comment: '',
-    genre: '',
+    title: "",
+    artist: "",
+    album: "",
+    comment: "",
+    genre: "",
     year: 0,
     track: 0,
     audioProperties: null,
@@ -154,21 +152,21 @@ export async function readTags(
   const ap = ref.audioProperties();
 
   return {
-    title: tag?.title ?? '',
-    artist: tag?.artist ?? '',
-    album: tag?.album ?? '',
-    comment: tag?.comment ?? '',
-    genre: tag?.genre ?? '',
+    title: tag?.title ?? "",
+    artist: tag?.artist ?? "",
+    album: tag?.album ?? "",
+    comment: tag?.comment ?? "",
+    genre: tag?.genre ?? "",
     year: tag?.year ?? 0,
     track: tag?.track ?? 0,
     audioProperties: ap
       ? {
-          lengthInSeconds: ap.lengthInSeconds,
-          lengthInMilliseconds: ap.lengthInMilliseconds,
-          bitrate: ap.bitrate,
-          sampleRate: ap.sampleRate,
-          channels: ap.channels,
-        }
+        lengthInSeconds: ap.lengthInSeconds,
+        lengthInMilliseconds: ap.lengthInMilliseconds,
+        bitrate: ap.bitrate,
+        sampleRate: ap.sampleRate,
+        channels: ap.channels,
+      }
       : null,
   };
 }
@@ -240,9 +238,9 @@ async function openFileRef(
 ): Promise<FileRef | null> {
   try {
     if (input instanceof Uint8Array) {
-      return FileRef.fromByteArray(input, '', readProperties);
+      return FileRef.fromByteArray(input, "", readProperties);
     }
-    if (typeof File !== 'undefined' && input instanceof File) {
+    if (typeof File !== "undefined" && input instanceof File) {
       return FileRef.fromBlob(input, input.name, readProperties);
     }
     if (input instanceof Blob) {

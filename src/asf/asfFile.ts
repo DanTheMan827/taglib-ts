@@ -385,7 +385,7 @@ export class AsfFile extends File {
     }
 
     // Render all objects
-    let data = new ByteVector();
+    const data = new ByteVector();
     for (const obj of this._objects) {
       data.append(obj.render(this));
     }

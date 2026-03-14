@@ -1,5 +1,5 @@
-import { ByteVector } from '../../byteVector.js';
-import { SynchData } from './id3v2SynchData.js';
+import { ByteVector } from "../../byteVector.js";
+import { SynchData } from "./id3v2SynchData.js";
 
 /**
  * ID3v2 extended header (optional, indicated by header flags).
@@ -23,7 +23,7 @@ export class Id3v2ExtendedHeader {
    *   implementation reads the first 4 bytes as a synchsafe integer
    *   regardless of version.
    */
-  parse(data: ByteVector, version: number): void {
+  parse(data: ByteVector, _version: number): void {
     this._size = SynchData.toUInt(data.mid(0, 4));
   }
 

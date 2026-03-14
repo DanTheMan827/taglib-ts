@@ -1,5 +1,5 @@
-import { ByteVector, StringType } from '../../byteVector.js';
-import { SynchData } from './id3v2SynchData.js';
+import { ByteVector, StringType } from "../../byteVector.js";
+import { SynchData } from "./id3v2SynchData.js";
 
 /**
  * ID3v2 frame header.

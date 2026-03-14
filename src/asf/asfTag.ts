@@ -108,7 +108,7 @@ export class AsfTag extends Tag {
   get album(): string {
     const attrs = this._attributeListMap.get("WM/AlbumTitle");
     if (attrs && attrs.length > 0) {
-      return Tag.joinTagValues(attrs.map((a) => a.toString()));
+      return Tag.joinTagValues(attrs.map(a => a.toString()));
     }
     return "";
   }
@@ -120,7 +120,7 @@ export class AsfTag extends Tag {
   get genre(): string {
     const attrs = this._attributeListMap.get("WM/Genre");
     if (attrs && attrs.length > 0) {
-      return Tag.joinTagValues(attrs.map((a) => a.toString()));
+      return Tag.joinTagValues(attrs.map(a => a.toString()));
     }
     return "";
   }

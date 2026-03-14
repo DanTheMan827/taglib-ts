@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { ShortenFile } from '../src/shorten/shortenFile.js';
-import { ReadStyle } from '../src/toolkit/types.js';
-import { openTestStream } from './testHelper.js';
+import { describe, it, expect } from "vitest";
+import { ShortenFile } from "../src/shorten/shortenFile.js";
+import { ReadStyle } from "../src/toolkit/types.js";
+import { openTestStream } from "./testHelper.js";
 
-describe('Shorten', () => {
-  it('should read basic audio properties', () => {
-    const stream = openTestStream('2sec-silence.shn');
+describe("Shorten", () => {
+  it("should read basic audio properties", () => {
+    const stream = openTestStream("2sec-silence.shn");
     const f = new ShortenFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
 
@@ -24,9 +24,9 @@ describe('Shorten', () => {
     expect(props!.sampleFrames).toBe(88200);
   });
 
-  it('should handle tags (empty - read only format)', () => {
+  it("should handle tags (empty - read only format)", () => {
     // Shorten format has no writable tags; testTags in C++ is empty
-    const stream = openTestStream('2sec-silence.shn');
+    const stream = openTestStream("2sec-silence.shn");
     const f = new ShortenFile(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     // save() should return false for read-only format

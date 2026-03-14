@@ -1,10 +1,10 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
   nullTerminatorSize,
-} from '../id3v2Frame.js';
+} from "../id3v2Frame.js";
 
 /**
  * URL link frame (W*** except WXXX).
@@ -12,7 +12,7 @@ import {
  * Structure: url (Latin1 text, no encoding byte, no null terminator).
  */
 export class UrlLinkFrame extends Id3v2Frame {
-  private _url: string = '';
+  private _url: string = "";
   private _rawData: ByteVector | undefined;
 
   constructor(frameId: ByteVector) {
@@ -78,11 +78,11 @@ export class UrlLinkFrame extends Id3v2Frame {
  */
 export class UserUrlLinkFrame extends UrlLinkFrame {
   private _encoding: StringType = StringType.UTF8;
-  private _description: string = '';
+  private _description: string = "";
   private _rawWxxxData: ByteVector | undefined;
 
   constructor(encoding: StringType = StringType.UTF8) {
-    super(ByteVector.fromString('WXXX', StringType.Latin1));
+    super(ByteVector.fromString("WXXX", StringType.Latin1));
     this._encoding = encoding;
   }
 

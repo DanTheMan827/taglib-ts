@@ -1,5 +1,5 @@
-import { ByteVector, StringType } from '../../../byteVector.js';
-import { Id3v2Frame, Id3v2FrameHeader } from '../id3v2Frame.js';
+import { ByteVector, StringType } from "../../../byteVector.js";
+import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 
 /** Channel types for the RVA2 frame. */
 export enum ChannelType {
@@ -32,12 +32,12 @@ interface ChannelData {
  *                     + bitsRepresentingPeak(1) + peakVolume(variable).
  */
 export class RelativeVolumeFrame extends Id3v2Frame {
-  private _identification: string = '';
+  private _identification: string = "";
   private _channelMap: Map<ChannelType, ChannelData> = new Map();
 
   constructor() {
     const header = new Id3v2FrameHeader(
-      ByteVector.fromString('RVA2', StringType.Latin1),
+      ByteVector.fromString("RVA2", StringType.Latin1),
     );
     super(header);
   }

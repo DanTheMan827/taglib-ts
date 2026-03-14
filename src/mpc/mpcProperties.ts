@@ -214,10 +214,8 @@ export class MpcProperties extends AudioProperties {
           this._lengthInMs = Math.round(length);
           this._bitrate = Math.round((streamLength * 8.0) / length);
         }
-      }
-
-      // "RG" – Replay Gain
-      else if (pt0 === 0x52 && pt1 === 0x47) {
+      } else if (pt0 === 0x52 && pt1 === 0x47) {
+        // "RG" – Replay Gain
         if (dataSize <= 9) break;
 
         readRG = true;
@@ -229,10 +227,8 @@ export class MpcProperties extends AudioProperties {
           this._albumGain = data.toShort(5, true);
           this._albumPeak = data.toShort(7, true);
         }
-      }
-
-      // "SE" – Stream End
-      else if (pt0 === 0x53 && pt1 === 0x45) {
+      } else if (pt0 === 0x53 && pt1 === 0x45) {
+        // "SE" – Stream End
         break;
       }
     }
