@@ -152,6 +152,10 @@ export class FileRef {
           const { ShortenFile } = await import('./shorten/shortenFile.js');
           return new ShortenFile(stream, readProperties, readStyle);
         }
+        case 'asf': {
+          const { AsfFile } = await import('./asf/asfFile.js');
+          return new AsfFile(stream, readProperties, readStyle);
+        }
         default:
           return null;
       }

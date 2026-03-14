@@ -11,7 +11,7 @@ export function detectByExtension(name: string): string | null {
     case 'SPX': return 'ogg-speex';
     case 'FLAC': return 'flac';
     case 'M4A': case 'M4B': case 'M4P': case 'M4R': case 'M4V': case 'MP4': case '3G2': case 'AAX': return 'mp4';
-    case 'WMA': case 'ASF': return 'asf';
+    case 'WMA': case 'WMV': case 'ASF': return 'asf';
     case 'AIF': case 'AIFF': case 'AFC': case 'AIFC': return 'aiff';
     case 'WAV': return 'wav';
     case 'MPC': return 'mpc';
@@ -35,6 +35,15 @@ export function detectByContent(stream: IOStream): string | null {
   const header = stream.readBlock(36);
 
   if (header.length < 4) return null;
+
+  // ASF: starts with Header Object GUID (16 bytes)
+  if (header.length >= 16) {
+    const asfGuid = ByteVector.fromByteArray(new Uint8Array([
+      0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11,
+      0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C,
+    ]));
+    if (header.containsAt(asfGuid, 0)) return 'asf';
+  }
 
   // FLAC: "fLaC"
   if (header.containsAt(ByteVector.fromString('fLaC', StringType.Latin1), 0)) return 'flac';
@@ -172,7 +181,7 @@ export function defaultFileExtensions(): string[] {
   return [
     'mp3', 'mp2', 'aac', 'ogg', 'oga', 'opus', 'spx', 'flac',
     'm4a', 'm4b', 'm4p', 'm4r', 'm4v', 'mp4', '3g2', 'aax',
-    'wma', 'asf', 'aif', 'aiff', 'afc', 'aifc', 'wav',
+    'wma', 'wmv', 'asf', 'aif', 'aiff', 'afc', 'aifc', 'wav',
     'mpc', 'wv', 'ape', 'tta', 'dsf', 'dff', 'dsdiff',
     'mod', 's3m', 'it', 'xm', 'shn', 'mka', 'mkv', 'webm',
   ];

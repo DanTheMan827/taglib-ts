@@ -125,3 +125,10 @@ export { ItProperties } from './it/itProperties.js';
 export { ShortenFile } from './shorten/shortenFile.js';
 export { ShortenProperties } from './shorten/shortenProperties.js';
 export { ShortenTag } from './shorten/shortenTag.js';
+
+// ASF (Windows Media Audio)
+export { AsfFile } from './asf/asfFile.js';
+export { AsfTag } from './asf/asfTag.js';
+export { AsfProperties, AsfCodec } from './asf/asfProperties.js';
+export { AsfAttribute, AsfAttributeType } from './asf/asfAttribute.js';
+export { AsfPicture, AsfPictureType } from './asf/asfPicture.js';
