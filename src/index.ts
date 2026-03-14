@@ -6,6 +6,10 @@ export { File } from './file.js';
 export { CombinedTag } from './combinedTag.js';
 export { FileRef } from './fileRef.js';
 
+// Simple API
+export { readTags, writeTags } from './simpleApi.js';
+export type { Tags, TagsToWrite, AudioPropertiesInfo, AudioInput } from './simpleApi.js';
+
 // Toolkit
 export { IOStream } from './toolkit/ioStream.js';
 export { ByteVectorStream } from './toolkit/byteVectorStream.js';

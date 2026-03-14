@@ -27,6 +27,11 @@ export abstract class File {
     return this._stream.name();
   }
 
+  /** The underlying I/O stream used by this file. */
+  stream(): IOStream {
+    return this._stream;
+  }
+
   abstract tag(): Tag | null;
   abstract audioProperties(): AudioProperties | null;
   abstract save(): boolean;
