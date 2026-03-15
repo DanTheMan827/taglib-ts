@@ -16,21 +16,34 @@
 #include <vector>
 #include <algorithm>
 
-#include <taglib/fileref.h>
-#include <taglib/tag.h>
+#include <taglib/aifffile.h>
+#include <taglib/apefile.h>
+#include <taglib/apetag.h>
+#include <taglib/asffile.h>
+#include <taglib/asfpicture.h>
+#include <taglib/asftag.h>
+#include <taglib/attachedpictureframe.h>
 #include <taglib/audioproperties.h>
+#include <taglib/dsdifffile.h>
+#include <taglib/dsffile.h>
+#include <taglib/fileref.h>
 #include <taglib/flacfile.h>
 #include <taglib/flacpicture.h>
-#include <taglib/vorbisfile.h>
-#include <taglib/xiphcomment.h>
-#include <taglib/mpegfile.h>
 #include <taglib/id3v2tag.h>
-#include <taglib/attachedpictureframe.h>
+#include <taglib/matroskafile.h>
 #include <taglib/mp4file.h>
 #include <taglib/mp4tag.h>
 #include <taglib/mp4coverart.h>
+#include <taglib/mpcfile.h>
+#include <taglib/mpegfile.h>
+#include <taglib/opusfile.h>
+#include <taglib/speexfile.h>
+#include <taglib/tag.h>
+#include <taglib/trueaudiofile.h>
+#include <taglib/vorbisfile.h>
 #include <taglib/wavfile.h>
-#include <taglib/aifffile.h>
+#include <taglib/wavpackfile.h>
+#include <taglib/xiphcomment.h>
 
 // Escape a UTF-8 string for JSON output
 static std::string jsonEscape(const std::string &s) {
@@ -70,96 +83,102 @@ struct PictureInfo {
   int size = 0;
 };
 
-static std::vector<PictureInfo> getPictures(const std::string &path) {
+static std::string picInfoToJson(const PictureInfo &p) {
+  std::ostringstream out;
+  out << "{"
+      << "\"mimeType\":\"" << jsonEscape(p.mimeType) << "\","
+      << "\"description\":\"" << jsonEscape(p.description) << "\","
+      << "\"type\":" << p.type << ","
+      << "\"size\":" << p.size
+      << "}";
+  return out.str();
+}
+
+static std::vector<PictureInfo> getPictures(const std::string &path, const std::string &ext) {
   std::vector<PictureInfo> pics;
-  const std::string ext = getExt(path);
+
+  auto addAPIC = [&](TagLib::ID3v2::Tag *id3) {
+    if (!id3) return;
+    const auto &fl = id3->frameListMap()["APIC"];
+    for (auto *frame : fl) {
+      auto *apic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
+      if (apic) {
+        pics.push_back({
+          apic->mimeType().toCString(true),
+          apic->description().toCString(true),
+          static_cast<int>(apic->type()),
+          static_cast<int>(apic->picture().size())
+        });
+      }
+    }
+  };
+
+  auto addFLACPic = [&](const TagLib::List<TagLib::FLAC::Picture *> &list) {
+    for (auto *p : list) {
+      pics.push_back({
+        p->mimeType().toCString(true),
+        p->description().toCString(true),
+        static_cast<int>(p->type()),
+        static_cast<int>(p->data().size())
+      });
+    }
+  };
+
+  auto addXiphPic = [&](TagLib::Ogg::XiphComment *xiph) {
+    if (!xiph) return;
+    addFLACPic(xiph->pictureList());
+  };
 
   if (ext == ".flac") {
     TagLib::FLAC::File f(path.c_str());
-    if (f.isValid()) {
-      for (auto *p : f.pictureList()) {
-        PictureInfo pi;
-        pi.mimeType = p->mimeType().toCString(true);
-        pi.description = p->description().toCString(true);
-        pi.type = static_cast<int>(p->type());
-        pi.size = static_cast<int>(p->data().size());
-        pics.push_back(pi);
-      }
-    }
+    if (f.isValid()) addFLACPic(f.pictureList());
   } else if (ext == ".ogg") {
     TagLib::Ogg::Vorbis::File f(path.c_str());
-    if (f.isValid() && f.tag()) {
-      for (auto *p : f.tag()->pictureList()) {
-        PictureInfo pi;
-        pi.mimeType = p->mimeType().toCString(true);
-        pi.description = p->description().toCString(true);
-        pi.type = static_cast<int>(p->type());
-        pi.size = static_cast<int>(p->data().size());
-        pics.push_back(pi);
-      }
-    }
+    if (f.isValid()) addXiphPic(f.tag());
+  } else if (ext == ".opus") {
+    TagLib::Ogg::Opus::File f(path.c_str());
+    if (f.isValid()) addXiphPic(f.tag());
+  } else if (ext == ".spx") {
+    TagLib::Ogg::Speex::File f(path.c_str());
+    if (f.isValid()) addXiphPic(f.tag());
   } else if (ext == ".mp3") {
     TagLib::MPEG::File f(path.c_str());
-    if (f.isValid() && f.ID3v2Tag()) {
-      const auto &frameList = f.ID3v2Tag()->frameListMap()["APIC"];
-      for (auto *frame : frameList) {
-        auto *apic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
-        if (apic) {
-          PictureInfo pi;
-          pi.mimeType = apic->mimeType().toCString(true);
-          pi.description = apic->description().toCString(true);
-          pi.type = static_cast<int>(apic->type());
-          pi.size = static_cast<int>(apic->picture().size());
-          pics.push_back(pi);
-        }
-      }
-    }
-  } else if (ext == ".m4a" || ext == ".mp4" || ext == ".aac") {
+    if (f.isValid()) addAPIC(f.ID3v2Tag());
+  } else if (ext == ".m4a" || ext == ".mp4" || ext == ".aac" || ext == ".alac") {
     TagLib::MP4::File f(path.c_str());
     if (f.isValid() && f.tag() && f.tag()->contains("covr")) {
       auto coverList = f.tag()->item("covr").toCoverArtList();
       for (const auto &cover : coverList) {
-        PictureInfo pi;
-        if (cover.format() == TagLib::MP4::CoverArt::JPEG)
-          pi.mimeType = "image/jpeg";
-        else if (cover.format() == TagLib::MP4::CoverArt::PNG)
-          pi.mimeType = "image/png";
-        else
-          pi.mimeType = "image/unknown";
-        pi.size = static_cast<int>(cover.data().size());
-        pi.type = 3; // FrontCover
-        pics.push_back(pi);
+        std::string mime = "image/unknown";
+        if (cover.format() == TagLib::MP4::CoverArt::JPEG) mime = "image/jpeg";
+        else if (cover.format() == TagLib::MP4::CoverArt::PNG)  mime = "image/png";
+        pics.push_back({ mime, "", 3, static_cast<int>(cover.data().size()) });
       }
     }
   } else if (ext == ".wav") {
     TagLib::RIFF::WAV::File f(path.c_str());
-    if (f.isValid() && f.ID3v2Tag()) {
-      const auto &frameList = f.ID3v2Tag()->frameListMap()["APIC"];
-      for (auto *frame : frameList) {
-        auto *apic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
-        if (apic) {
-          PictureInfo pi;
-          pi.mimeType = apic->mimeType().toCString(true);
-          pi.description = apic->description().toCString(true);
-          pi.type = static_cast<int>(apic->type());
-          pi.size = static_cast<int>(apic->picture().size());
-          pics.push_back(pi);
-        }
-      }
-    }
+    if (f.isValid()) addAPIC(f.ID3v2Tag());
   } else if (ext == ".aif" || ext == ".aiff") {
     TagLib::RIFF::AIFF::File f(path.c_str());
+    if (f.isValid()) addAPIC(f.tag());
+  } else if (ext == ".tta") {
+    TagLib::TrueAudio::File f(path.c_str());
+    if (f.isValid()) addAPIC(f.ID3v2Tag());
+  } else if (ext == ".dsf") {
+    TagLib::DSF::File f(path.c_str());
+    if (f.isValid()) addAPIC(f.tag());
+  } else if (ext == ".asf" || ext == ".wma") {
+    TagLib::ASF::File f(path.c_str());
     if (f.isValid() && f.tag()) {
-      const auto &frameList = f.tag()->frameListMap()["APIC"];
-      for (auto *frame : frameList) {
-        auto *apic = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame *>(frame);
-        if (apic) {
-          PictureInfo pi;
-          pi.mimeType = apic->mimeType().toCString(true);
-          pi.description = apic->description().toCString(true);
-          pi.type = static_cast<int>(apic->type());
-          pi.size = static_cast<int>(apic->picture().size());
-          pics.push_back(pi);
+      for (const auto &attr : f.tag()->attribute("WM/Picture")) {
+        const auto &pic = attr.toPicture();
+        if (pic.isValid()) {
+          pics.push_back({
+            pic.mimeType().toCString(true),
+            pic.description().toCString(true),
+            static_cast<int>(pic.type()),
+            static_cast<int>(pic.picture().size())
+          });
         }
       }
     }
@@ -175,6 +194,8 @@ int main(int argc, char *argv[]) {
   }
 
   const std::string path = argv[1];
+  const std::string ext  = getExt(path);
+
   TagLib::FileRef f(path.c_str());
 
   if (f.isNull() || !f.tag()) {
@@ -183,26 +204,26 @@ int main(int argc, char *argv[]) {
   }
 
   auto *tag = f.tag();
-  auto *ap = f.audioProperties();
-  auto pictures = getPictures(path);
+  auto *ap  = f.audioProperties();
+  auto pictures = getPictures(path, ext);
 
   std::ostringstream json;
   json << "{";
   json << "\"valid\":true,";
-  json << "\"title\":\"" << jsonEscape(tag->title().toCString(true)) << "\",";
-  json << "\"artist\":\"" << jsonEscape(tag->artist().toCString(true)) << "\",";
-  json << "\"album\":\"" << jsonEscape(tag->album().toCString(true)) << "\",";
+  json << "\"title\":\""   << jsonEscape(tag->title().toCString(true))   << "\",";
+  json << "\"artist\":\""  << jsonEscape(tag->artist().toCString(true))  << "\",";
+  json << "\"album\":\""   << jsonEscape(tag->album().toCString(true))   << "\",";
   json << "\"comment\":\"" << jsonEscape(tag->comment().toCString(true)) << "\",";
-  json << "\"genre\":\"" << jsonEscape(tag->genre().toCString(true)) << "\",";
-  json << "\"year\":" << tag->year() << ",";
-  json << "\"track\":" << tag->track();
+  json << "\"genre\":\""   << jsonEscape(tag->genre().toCString(true))   << "\",";
+  json << "\"year\":"      << tag->year()  << ",";
+  json << "\"track\":"     << tag->track();
 
   if (ap) {
-    json << ",\"duration\":" << ap->length();
+    json << ",\"duration\":"   << ap->lengthInSeconds();
     json << ",\"durationMs\":" << ap->lengthInMilliseconds();
-    json << ",\"bitrate\":" << ap->bitrate();
+    json << ",\"bitrate\":"    << ap->bitrate();
     json << ",\"sampleRate\":" << ap->sampleRate();
-    json << ",\"channels\":" << ap->channels();
+    json << ",\"channels\":"   << ap->channels();
   }
 
   json << ",\"pictureCount\":" << pictures.size();
@@ -211,13 +232,7 @@ int main(int argc, char *argv[]) {
     json << ",\"pictures\":[";
     for (size_t i = 0; i < pictures.size(); ++i) {
       if (i > 0) json << ",";
-      const auto &p = pictures[i];
-      json << "{";
-      json << "\"mimeType\":\"" << jsonEscape(p.mimeType) << "\",";
-      json << "\"description\":\"" << jsonEscape(p.description) << "\",";
-      json << "\"type\":" << p.type << ",";
-      json << "\"size\":" << p.size;
-      json << "}";
+      json << picInfoToJson(pictures[i]);
     }
     json << "]";
   }

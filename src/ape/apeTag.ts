@@ -199,7 +199,9 @@ const APE_TO_PROPERTY: ReadonlyMap<string, string> = new Map([
   ["ALBUM", "ALBUM"],
   ["COMMENT", "COMMENT"],
   ["GENRE", "GENRE"],
+  ["YEAR", "DATE"],
   ["DATE", "DATE"],
+  ["TRACK", "TRACKNUMBER"],
   ["TRACKNUMBER", "TRACKNUMBER"],
   ["ALBUMARTIST", "ALBUMARTIST"],
   ["DISCNUMBER", "DISCNUMBER"],
@@ -215,9 +217,27 @@ const APE_TO_PROPERTY: ReadonlyMap<string, string> = new Map([
   ["ENCODER", "ENCODER"],
 ]);
 
-const PROPERTY_TO_APE: ReadonlyMap<string, string> = new Map(
-  [...APE_TO_PROPERTY.entries()].map(([ape, prop]) => [prop, ape]),
-);
+const PROPERTY_TO_APE: ReadonlyMap<string, string> = new Map([
+  ["TITLE", "TITLE"],
+  ["ARTIST", "ARTIST"],
+  ["ALBUM", "ALBUM"],
+  ["COMMENT", "COMMENT"],
+  ["GENRE", "GENRE"],
+  ["DATE", "YEAR"],
+  ["TRACKNUMBER", "TRACK"],
+  ["ALBUMARTIST", "ALBUMARTIST"],
+  ["DISCNUMBER", "DISCNUMBER"],
+  ["COMPOSER", "COMPOSER"],
+  ["SUBTITLE", "SUBTITLE"],
+  ["ISRC", "ISRC"],
+  ["LABEL", "LABEL"],
+  ["CONDUCTOR", "CONDUCTOR"],
+  ["LYRICS", "LYRICS"],
+  ["REMIXER", "REMIXER"],
+  ["COMPILATION", "COMPILATION"],
+  ["COPYRIGHT", "COPYRIGHT"],
+  ["ENCODER", "ENCODER"],
+]);
 
 // =============================================================================
 // ApeTag
@@ -269,19 +289,21 @@ export class ApeTag extends Tag {
   }
 
   get year(): number {
-    const s = this.textValue("DATE");
+    const s = this.textValue("YEAR") || this.textValue("DATE");
     return parseInt(s, 10) || 0;
   }
   set year(v: number) {
-    this.setTextValue("DATE", v > 0 ? String(v) : "");
+    this.setTextValue("YEAR", v > 0 ? String(v) : "");
+    this._items = this._items.filter(i => i.key.toUpperCase() !== "DATE");
   }
 
   get track(): number {
-    const s = this.textValue("TRACKNUMBER");
+    const s = this.textValue("TRACK") || this.textValue("TRACKNUMBER");
     return parseInt(s, 10) || 0;
   }
   set track(v: number) {
-    this.setTextValue("TRACKNUMBER", v > 0 ? String(v) : "");
+    this.setTextValue("TRACK", v > 0 ? String(v) : "");
+    this._items = this._items.filter(i => i.key.toUpperCase() !== "TRACKNUMBER");
   }
 
   /** An APE tag is empty when it contains no items. */

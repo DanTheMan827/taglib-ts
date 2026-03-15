@@ -28,8 +28,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=$HOME/.local \
             -DBUILD_TESTING=OFF \
             -DBUILD_EXAMPLES=OFF \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DWITH_ZLIB=ON
+            -DBUILD_SHARED_LIBS=OFF
 
       - name: Build & install TagLib
         run: cmake --build taglib/build -j$(nproc) && cmake --install taglib/build
