@@ -333,3 +333,173 @@ describe("C TagLib validation — OGG page structure", () => {
     expect(headerPageCount).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bidirectional validation: C TagLib → taglib-ts
+// ---------------------------------------------------------------------------
+
+const C_TAGGER = "/tmp/tag_with_c_full";
+
+function tagWithCTagLib(testFile: string, ext: string, format: string): Uint8Array {
+  const dir = mkdtempSync(join(tmpdir(), "taglib-bidir-"));
+  const input = join(__dirname, "data", testFile);
+  const output = join(dir, "tagged" + ext);
+  execSync(`${C_TAGGER} "${input}" "${output}" "${format}"`, { timeout: 10000 });
+  const { readFileSync } = require("fs") as typeof import("fs");
+  const result = readFileSync(output);
+  try { unlinkSync(output); } catch { /* ignore */ }
+  return new Uint8Array(result);
+}
+
+describe("C TagLib → taglib-ts: read tags written by C TagLib", () => {
+  it("MP3: taglib-ts reads C TagLib output", async () => {
+    const data = tagWithCTagLib("xing.mp3", ".mp3", "mp3");
+    const ref = await FileRef.fromByteArray(data, "test.mp3");
+    const tag = ref.tag()!;
+    expect(tag.title).toBe("C TagLib Title");
+    expect(tag.artist).toBe("C TagLib Artist");
+    expect(tag.album).toBe("C TagLib Album");
+    expect(tag.comment).toBe("C TagLib Comment");
+    expect(tag.genre).toBe("Rock");
+    expect(tag.year).toBe(2025);
+    expect(tag.track).toBe(42);
+
+    // Verify picture
+    const pics = ref.complexProperties("PICTURE");
+    expect(pics.length).toBe(1);
+    expect(pics[0].get("mimeType")!.toString()).toBe("image/jpeg");
+    expect(pics[0].get("data")!.toByteVector().length).toBe(128);
+  });
+
+  it("FLAC: taglib-ts reads C TagLib output", async () => {
+    const data = tagWithCTagLib("silence-44-s.flac", ".flac", "flac");
+    const ref = await FileRef.fromByteArray(data, "test.flac");
+    const tag = ref.tag()!;
+    expect(tag.title).toBe("C TagLib Title");
+    expect(tag.artist).toBe("C TagLib Artist");
+    expect(tag.year).toBe(2025);
+    expect(tag.track).toBe(42);
+
+    const pics = ref.complexProperties("PICTURE");
+    expect(pics.length).toBeGreaterThanOrEqual(1);
+    // Find the picture added by C TagLib (silence-44-s.flac may already have one)
+    const cPic = pics.find(
+      p => p.get("mimeType")?.toString() === "image/jpeg" &&
+           p.get("data")?.toByteVector().length === 128,
+    );
+    expect(cPic).toBeDefined();
+  });
+
+  it("OGG: taglib-ts reads C TagLib output", async () => {
+    const data = tagWithCTagLib("empty.ogg", ".ogg", "ogg");
+    const ref = await FileRef.fromByteArray(data, "test.ogg");
+    const tag = ref.tag()!;
+    expect(tag.title).toBe("C TagLib Title");
+    expect(tag.artist).toBe("C TagLib Artist");
+    expect(tag.year).toBe(2025);
+    expect(tag.track).toBe(42);
+
+    const pics = ref.complexProperties("PICTURE");
+    expect(pics.length).toBe(1);
+    expect(pics[0].get("mimeType")!.toString()).toBe("image/jpeg");
+  });
+
+  it("M4A: taglib-ts reads C TagLib output", async () => {
+    const data = tagWithCTagLib("has-tags.m4a", ".m4a", "m4a");
+    const ref = await FileRef.fromByteArray(data, "test.m4a");
+    const tag = ref.tag()!;
+    expect(tag.title).toBe("C TagLib Title");
+    expect(tag.artist).toBe("C TagLib Artist");
+    expect(tag.year).toBe(2025);
+    expect(tag.track).toBe(42);
+
+    const pics = ref.complexProperties("PICTURE");
+    expect(pics.length).toBe(1);
+    expect(pics[0].get("data")!.toByteVector().length).toBe(128);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round-trip: taglib-ts → C TagLib → taglib-ts
+// ---------------------------------------------------------------------------
+
+describe("Round-trip: taglib-ts → C TagLib → taglib-ts", () => {
+  it("MP3: tag with TS, validate with C, re-read with TS", async () => {
+    // Tag with taglib-ts
+    const data = readTestData("xing.mp3");
+    let ref = await FileRef.fromByteArray(new Uint8Array(data), "test.mp3");
+    ref.tag()!.title = "Round Trip";
+    ref.tag()!.artist = "TS Artist";
+    ref.tag()!.year = 2026;
+    ref.save();
+
+    const tsOutput = (ref.file()!.stream() as ByteVectorStream).data().data;
+
+    // Validate with C TagLib
+    const cResult = validateWithCTagLib(new Uint8Array(tsOutput), ".mp3");
+    expect(cResult.title).toBe("Round Trip");
+    expect(cResult.artist).toBe("TS Artist");
+    expect(cResult.year).toBe(2026);
+
+    // Re-read with taglib-ts
+    ref = await FileRef.fromByteArray(new Uint8Array(tsOutput), "test.mp3");
+    expect(ref.tag()!.title).toBe("Round Trip");
+    expect(ref.tag()!.artist).toBe("TS Artist");
+    expect(ref.tag()!.year).toBe(2026);
+  });
+
+  it("FLAC: tag with TS, validate with C, re-read with TS", async () => {
+    const data = readTestData("silence-44-s.flac");
+    let ref = await FileRef.fromByteArray(new Uint8Array(data), "test.flac");
+    ref.tag()!.title = "FLAC Round Trip";
+    ref.tag()!.artist = "FLAC Artist";
+    ref.tag()!.track = 99;
+    ref.save();
+
+    const tsOutput = (ref.file()!.stream() as ByteVectorStream).data().data;
+    const cResult = validateWithCTagLib(new Uint8Array(tsOutput), ".flac");
+    expect(cResult.title).toBe("FLAC Round Trip");
+    expect(cResult.track).toBe(99);
+
+    ref = await FileRef.fromByteArray(new Uint8Array(tsOutput), "test.flac");
+    expect(ref.tag()!.title).toBe("FLAC Round Trip");
+    expect(ref.tag()!.track).toBe(99);
+  });
+
+  it("OGG: tag with TS, validate with C, re-read with TS", async () => {
+    const data = readTestData("empty.ogg");
+    let ref = await FileRef.fromByteArray(new Uint8Array(data), "test.ogg");
+    ref.tag()!.title = "OGG Round Trip";
+    ref.tag()!.genre = "Jazz";
+    ref.save();
+
+    const tsOutput = (ref.file()!.stream() as ByteVectorStream).data().data;
+    const cResult = validateWithCTagLib(new Uint8Array(tsOutput), ".ogg");
+    expect(cResult.title).toBe("OGG Round Trip");
+    expect(cResult.genre).toBe("Jazz");
+    // Verify audio properties are preserved
+    expect(cResult.sampleRate).toBe(44100);
+    expect(cResult.channels).toBe(2);
+
+    ref = await FileRef.fromByteArray(new Uint8Array(tsOutput), "test.ogg");
+    expect(ref.tag()!.title).toBe("OGG Round Trip");
+    expect(ref.tag()!.genre).toBe("Jazz");
+  });
+
+  it("M4A: tag with TS, validate with C, re-read with TS", async () => {
+    const data = readTestData("has-tags.m4a");
+    let ref = await FileRef.fromByteArray(new Uint8Array(data), "test.m4a");
+    ref.tag()!.title = "M4A Round Trip";
+    ref.tag()!.album = "M4A Album";
+    ref.save();
+
+    const tsOutput = (ref.file()!.stream() as ByteVectorStream).data().data;
+    const cResult = validateWithCTagLib(new Uint8Array(tsOutput), ".m4a");
+    expect(cResult.title).toBe("M4A Round Trip");
+    expect(cResult.album).toBe("M4A Album");
+
+    ref = await FileRef.fromByteArray(new Uint8Array(tsOutput), "test.m4a");
+    expect(ref.tag()!.title).toBe("M4A Round Trip");
+    expect(ref.tag()!.album).toBe("M4A Album");
+  });
+});
