@@ -74,8 +74,10 @@ describe("Matroska", () => {
   describe("Tags", () => {
     it("should read tags from MKV", () => {
       const f = openMatroskaFile("tags-before-cues.mkv");
-      // tags-before-cues.mkv has tags added by Handbrake
       expect(f.isValid).toBe(true);
+      // tags-before-cues.mkv has a TITLE tag added by Handbrake
+      expect(f.tag()).not.toBeNull();
+      expect(f.tag()!.title).toBe("handbrake");
     });
 
     it("should handle file with no tags", () => {
