@@ -10,6 +10,10 @@ import {
   readUintValue,
   readStringValue,
   readElementData,
+  renderEbmlElement,
+  renderStringElement,
+  renderUintElement,
+  combineByteVectors,
   type EbmlElement,
 } from "./ebml/ebmlElement.js";
 
@@ -330,6 +334,115 @@ export class MatroskaTag extends Tag {
         attachmentUid: 0,
       });
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Serialization (EBML rendering)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Render the SimpleTag EBML element for a given tag entry.
+   */
+  private renderSimpleTag(st: SimpleTag): ByteVector {
+    const children: ByteVector[] = [];
+    children.push(renderStringElement(EbmlId.TagName, st.name));
+    if (st.binaryValue) {
+      children.push(renderEbmlElement(EbmlId.TagBinary, st.binaryValue));
+    } else {
+      children.push(renderStringElement(EbmlId.TagString, st.value));
+    }
+    if (st.language && st.language !== "und") {
+      children.push(renderStringElement(EbmlId.TagLanguage, st.language));
+    }
+    if (!st.defaultLanguageFlag) {
+      children.push(renderUintElement(EbmlId.TagLanguageDefault, 0));
+    }
+    return renderEbmlElement(EbmlId.SimpleTag, combineByteVectors(children));
+  }
+
+  /**
+   * Render the Targets EBML element.
+   */
+  private renderTargets(
+    ttv: TargetTypeValue,
+    trackUid: number,
+    editionUid: number,
+    chapterUid: number,
+    attachmentUid: number,
+  ): ByteVector {
+    const children: ByteVector[] = [];
+    if (ttv !== TargetTypeValue.None) {
+      children.push(renderUintElement(EbmlId.TargetTypeValue, ttv));
+    }
+    if (trackUid) children.push(renderUintElement(EbmlId.TagTrackUID, trackUid));
+    if (editionUid) children.push(renderUintElement(EbmlId.TagEditionUID, editionUid));
+    if (chapterUid) children.push(renderUintElement(EbmlId.TagChapterUID, chapterUid));
+    if (attachmentUid) children.push(renderUintElement(EbmlId.TagAttachmentUID, attachmentUid));
+    return renderEbmlElement(EbmlId.Targets, combineByteVectors(children));
+  }
+
+  /**
+   * Render the entire Tags EBML element from the current tag state.
+   * Returns null if the tag is empty.
+   */
+  renderTags(): ByteVector | null {
+    if (this._simpleTags.length === 0 && this._attachedFiles.length === 0) {
+      return null;
+    }
+
+    // Group simple tags by (targetTypeValue, trackUid, editionUid, chapterUid, attachmentUid)
+    type GroupKey = string;
+    const groups = new Map<GroupKey, { ttv: TargetTypeValue; trackUid: number; editionUid: number; chapterUid: number; attachmentUid: number; tags: SimpleTag[] }>();
+
+    for (const st of this._simpleTags) {
+      const key = `${st.targetTypeValue}:${st.trackUid}:${st.editionUid}:${st.chapterUid}:${st.attachmentUid}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          ttv: st.targetTypeValue,
+          trackUid: st.trackUid,
+          editionUid: st.editionUid,
+          chapterUid: st.chapterUid,
+          attachmentUid: st.attachmentUid,
+          tags: [],
+        });
+      }
+      groups.get(key)!.tags.push(st);
+    }
+
+    const tagElements: ByteVector[] = [];
+
+    // Render each group as a Tag element
+    for (const group of groups.values()) {
+      const tagChildren: ByteVector[] = [];
+      tagChildren.push(this.renderTargets(group.ttv, group.trackUid, group.editionUid, group.chapterUid, group.attachmentUid));
+      for (const st of group.tags) {
+        tagChildren.push(this.renderSimpleTag(st));
+      }
+      tagElements.push(renderEbmlElement(EbmlId.Tag, combineByteVectors(tagChildren)));
+    }
+
+    return renderEbmlElement(EbmlId.Tags, combineByteVectors(tagElements));
+  }
+
+  /**
+   * Render the Attachments EBML element from the current attached files.
+   * Returns null if there are no attachments.
+   */
+  renderAttachments(): ByteVector | null {
+    if (this._attachedFiles.length === 0) return null;
+
+    const fileElements: ByteVector[] = [];
+    for (const af of this._attachedFiles) {
+      const fileChildren: ByteVector[] = [];
+      if (af.description) fileChildren.push(renderStringElement(EbmlId.AttachedFileDescription, af.description));
+      fileChildren.push(renderStringElement(EbmlId.AttachedFileName, af.fileName));
+      fileChildren.push(renderStringElement(EbmlId.AttachedFileMediaType, af.mediaType));
+      fileChildren.push(renderEbmlElement(EbmlId.AttachedFileData, af.data));
+      fileChildren.push(renderUintElement(EbmlId.AttachedFileUID, af.uid || 1));
+      fileElements.push(renderEbmlElement(EbmlId.AttachedFile, combineByteVectors(fileChildren)));
+    }
+
+    return renderEbmlElement(EbmlId.Attachments, combineByteVectors(fileElements));
   }
 
   // ---------------------------------------------------------------------------

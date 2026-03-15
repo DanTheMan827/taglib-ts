@@ -3,10 +3,12 @@ import { IOStream } from "../toolkit/ioStream.js";
 import { Position, ReadStyle } from "../toolkit/types.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 import type { VariantMap } from "../toolkit/variant.js";
+import { ByteVector } from "../byteVector.js";
 import { MatroskaTag } from "./matroskaTag.js";
 import { MatroskaProperties } from "./matroskaProperties.js";
 import {
   EbmlId,
+  idSize,
   readElement,
   skipElement,
   findElement,
@@ -14,6 +16,7 @@ import {
   readUintValue,
   readFloatValue,
   readStringValue,
+  renderVoidElement,
   type EbmlElement,
 } from "./ebml/ebmlElement.js";
 
@@ -25,6 +28,13 @@ export class MatroskaFile extends File {
   private _tag: MatroskaTag | null = null;
   private _properties: MatroskaProperties | null = null;
   private _readStyle: ReadStyle;
+
+  // Element locations saved during read, used during save
+  private _tagsEl: EbmlElement | null = null;
+  private _attachmentsEl: EbmlElement | null = null;
+  // Segment size VINT location: byte offset right after the segment ID
+  private _segmentSizeVintOffset: number = -1;
+  private _segmentSizeVintLength: number = 0;
 
   constructor(
     stream: IOStream,
@@ -47,8 +57,114 @@ export class MatroskaFile extends File {
   }
 
   save(): boolean {
-    // Read-only implementation for now
-    return false;
+    if (this.readOnly) {
+      return false;
+    }
+
+    if (!this._valid) {
+      return false;
+    }
+
+    // Create empty tag if needed (so we can always serialize)
+    if (!this._tag) {
+      this._tag = new MatroskaTag();
+    }
+
+    // Render the new Tags element (null if empty)
+    const newTagsData = this._tag.renderTags();
+    const newAttachmentsData = this._tag.renderAttachments();
+
+    // Replace or insert Tags element
+    const tagsOk = this.replaceOrInsertElement(
+      this._tagsEl,
+      newTagsData,
+      EbmlId.Tags,
+    );
+
+    // Replace or insert Attachments element
+    const attachOk = this.replaceOrInsertElement(
+      this._attachmentsEl,
+      newAttachmentsData,
+      EbmlId.Attachments,
+    );
+
+    return tagsOk && attachOk;
+  }
+
+  /**
+   * Replace an existing EBML element with new data, or insert at end of segment.
+   * Uses Void elements to fill any leftover space if the new data is smaller.
+   */
+  private replaceOrInsertElement(
+    existing: EbmlElement | null,
+    newData: ByteVector | null,
+    elementId: number,
+  ): boolean {
+    void elementId; // reserved for future SeekHead updates
+    if (!newData || newData.length === 0) {
+      // If empty and no existing element, nothing to do
+      if (!existing) return true;
+      // If there's an existing element, replace with Void
+      const voidEl = renderVoidElement(existing.headSize + existing.dataSize);
+      this._stream.seek(existing.offset, Position.Beginning);
+      this._stream.writeBlock(voidEl);
+      return true;
+    }
+
+    if (existing) {
+      const oldTotalSize = existing.headSize + existing.dataSize;
+      const newTotalSize = newData.length;
+
+      if (newTotalSize <= oldTotalSize) {
+        // Write new element in place, pad with Void if needed
+        this._stream.seek(existing.offset, Position.Beginning);
+        this._stream.writeBlock(newData);
+        const leftover = oldTotalSize - newTotalSize;
+        if (leftover >= 2) {
+          // Write a Void element to fill the gap
+          const voidEl = renderVoidElement(leftover);
+          this._stream.writeBlock(voidEl);
+        } else if (leftover === 1) {
+          // 1 byte gap: write a null byte (absorbed by surrounding elements)
+          this._stream.writeBlock(new ByteVector(new Uint8Array([0x00])));
+        }
+        return true;
+      } else {
+        // New element is larger — replace existing with Void, append new at EOF
+        const voidEl = renderVoidElement(oldTotalSize);
+        this._stream.seek(existing.offset, Position.Beginning);
+        this._stream.writeBlock(voidEl);
+        this.appendAtEndOfSegment(newData);
+        return true;
+      }
+    } else {
+      // No existing element — append at end of segment
+      this.appendAtEndOfSegment(newData);
+      return true;
+    }
+  }
+
+  /**
+   * Append data at the end of the file.
+   * If the segment has a fixed (known) size, convert it to "unknown" size first
+   * so that the appended data is included within the segment.
+   * In EBML, the "unknown" size VINT has all data bits set to 1.
+   */
+  private appendAtEndOfSegment(data: ByteVector): void {
+    if (this._segmentSizeVintOffset >= 0 && this._segmentSizeVintLength > 0) {
+      // Render an "unknown" size VINT of the same byte length.
+      // For n bytes: first byte = (1 << (9-n)) - 1, rest = 0xFF
+      const n = this._segmentSizeVintLength;
+      const unknownVint = new Uint8Array(n);
+      unknownVint[0] = (1 << (9 - n)) - 1;
+      for (let i = 1; i < n; i++) unknownVint[i] = 0xFF;
+      this._stream.seek(this._segmentSizeVintOffset, Position.Beginning);
+      this._stream.writeBlock(new ByteVector(unknownVint));
+      // Don't update segment size again on subsequent saves
+      this._segmentSizeVintOffset = -1;
+    }
+    this._stream.seek(0, Position.End);
+    this._stream.writeBlock(data);
   }
 
   override properties(): PropertyMap {
@@ -124,21 +240,27 @@ export class MatroskaFile extends File {
       return;
     }
 
+    // Track where the segment size VINT is stored (for updating when we grow the file)
+    this._segmentSizeVintOffset = segment.offset + idSize(EbmlId.Segment);
+    this._segmentSizeVintLength = segment.headSize - idSize(EbmlId.Segment);
+
     const segmentDataOffset = segment.offset + segment.headSize;
-    const segmentEnd = segmentDataOffset + segment.dataSize;
+    // Segment may have "unknown" EBML size (all 1-bits); use fileLength as cap
+    const segmentEnd = Math.min(segmentDataOffset + segment.dataSize, fileLength);
 
     // Parse segment children, using SeekHead to find major elements
     this._stream.seek(segmentDataOffset, Position.Beginning);
 
     // Collect positions of major elements from SeekHead
     const elementPositions = new Map<number, number>();
-    let foundTags = false;
-    let foundTracks = false;
-    let foundInfo = false;
-    let foundAttachments = false;
 
     // First pass: scan for SeekHead and any directly-encountered major elements
-    const maxScanOffset = Math.min(segmentEnd, segmentDataOffset + 1048576); // Scan up to 1MB
+    // For large files, scan at most 1MB before the first cluster.
+    // After this pass, we also scan from the current position to end-of-segment
+    // for Tags/Attachments, which may be appended after the cluster.
+    const maxScanOffset = Math.min(segmentEnd, segmentDataOffset + 1048576); // up to 1MB
+    let lastScanPosition = segmentDataOffset;
+
     while (this._stream.tell() < maxScanOffset) {
       const el = readElement(this._stream);
       if (!el) break;
@@ -146,6 +268,7 @@ export class MatroskaFile extends File {
       if (el.id === EbmlId.SeekHead) {
         this.parseSeekHead(segmentDataOffset, el, elementPositions);
         skipElement(this._stream, el);
+        lastScanPosition = this._stream.tell();
         continue;
       }
 
@@ -155,10 +278,25 @@ export class MatroskaFile extends File {
         elementPositions.set(el.id, el.offset);
       }
 
-      // Stop scanning at Cluster (media data) to avoid slow full-file scan
-      if (el.id === EbmlId.Cluster) break;
-
+      // Skip Cluster contents (media data) to avoid slow scan, but continue
+      lastScanPosition = this._stream.tell();
       skipElement(this._stream, el);
+    }
+
+    // If Tags or Attachments were not found via SeekHead or before Cluster,
+    // do a forward scan from where we stopped (or from 1MB mark) to end-of-file.
+    // This handles the case where tags are appended at the end of the file.
+    if (!elementPositions.has(EbmlId.Tags) || !elementPositions.has(EbmlId.Attachments)) {
+      const scanFrom = Math.max(lastScanPosition, this._stream.tell());
+      this._stream.seek(scanFrom, Position.Beginning);
+      while (this._stream.tell() < segmentEnd) {
+        const el = readElement(this._stream);
+        if (!el) break;
+        if (el.id === EbmlId.Tags || el.id === EbmlId.Attachments) {
+          elementPositions.set(el.id, el.offset);
+        }
+        skipElement(this._stream, el);
+      }
     }
 
     // Now process elements by their IDs, either from direct encounters or SeekHead
@@ -168,7 +306,6 @@ export class MatroskaFile extends File {
       this._stream.seek(infoOffset, Position.Beginning);
       const infoEl = readElement(this._stream);
       if (infoEl && infoEl.id === EbmlId.Info) {
-        foundInfo = true;
         this.parseInfo(infoEl, readProperties);
       }
     }
@@ -179,7 +316,6 @@ export class MatroskaFile extends File {
       this._stream.seek(tracksOffset, Position.Beginning);
       const tracksEl = readElement(this._stream);
       if (tracksEl && tracksEl.id === EbmlId.Tracks) {
-        foundTracks = true;
         this.parseTracks(tracksEl);
       }
     }
@@ -190,7 +326,7 @@ export class MatroskaFile extends File {
       this._stream.seek(tagsOffset, Position.Beginning);
       const tagsEl = readElement(this._stream);
       if (tagsEl && tagsEl.id === EbmlId.Tags) {
-        foundTags = true;
+        this._tagsEl = tagsEl;
         this._tag = MatroskaTag.parseFromStream(this._stream, tagsEl);
       }
     }
@@ -201,7 +337,7 @@ export class MatroskaFile extends File {
       this._stream.seek(attachmentsOffset, Position.Beginning);
       const attachmentsEl = readElement(this._stream);
       if (attachmentsEl && attachmentsEl.id === EbmlId.Attachments) {
-        foundAttachments = true;
+        this._attachmentsEl = attachmentsEl;
         if (!this._tag) this._tag = new MatroskaTag();
         this._tag.parseAttachments(this._stream, attachmentsEl);
       }
@@ -219,6 +355,12 @@ export class MatroskaFile extends File {
       if (this._tag) {
         this._tag.segmentTitle = this._properties.title;
       }
+    }
+
+    // Ensure a tag object always exists (even if empty), so callers can always
+    // set tags without checking for null (matches C TagLib behavior for create=true)
+    if (!this._tag) {
+      this._tag = new MatroskaTag();
     }
 
     this._valid = true;

@@ -329,7 +329,6 @@ const FORMATS: FormatTestCfg[] = [
     format: "mkv",
     skipByteEquality: true,
     skipComment: true,
-    tsReadOnly: true, // taglib-ts does not yet support writing Matroska tags
   },
 ];
 

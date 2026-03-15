@@ -245,3 +245,124 @@ export function readStringValue(stream: IOStream, element: EbmlElement): string 
   while (len > 0 && data.get(len - 1) === 0) len--;
   return data.mid(0, len).toString(StringType.UTF8);
 }
+
+// ---------------------------------------------------------------------------
+// EBML Writing Utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Concatenate multiple ByteVectors into one.
+ */
+export function combineByteVectors(parts: ByteVector[]): ByteVector {
+  let totalLength = 0;
+  for (const part of parts) totalLength += part.length;
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part.data, offset);
+    offset += part.length;
+  }
+  return new ByteVector(result);
+}
+
+/**
+ * Encode an EBML element ID as bytes (big-endian, already contains marker bits).
+ */
+export function encodeId(id: number): ByteVector {
+  const size = idSize(id);
+  const bytes = new Uint8Array(size);
+  let v = id;
+  for (let i = size - 1; i >= 0; i--) {
+    bytes[i] = v & 0xFF;
+    v >>>= 8;
+  }
+  return new ByteVector(bytes);
+}
+
+/**
+ * Encode a VINT (variable-length integer) for EBML element sizes.
+ * The minimum size is used unless minBytes is specified.
+ */
+export function encodeVint(value: number, minBytes: number = 0): ByteVector {
+  // Determine the number of bytes needed
+  let numBytes: number;
+  if (value < 0x7E && minBytes <= 1) numBytes = 1;         // 2^7 - 2
+  else if (value < 0x3FFE && minBytes <= 2) numBytes = 2;  // 2^14 - 2
+  else if (value < 0x1FFFFE && minBytes <= 3) numBytes = 3;// 2^21 - 2
+  else if (value < 0x0FFFFFFE && minBytes <= 4) numBytes = 4; // 2^28 - 2
+  else numBytes = Math.max(minBytes, 5);
+
+  // Clamp to reasonable range
+  if (numBytes > 8) numBytes = 8;
+
+  // The marker bit is placed in the most-significant bit position for numBytes
+  const markerBit = 1 << (8 - numBytes); // e.g., 0x80 for 1, 0x40 for 2, etc.
+  const bytes = new Uint8Array(numBytes);
+  let v = value;
+  for (let i = numBytes - 1; i >= 0; i--) {
+    bytes[i] = v & 0xFF;
+    v >>>= 8;
+  }
+  // Set marker bit in first byte
+  bytes[0] |= markerBit;
+  return new ByteVector(bytes);
+}
+
+/**
+ * Render an EBML element: id bytes + vint(size) + data bytes.
+ */
+export function renderEbmlElement(id: number, data: ByteVector): ByteVector {
+  return combineByteVectors([
+    encodeId(id),
+    encodeVint(data.length),
+    data,
+  ]);
+}
+
+/**
+ * Render a UTF-8 string EBML element.
+ */
+export function renderStringElement(id: number, value: string): ByteVector {
+  const data = ByteVector.fromString(value, StringType.UTF8);
+  return renderEbmlElement(id, data);
+}
+
+/**
+ * Render an unsigned integer EBML element (big-endian, minimal byte count).
+ */
+export function renderUintElement(id: number, value: number): ByteVector {
+  if (value === 0) {
+    return renderEbmlElement(id, new ByteVector(new Uint8Array([0])));
+  }
+  let numBytes = 1;
+  let v = value;
+  while (v > 0xFF) { numBytes++; v >>>= 8; }
+  const bytes = new Uint8Array(numBytes);
+  v = value;
+  for (let i = numBytes - 1; i >= 0; i--) {
+    bytes[i] = v & 0xFF;
+    v >>>= 8;
+  }
+  return renderEbmlElement(id, new ByteVector(bytes));
+}
+
+/**
+ * Render a Void EBML element of the given total byte size (including id+size header).
+ * Minimum size is 2 bytes (1 byte id + 1 byte vint(0)).
+ */
+export function renderVoidElement(totalSize: number): ByteVector {
+  // Void id = 0xEC (1 byte), then vint(dataSize)
+  // We need: 1 (id) + vint_size(dataSize) + dataSize = totalSize
+  if (totalSize < 2) return new ByteVector(new Uint8Array(totalSize));
+  let dataSize = totalSize - 2; // 1 byte id + 1 byte vint
+  if (dataSize >= 0x7E) {
+    dataSize = totalSize - 3; // 1 byte id + 2 byte vint
+  }
+  if (dataSize >= 0x3FFE) {
+    dataSize = totalSize - 4;
+  }
+  const vint = encodeVint(dataSize);
+  const header = combineByteVectors([encodeId(EbmlId.VoidElement), vint]);
+  const padding = new ByteVector(new Uint8Array(dataSize));
+  return combineByteVectors([header, padding]);
+}

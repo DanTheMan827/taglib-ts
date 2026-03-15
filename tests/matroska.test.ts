@@ -3,6 +3,7 @@ import { MatroskaFile } from "../src/matroska/matroskaFile.js";
 import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream } from "./testHelper.js";
 import { FileRef } from "../src/fileRef.js";
+import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
@@ -73,18 +74,16 @@ describe("Matroska", () => {
   describe("Tags", () => {
     it("should read tags from MKV", () => {
       const f = openMatroskaFile("tags-before-cues.mkv");
-      const tag = f.tag();
       // tags-before-cues.mkv has tags added by Handbrake
       expect(f.isValid).toBe(true);
     });
 
     it("should handle file with no tags", () => {
       const f = openMatroskaFile("no-tags.mka");
-      // No tags element in the file - tag may be null or empty
+      // No tags element in the file - always returns an empty tag
       const tag = f.tag();
-      if (tag) {
-        expect(tag.isEmpty).toBe(true);
-      }
+      expect(tag).not.toBeNull();
+      expect(tag!.isEmpty).toBe(true);
     });
 
     it("should support PropertyMap interface", () => {
@@ -92,6 +91,36 @@ describe("Matroska", () => {
       // The file should be readable and produce a PropertyMap
       const props = f.properties();
       expect(props).toBeTruthy();
+    });
+  });
+
+  describe("Save and re-read", () => {
+    it("should save and re-read tags for MKA (no existing tags)", () => {
+      const f = openMatroskaFile("no-tags.mka");
+      expect(f.isValid).toBe(true);
+
+      const tag = f.tag()!;
+      tag.title = "Test Title";
+      tag.artist = "Test Artist";
+      tag.album = "Test Album";
+      tag.year = 2024;
+      tag.track = 5;
+      tag.comment = "Test Comment";
+      tag.genre = "Electronic";
+
+      expect(f.save()).toBe(true);
+
+      const modified = (f.stream() as ByteVectorStream).data();
+      const f2 = new MatroskaFile(new ByteVectorStream(modified));
+      expect(f2.isValid).toBe(true);
+      const tag2 = f2.tag()!;
+      expect(tag2.title).toBe("Test Title");
+      expect(tag2.artist).toBe("Test Artist");
+      expect(tag2.album).toBe("Test Album");
+      expect(tag2.year).toBe(2024);
+      expect(tag2.track).toBe(5);
+      expect(tag2.comment).toBe("Test Comment");
+      expect(tag2.genre).toBe("Electronic");
     });
   });
 
