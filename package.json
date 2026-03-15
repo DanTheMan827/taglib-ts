@@ -1,0 +1,57 @@
+{
+  "name": "taglib-ts",
+  "version": "0.1.0",
+  "description": "A TypeScript audio metadata library for browsers, supporting MP3, FLAC, MP4, OGG, WAV, AIFF and more",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    "./*": {
+      "types": "./src/*",
+      "default": "./dist/*"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "format": "eslint src/ tests/ --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DanTheMan827/taglib-ts.git"
+  },
+  "keywords": [
+    "audio",
+    "metadata",
+    "tags",
+    "id3",
+    "mp3",
+    "flac",
+    "mp4",
+    "ogg",
+    "wav",
+    "aiff"
+  ],
+  "author": "",
+  "license": "LGPL-2.1-or-later",
+  "bugs": {
+    "url": "https://github.com/DanTheMan827/taglib-ts/issues"
+  },
+  "homepage": "https://github.com/DanTheMan827/taglib-ts#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/node": "^25.5.0",
+    "eslint": "^10.0.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.0"
+  }
+}

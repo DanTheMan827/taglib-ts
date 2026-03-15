@@ -1,0 +1,365 @@
+import { ByteVector } from "../byteVector.js";
+import { File } from "../file.js";
+import { IOStream } from "../toolkit/ioStream.js";
+import { Position } from "../toolkit/types.js";
+import { OggPageHeader } from "./oggPageHeader.js";
+
+// OGG CRC32 lookup table (polynomial 0x04C11DB7, same as used in libogg)
+const OGG_CRC_TABLE = new Uint32Array(256);
+(() => {
+  for (let i = 0; i < 256; i++) {
+    let r = i << 24;
+    for (let j = 0; j < 8; j++) {
+      r = (r & 0x80000000) ? ((r << 1) ^ 0x04C11DB7) : (r << 1);
+    }
+    OGG_CRC_TABLE[i] = r >>> 0;
+  }
+})();
+
+function oggCrc32(data: Uint8Array): number {
+  let crc = 0;
+  for (let i = 0; i < data.length; i++) {
+    crc = ((crc << 8) ^ OGG_CRC_TABLE[((crc >>> 24) & 0xFF) ^ data[i]]) >>> 0;
+  }
+  return crc >>> 0;
+}
+
+/**
+ * Render OGG pages from a list of header packets.
+ *
+ * Produces pages with granule position = 0 (correct for header packets).
+ * BOS flag is set on the first page. EOS is NOT set (audio pages follow).
+ * Returns the rendered bytes and the number of pages generated.
+ */
+function renderHeaderPages(
+  packets: ByteVector[],
+  serialNumber: number,
+): { data: Uint8Array; pageCount: number } {
+  const chunks: Uint8Array[] = [];
+  let totalSize = 0;
+  let pageSequence = 0;
+
+  for (let pktIdx = 0; pktIdx < packets.length; pktIdx++) {
+    const pkt = packets[pktIdx];
+    const pktData = pkt.data;
+    const isFirstPacket = pktIdx === 0;
+
+    // Split packet into segments (each max 255 bytes)
+    const segments: number[] = [];
+    let remaining = pktData.length;
+    while (remaining >= 255) {
+      segments.push(255);
+      remaining -= 255;
+    }
+    segments.push(remaining);
+
+    // Split segments across pages if needed (max 255 segments per page)
+    let segOffset = 0;
+    let dataOffset = 0;
+
+    while (segOffset < segments.length) {
+      const pageSegCount = Math.min(255, segments.length - segOffset);
+      const pageSegments = segments.slice(segOffset, segOffset + pageSegCount);
+      const pageDataSize = pageSegments.reduce((a, b) => a + b, 0);
+
+      const isContinuation = segOffset > 0;
+
+      let headerType = 0;
+      if (isContinuation) headerType |= 0x01;
+      if (isFirstPacket && segOffset === 0) headerType |= 0x02; // BOS
+
+      // Header packets always have granule = 0
+      const granulePosition = 0n;
+
+      const headerSize = 27 + pageSegCount;
+      const header = new Uint8Array(headerSize);
+      header[0] = 0x4F; header[1] = 0x67; header[2] = 0x67; header[3] = 0x53;
+      header[4] = 0;
+      header[5] = headerType;
+      const gp = BigInt.asUintN(64, granulePosition);
+      for (let b = 0; b < 8; b++) {
+        header[6 + b] = Number((gp >> BigInt(b * 8)) & 0xFFn);
+      }
+      header[14] = serialNumber & 0xFF;
+      header[15] = (serialNumber >> 8) & 0xFF;
+      header[16] = (serialNumber >> 16) & 0xFF;
+      header[17] = (serialNumber >> 24) & 0xFF;
+      header[18] = pageSequence & 0xFF;
+      header[19] = (pageSequence >> 8) & 0xFF;
+      header[20] = (pageSequence >> 16) & 0xFF;
+      header[21] = (pageSequence >> 24) & 0xFF;
+      header[22] = 0; header[23] = 0; header[24] = 0; header[25] = 0;
+      header[26] = pageSegCount;
+      for (let s = 0; s < pageSegCount; s++) {
+        header[27 + s] = pageSegments[s];
+      }
+
+      const pageData = pktData.slice(dataOffset, dataOffset + pageDataSize);
+
+      const fullPage = new Uint8Array(headerSize + pageDataSize);
+      fullPage.set(header, 0);
+      fullPage.set(pageData, headerSize);
+      const crc = oggCrc32(fullPage);
+      fullPage[22] = crc & 0xFF;
+      fullPage[23] = (crc >> 8) & 0xFF;
+      fullPage[24] = (crc >> 16) & 0xFF;
+      fullPage[25] = (crc >> 24) & 0xFF;
+
+      chunks.push(fullPage);
+      totalSize += fullPage.length;
+
+      pageSequence++;
+      segOffset += pageSegCount;
+      dataOffset += pageDataSize;
+    }
+  }
+
+  const output = new Uint8Array(totalSize);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return { data: output, pageCount: pageSequence };
+}
+
+/**
+ * Update the page sequence number in a raw OGG page and recompute CRC.
+ */
+function adjustPageSequence(pageData: Uint8Array, newSeqNum: number): Uint8Array {
+  const copy = new Uint8Array(pageData);
+  copy[18] = newSeqNum & 0xFF;
+  copy[19] = (newSeqNum >> 8) & 0xFF;
+  copy[20] = (newSeqNum >> 16) & 0xFF;
+  copy[21] = (newSeqNum >> 24) & 0xFF;
+  // Zero CRC before recomputing
+  copy[22] = 0; copy[23] = 0; copy[24] = 0; copy[25] = 0;
+  const crc = oggCrc32(copy);
+  copy[22] = crc & 0xFF;
+  copy[23] = (crc >> 8) & 0xFF;
+  copy[24] = (crc >> 16) & 0xFF;
+  copy[25] = (crc >> 24) & 0xFF;
+  return copy;
+}
+
+/**
+ * Abstract base class for OGG-based file formats. Provides packet-level
+ * access to the OGG bitstream by iterating pages and reassembling packets.
+ *
+ * On save, only header pages are re-rendered from packets. Audio pages are
+ * preserved verbatim (with updated page sequence numbers) so that granule
+ * positions, page boundaries, and audio data remain intact — producing
+ * output that is fully seekable and playable.
+ */
+export abstract class OggFile extends File {
+  private _pages: OggPageHeader[] | null = null;
+  private _pageOffsets: number[] = [];
+  private _pageRawData: Uint8Array[] = [];
+  private _pageFirstPktIdx: number[] = [];
+  private _packets: Map<number, ByteVector> = new Map();
+  private _dirtyPackets: Map<number, ByteVector> = new Map();
+  private _serialNumber: number = 0;
+
+  constructor(stream: IOStream) {
+    super(stream);
+  }
+
+  /**
+   * Number of header packets for this OGG format.
+   * Header packets are re-rendered on save; audio pages after them are
+   * copied verbatim. Override in subclasses:
+   * - Vorbis: 3 (identification, comment, setup)
+   * - Opus/Speex/OGG FLAC: 2 (identification, comment)
+   */
+  protected get numHeaderPackets(): number {
+    return 3;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Packet access
+  // ---------------------------------------------------------------------------
+
+  packet(index: number): ByteVector {
+    const dirty = this._dirtyPackets.get(index);
+    if (dirty) return dirty;
+
+    const cached = this._packets.get(index);
+    if (cached) return cached;
+
+    this.readPages();
+    return this._packets.get(index) ?? new ByteVector();
+  }
+
+  setPacket(index: number, data: ByteVector): void {
+    this._dirtyPackets.set(index, data);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Page access
+  // ---------------------------------------------------------------------------
+
+  firstPageHeader(): OggPageHeader | null {
+    this.readPages();
+    return this._pages?.[0] ?? null;
+  }
+
+  lastPageHeader(): OggPageHeader | null {
+    this.readPages();
+    if (this._pages && this._pages.length > 0) {
+      return this._pages[this._pages.length - 1];
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save — preserves audio pages, only re-renders header pages
+  // ---------------------------------------------------------------------------
+
+  save(): boolean {
+    if (this.readOnly) return false;
+
+    this.readPages();
+    if (!this._pages || this._pages.length === 0) return false;
+
+    const headerPktCount = this.numHeaderPackets;
+
+    // Find the first "audio page" — the first original page whose first
+    // packet index >= headerPktCount (i.e., it contains only audio data).
+    let firstAudioPage = this._pages.length;
+    for (let p = 0; p < this._pages.length; p++) {
+      if (this._pageFirstPktIdx[p] >= headerPktCount) {
+        firstAudioPage = p;
+        break;
+      }
+    }
+
+    // Collect header packets (using dirty versions where available)
+    const headerPackets: ByteVector[] = [];
+    for (let i = 0; i < headerPktCount; i++) {
+      headerPackets.push(
+        this._dirtyPackets.get(i) ?? this._packets.get(i) ?? new ByteVector(),
+      );
+    }
+
+    // Render header pages (granule=0, BOS on first, no EOS)
+    const header = renderHeaderPages(headerPackets, this._serialNumber);
+
+    // Collect output chunks: header pages + adjusted audio pages
+    const chunks: Uint8Array[] = [header.data];
+    let totalSize = header.data.length;
+
+    // Copy audio pages from original file, adjusting page sequence numbers
+    for (let p = firstAudioPage; p < this._pages.length; p++) {
+      const raw = this._pageRawData[p];
+      const newSeqNum = header.pageCount + (p - firstAudioPage);
+      const adjusted = adjustPageSequence(raw, newSeqNum);
+      chunks.push(adjusted);
+      totalSize += adjusted.length;
+    }
+
+    // Single-pass concatenation and write
+    const output = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      output.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    this._stream.seek(0, Position.Beginning);
+    this._stream.truncate(0);
+    this._stream.writeBlock(new ByteVector(output));
+
+    // Clear caches
+    this._dirtyPackets.clear();
+    this._pages = null;
+    this._packets.clear();
+    this._pageOffsets = [];
+    this._pageRawData = [];
+    this._pageFirstPktIdx = [];
+
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal page/packet reading
+  // ---------------------------------------------------------------------------
+
+  private readPages(): void {
+    if (this._pages !== null) return;
+
+    this._pages = [];
+    this._pageOffsets = [];
+    this._pageRawData = [];
+    this._pageFirstPktIdx = [];
+    this._packets.clear();
+
+    let offset = 0;
+    const fileLen = this.fileLength;
+    let packetIndex = 0;
+    let currentPacket = new ByteVector();
+    let continued = false;
+
+    while (offset < fileLen) {
+      const page = OggPageHeader.parse(this._stream, offset);
+      if (!page || !page.isValid) break;
+
+      this._pages.push(page);
+      this._pageOffsets.push(offset);
+
+      // Record the packet index at the start of this page
+      this._pageFirstPktIdx.push(packetIndex);
+
+      // Read raw page bytes for later verbatim copying
+      this._stream.seek(offset, Position.Beginning);
+      const rawBv = this._stream.readBlock(page.totalSize);
+      this._pageRawData.push(new Uint8Array(rawBv.data));
+
+      if (this._pages.length === 1) {
+        this._serialNumber = page.serialNumber;
+      }
+
+      // Read page payload for packet reassembly
+      this._stream.seek(offset + page.headerSize, Position.Beginning);
+      const payload = this._stream.readBlock(page.dataSize);
+
+      // Reassemble packets from segment table
+      let payloadOffset = 0;
+      const sizes = page.packetSizes;
+      const segTable = page.segmentTable;
+
+      for (let i = 0; i < sizes.length; i++) {
+        const size = sizes[i];
+        const chunk = payload.mid(payloadOffset, size);
+        payloadOffset += size;
+
+        if (i === 0 && page.isContinuation && continued) {
+          currentPacket.append(chunk);
+        } else {
+          currentPacket = ByteVector.fromByteVector(chunk);
+        }
+
+        // Check if this packet is complete (last segment byte < 255)
+        const isLastSizeEntry = i === sizes.length - 1;
+        const lastSegByte =
+          segTable.length > 0 ? segTable[segTable.length - 1] : 0;
+        const packetContinuesOnNextPage =
+          isLastSizeEntry && lastSegByte === 255;
+
+        if (packetContinuesOnNextPage) {
+          continued = true;
+        } else {
+          this._packets.set(packetIndex, currentPacket);
+          packetIndex++;
+          currentPacket = new ByteVector();
+          continued = false;
+        }
+      }
+
+      offset += page.totalSize;
+    }
+
+    if (currentPacket.length > 0) {
+      this._packets.set(packetIndex, currentPacket);
+    }
+  }
+}
