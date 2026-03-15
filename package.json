@@ -1,6 +1,9 @@
 {
   "name": "@dantheman827/taglib-ts",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "A TypeScript audio metadata library for browsers, supporting MP3, FLAC, MP4, OGG, WAV, AIFF and more",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
