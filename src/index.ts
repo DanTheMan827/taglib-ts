@@ -13,6 +13,7 @@ export type { Tags, TagsToWrite, AudioPropertiesInfo, AudioInput } from "./simpl
 // Toolkit
 export { IOStream } from "./toolkit/ioStream.js";
 export { ByteVectorStream } from "./toolkit/byteVectorStream.js";
+export { ChunkedByteVectorStream } from "./toolkit/chunkedByteVectorStream.js";
 export { PropertyMap } from "./toolkit/propertyMap.js";
 export { Variant, VariantType } from "./toolkit/variant.js";
 export type { VariantMap, VariantList } from "./toolkit/variant.js";
