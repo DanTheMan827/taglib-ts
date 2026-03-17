@@ -1,3 +1,4 @@
+/** @file ID3v2 tag implementation supporting read, write, and PropertyMap access for all standard frame types. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { Tag } from "../../tag.js";
 import { PropertyMap } from "../../toolkit/propertyMap.js";
@@ -21,6 +22,7 @@ import { genre as id3v1Genre } from "../id3v1/id3v1Genres.js";
 
 /**
  * Standard frame ID → property name mapping for ID3v2.
+ * Maps four-character frame IDs (e.g. `"TIT2"`) to TagLib property names (e.g. `"TITLE"`).
  */
 const frameIdToProperty = new Map<string, string>([
   ["TIT1", "CONTENTGROUP"],
@@ -75,7 +77,10 @@ const frameIdToProperty = new Map<string, string>([
   ["TIPL", "INVOLVEDPEOPLE"],
 ]);
 
-// Reverse mapping: property name → frame ID
+/**
+ * Reverse mapping built from {@link frameIdToProperty}: property name → frame ID.
+ * Only the first frame ID encountered for each property is stored (giving v2.4 IDs priority).
+ */
 const propertyToFrameId = new Map<string, string>();
 for (const [fid, prop] of frameIdToProperty) {
   if (!propertyToFrameId.has(prop)) {
@@ -86,6 +91,9 @@ for (const [fid, prop] of frameIdToProperty) {
 /**
  * Parse ID3v1-style genre references from a TCON field value.
  * Handles formats like "(17)", "17", "(17)Rock", "(17)(18)", etc.
+ *
+ * @param genreStr - The raw TCON frame value string.
+ * @returns A human-readable genre string, with multiple genres joined by `" / "`.
  */
 function parseGenreString(genreStr: string): string {
   if (!genreStr) return "";
@@ -140,11 +148,16 @@ function parseGenreString(genreStr: string): string {
  * ID3v2 tag implementation.
  */
 export class Id3v2Tag extends Tag {
+  /** The tag header (version, flags, size). */
   private _header: Id3v2Header;
+  /** The optional extended header, present when the corresponding header flag is set. */
   private _extendedHeader: Id3v2ExtendedHeader | null = null;
+  /** The optional footer (v2.4 only), present when the footer-present header flag is set. */
   private _footer: Id3v2Footer | null = null;
+  /** Ordered list of all frames contained in this tag. */
   private _frames: Id3v2Frame[] = [];
 
+  /** Creates a new, empty ID3v2 tag with a default version-4 header. */
   constructor() {
     super();
     this._header = new Id3v2Header();
@@ -232,30 +245,46 @@ export class Id3v2Tag extends Tag {
   // Tag interface
   // ---------------------------------------------------------------------------
 
+  /** Gets the track title from the TIT2 frame. */
   get title(): string {
     return this._getTextFrameValue("TIT2");
   }
 
+  /**
+   * Sets the track title in the TIT2 frame.
+   * @param value - The title string; pass an empty string to remove the frame.
+   */
   set title(value: string) {
     this._setTextFrameValue("TIT2", value);
   }
 
+  /** Gets the lead artist/performer from the TPE1 frame. */
   get artist(): string {
     return this._getTextFrameValue("TPE1");
   }
 
+  /**
+   * Sets the lead artist/performer in the TPE1 frame.
+   * @param value - The artist string; pass an empty string to remove the frame.
+   */
   set artist(value: string) {
     this._setTextFrameValue("TPE1", value);
   }
 
+  /** Gets the album name from the TALB frame. */
   get album(): string {
     return this._getTextFrameValue("TALB");
   }
 
+  /**
+   * Sets the album name in the TALB frame.
+   * @param value - The album string; pass an empty string to remove the frame.
+   */
   set album(value: string) {
     this._setTextFrameValue("TALB", value);
   }
 
+  /** Gets the comment text from the first available COMM frame. */
   get comment(): string {
     const frames = this.frameListByFrameId("COMM");
     for (const f of frames) {
@@ -267,6 +296,10 @@ export class Id3v2Tag extends Tag {
     return "";
   }
 
+  /**
+   * Sets the comment in a COMM frame, creating one if none exists.
+   * @param value - The comment string; pass an empty string to remove all COMM frames.
+   */
   set comment(value: string) {
     if (!value) {
       this.removeFrames("COMM");
@@ -288,15 +321,21 @@ export class Id3v2Tag extends Tag {
     }
   }
 
+  /** Gets the genre, resolving any ID3v1 numeric references in the TCON frame. */
   get genre(): string {
     const raw = this._getTextFrameValue("TCON");
     return parseGenreString(raw);
   }
 
+  /**
+   * Sets the genre in the TCON frame.
+   * @param value - The genre string; pass an empty string to remove the frame.
+   */
   set genre(value: string) {
     this._setTextFrameValue("TCON", value);
   }
 
+  /** Gets the recording year from the TDRC (or legacy TYER) frame as an integer. */
   get year(): number {
     const dateStr = this._getTextFrameValue("TDRC") || this._getTextFrameValue("TYER");
     if (!dateStr) return 0;
@@ -304,6 +343,10 @@ export class Id3v2Tag extends Tag {
     return isNaN(parsed) ? 0 : parsed;
   }
 
+  /**
+   * Sets the recording year in the TDRC frame.
+   * @param value - The year as an integer; pass `0` to remove the frame.
+   */
   set year(value: number) {
     if (value === 0) {
       this.removeFrames("TDRC");
@@ -313,6 +356,7 @@ export class Id3v2Tag extends Tag {
     this._setTextFrameValue("TDRC", String(value));
   }
 
+  /** Gets the track number from the TRCK frame; supports "N/Total" format. */
   get track(): number {
     const trackStr = this._getTextFrameValue("TRCK");
     if (!trackStr) return 0;
@@ -323,6 +367,10 @@ export class Id3v2Tag extends Tag {
     return isNaN(parsed) ? 0 : parsed;
   }
 
+  /**
+   * Sets the track number in the TRCK frame.
+   * @param value - The track number; pass `0` to remove the frame.
+   */
   set track(value: number) {
     if (value === 0) {
       this.removeFrames("TRCK");
@@ -335,14 +383,17 @@ export class Id3v2Tag extends Tag {
   // ID3v2-specific accessors
   // ---------------------------------------------------------------------------
 
+  /** Gets the tag header. */
   get header(): Id3v2Header {
     return this._header;
   }
 
+  /** Gets the optional extended header, or `null` if none is present. */
   get extendedHeader(): Id3v2ExtendedHeader | null {
     return this._extendedHeader;
   }
 
+  /** Gets the optional footer (v2.4 only), or `null` if none is present. */
   get footer(): Id3v2Footer | null {
     return this._footer;
   }
@@ -351,10 +402,16 @@ export class Id3v2Tag extends Tag {
   // Frame access
   // ---------------------------------------------------------------------------
 
+  /** Gets a shallow copy of the ordered list of all frames in this tag. */
   get frameList(): Id3v2Frame[] {
     return [...this._frames];
   }
 
+  /**
+   * Returns all frames matching the given frame ID.
+   * @param frameId - A four-character frame ID string or `ByteVector`.
+   * @returns An array of matching frames (may be empty).
+   */
   frameListByFrameId(frameId: ByteVector | string): Id3v2Frame[] {
     const id = typeof frameId === "string"
       ? ByteVector.fromString(frameId, StringType.Latin1)
@@ -364,10 +421,18 @@ export class Id3v2Tag extends Tag {
     );
   }
 
+  /**
+   * Appends a frame to the end of the frame list.
+   * @param frame - The frame to add.
+   */
   addFrame(frame: Id3v2Frame): void {
     this._frames.push(frame);
   }
 
+  /**
+   * Removes a specific frame instance from the frame list.
+   * @param frame - The frame to remove (matched by reference).
+   */
   removeFrame(frame: Id3v2Frame): void {
     const idx = this._frames.indexOf(frame);
     if (idx >= 0) {
@@ -375,6 +440,10 @@ export class Id3v2Tag extends Tag {
     }
   }
 
+  /**
+   * Removes all frames that match the given frame ID.
+   * @param frameId - A four-character frame ID string or `ByteVector`.
+   */
   removeFrames(frameId: ByteVector | string): void {
     const id = typeof frameId === "string"
       ? ByteVector.fromString(frameId, StringType.Latin1)
@@ -388,6 +457,12 @@ export class Id3v2Tag extends Tag {
   // Rendering
   // ---------------------------------------------------------------------------
 
+  /**
+   * Render the complete ID3v2 tag (header + all frames + optional footer) to a `ByteVector`.
+   *
+   * @param version - The ID3v2 major version to render as; defaults to the tag's current version.
+   * @returns The serialised tag bytes.
+   */
   render(version?: number): ByteVector {
     const ver = version ?? this._header.majorVersion;
 
@@ -423,6 +498,13 @@ export class Id3v2Tag extends Tag {
   // PropertyMap
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns a `PropertyMap` built from all frames in the tag.
+   * Text frames are mapped using {@link frameIdToProperty}; TXXX/COMM/USLT/WXXX/UFID
+   * frames receive special handling.
+   *
+   * @returns The populated property map.
+   */
   override properties(): PropertyMap {
     const map = new PropertyMap();
 
@@ -505,6 +587,13 @@ export class Id3v2Tag extends Tag {
     return map;
   }
 
+  /**
+   * Replaces the tag's frames with those derived from the given `PropertyMap`.
+   * Unknown properties are written as TXXX frames.
+   *
+   * @param properties - The property map to apply.
+   * @returns A `PropertyMap` containing properties that could not be stored.
+   */
   override setProperties(properties: PropertyMap): PropertyMap {
     const unsupported = new PropertyMap();
 
@@ -571,6 +660,12 @@ export class Id3v2Tag extends Tag {
     return unsupported;
   }
 
+  /**
+   * Returns the list of complex-property keys supported by this tag.
+   * Currently only `"PICTURE"` is supported.
+   *
+   * @returns An array of complex-property key strings.
+   */
   override complexPropertyKeys(): string[] {
     const keys: string[] = [];
     const hasPicture = this._frames.some(
@@ -580,6 +675,14 @@ export class Id3v2Tag extends Tag {
     return keys;
   }
 
+  /**
+   * Returns the complex properties for the given key.
+   * For `"PICTURE"`, returns one map per APIC frame with `data`, `mimeType`,
+   * `description`, and `pictureType` entries.
+   *
+   * @param key - The complex-property key (case-insensitive).
+   * @returns An array of variant maps representing the complex property values.
+   */
   override complexProperties(key: string): VariantMap[] {
     if (key.toUpperCase() === "PICTURE") {
       const result: VariantMap[] = [];
@@ -598,6 +701,15 @@ export class Id3v2Tag extends Tag {
     return [];
   }
 
+  /**
+   * Replaces complex properties for the given key.
+   * For `"PICTURE"`, all existing APIC frames are removed and replaced with
+   * frames built from the provided variant maps.
+   *
+   * @param key - The complex-property key (case-insensitive).
+   * @param value - An array of variant maps, each describing one property value.
+   * @returns `true` if the key was handled; `false` otherwise.
+   */
   override setComplexProperties(key: string, value: VariantMap[]): boolean {
     if (key.toUpperCase() === "PICTURE") {
       this.removeFrames("APIC");
@@ -625,6 +737,12 @@ export class Id3v2Tag extends Tag {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /**
+   * Retrieves the text value of the first matching text-identification frame.
+   *
+   * @param frameId - The four-character frame ID string.
+   * @returns The frame text, or an empty string if not found.
+   */
   private _getTextFrameValue(frameId: string): string {
     const frames = this.frameListByFrameId(frameId);
     for (const f of frames) {
@@ -635,6 +753,13 @@ export class Id3v2Tag extends Tag {
     return "";
   }
 
+  /**
+   * Sets the text value of the first matching text-identification frame, creating
+   * a new frame if none exists, or removing all frames when `value` is empty.
+   *
+   * @param frameId - The four-character frame ID string.
+   * @param value - The new text value; pass an empty string to remove the frame.
+   */
   private _setTextFrameValue(frameId: string, value: string): void {
     if (!value) {
       this.removeFrames(frameId);
