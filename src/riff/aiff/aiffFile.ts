@@ -18,13 +18,19 @@ export class AiffFile extends RiffFile {
   private _properties: AiffProperties | null = null;
   private _id3v2Tag: Id3v2Tag | null = null;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream, /* bigEndian */ true);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle?: ReadStyle,
-  ) {
-    super(stream, /* bigEndian */ true);
-    this.read(readProperties, readStyle);
+  ): Promise<AiffFile> {
+    const file = new AiffFile(stream);
+    await file.parseHeader();
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   // ---------------------------------------------------------------------------
@@ -43,15 +49,15 @@ export class AiffFile extends RiffFile {
     return this._id3v2Tag;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     if (this._id3v2Tag && !this._id3v2Tag.isEmpty) {
       const rendered = this._id3v2Tag.render();
-      this.setChunkData("ID3 ", rendered);
+      await this.setChunkData("ID3 ", rendered);
     } else {
-      this.removeChunk("ID3 ");
-      this.removeChunk("id3 ");
+      await this.removeChunk("ID3 ");
+      await this.removeChunk("id3 ");
     }
 
     return true;
@@ -61,7 +67,7 @@ export class AiffFile extends RiffFile {
   // Parsing
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle?: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle?: ReadStyle): Promise<void> {
     let commData: ByteVector | null = null;
     let streamLength = 0;
 
@@ -69,7 +75,7 @@ export class AiffFile extends RiffFile {
       const name = this.chunkName(i);
 
       if (name === "COMM" && readProperties) {
-        commData = this.chunkData(i);
+        commData = await this.chunkData(i);
       } else if (name === "SSND" && readProperties) {
         streamLength = this.chunkDataSize(i);
       } else if (name === "ID3 " || name === "id3 ") {

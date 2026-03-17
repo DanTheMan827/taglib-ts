@@ -45,13 +45,18 @@ export class Mp4Properties extends AudioProperties {
   private _encrypted = false;
   private _codec: Mp4Codec = Mp4Codec.Unknown;
 
-  constructor(
+  private constructor(readStyle: ReadStyle = ReadStyle.Average) {
+    super(readStyle);
+  }
+
+  static async create(
     stream: IOStream,
     atoms: Mp4Atoms,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(readStyle);
-    this.read(stream, atoms);
+  ): Promise<Mp4Properties> {
+    const props = new Mp4Properties(readStyle);
+    await props.read(stream, atoms);
+    return props;
   }
 
   // -- Public getters --
@@ -80,7 +85,7 @@ export class Mp4Properties extends AudioProperties {
 
   // -- Private parsing --
 
-  private read(stream: IOStream, atoms: Mp4Atoms): void {
+  private async read(stream: IOStream, atoms: Mp4Atoms): Promise<void> {
     const moov = atoms.find("moov");
     if (!moov) return;
 
@@ -93,8 +98,8 @@ export class Mp4Properties extends AudioProperties {
       const hdlr = track.find("mdia", "hdlr");
       if (!hdlr) continue;
       trak = track;
-      stream.seek(hdlr.offset);
-      data = stream.readBlock(hdlr.length);
+      await stream.seek(hdlr.offset);
+      data = await stream.readBlock(hdlr.length);
       if (data.containsAt(ByteVector.fromString("soun", StringType.Latin1), 16)) {
         break;
       }
@@ -106,8 +111,8 @@ export class Mp4Properties extends AudioProperties {
     const mdhd = trak.find("mdia", "mdhd");
     if (!mdhd) return;
 
-    stream.seek(mdhd.offset);
-    data = stream.readBlock(mdhd.length);
+    await stream.seek(mdhd.offset);
+    data = await stream.readBlock(mdhd.length);
 
     const version = data.get(8);
     let unit: number;
@@ -126,8 +131,8 @@ export class Mp4Properties extends AudioProperties {
       // Fallback: try movie header (mvhd)
       const mvhd = moov.find("mvhd");
       if (mvhd) {
-        stream.seek(mvhd.offset);
-        data = stream.readBlock(mvhd.length);
+        await stream.seek(mvhd.offset);
+        data = await stream.readBlock(mvhd.length);
         if (data.length >= 24 + 4) {
           unit = data.toUInt(20);
           length = data.toUInt(24);
@@ -143,8 +148,8 @@ export class Mp4Properties extends AudioProperties {
     const stsd = trak.find("mdia", "minf", "stbl", "stsd");
     if (!stsd) return;
 
-    stream.seek(stsd.offset);
-    data = stream.readBlock(stsd.length);
+    await stream.seek(stsd.offset);
+    data = await stream.readBlock(stsd.length);
 
     if (data.containsAt(ByteVector.fromString("mp4a", StringType.Latin1), 20)) {
       this._codec = Mp4Codec.AAC;

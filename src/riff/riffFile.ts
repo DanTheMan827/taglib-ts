@@ -27,10 +27,9 @@ export abstract class RiffFile extends File {
   private _chunks: ChunkInfo[] = [];
   private _format: string = "";
 
-  constructor(stream: IOStream, bigEndian: boolean) {
+  protected constructor(stream: IOStream, bigEndian: boolean) {
     super(stream);
     this._bigEndian = bigEndian;
-    this.parseHeader();
   }
 
   // ---------------------------------------------------------------------------
@@ -53,8 +52,8 @@ export abstract class RiffFile extends File {
     return this._chunks[index].size;
   }
 
-  chunkData(index: number): ByteVector {
-    this.seek(this._chunks[index].offset);
+  async chunkData(index: number): Promise<ByteVector> {
+    await this.seek(this._chunks[index].offset);
     return this.readBlock(this._chunks[index].size);
   }
 
@@ -76,7 +75,7 @@ export abstract class RiffFile extends File {
    * If `overwrite` is true (default) and a chunk with the same name already
    * exists, its data is replaced in-place; otherwise a new chunk is appended.
    */
-  setChunkData(name: string, data: ByteVector, overwrite: boolean = true): void {
+  async setChunkData(name: string, data: ByteVector, overwrite: boolean = true): Promise<void> {
     if (this.readOnly) return;
 
     if (overwrite) {
@@ -96,7 +95,7 @@ export abstract class RiffFile extends File {
 
           // The chunk header (8 bytes) sits right before the offset
           const chunkHeaderOffset = this._chunks[i].offset - 8;
-          this.insert(header, chunkHeaderOffset, 8 + oldTotalSize);
+          await this.insert(header, chunkHeaderOffset, 8 + oldTotalSize);
 
           // Update stored info
           const sizeDelta = (data.length + newPadding) - oldTotalSize;
@@ -109,7 +108,7 @@ export abstract class RiffFile extends File {
           }
 
           // Update outer RIFF/FORM size
-          this.updateFileSize();
+          await this.updateFileSize();
           return;
         }
       }
@@ -125,9 +124,9 @@ export abstract class RiffFile extends File {
     header.append(data);
     if (padding) header.append(0);
 
-    const endOffset = this.fileLength;
-    this.seek(endOffset);
-    this.writeBlock(header);
+    const endOffset = await this.fileLength();
+    await this.seek(endOffset);
+    await this.writeBlock(header);
 
     this._chunks.push({
       name,
@@ -136,13 +135,13 @@ export abstract class RiffFile extends File {
       padding,
     });
 
-    this.updateFileSize();
+    await this.updateFileSize();
   }
 
   /**
    * Remove the first chunk matching `name`.
    */
-  removeChunk(name: string): void {
+  async removeChunk(name: string): Promise<void> {
     if (this.readOnly) return;
 
     for (let i = 0; i < this._chunks.length; i++) {
@@ -150,7 +149,7 @@ export abstract class RiffFile extends File {
         const totalRemove = 8 + this._chunks[i].size + this._chunks[i].padding;
         const chunkHeaderOffset = this._chunks[i].offset - 8;
 
-        this.removeBlock(chunkHeaderOffset, totalRemove);
+        await this.removeBlock(chunkHeaderOffset, totalRemove);
 
         // Shift subsequent chunk offsets
         for (let j = i + 1; j < this._chunks.length; j++) {
@@ -158,7 +157,7 @@ export abstract class RiffFile extends File {
         }
 
         this._chunks.splice(i, 1);
-        this.updateFileSize();
+        await this.updateFileSize();
         return;
       }
     }
@@ -168,9 +167,9 @@ export abstract class RiffFile extends File {
   // Internal parsing
   // ---------------------------------------------------------------------------
 
-  private parseHeader(): void {
-    this.seek(0);
-    const header = this.readBlock(12);
+  protected async parseHeader(): Promise<void> {
+    await this.seek(0);
+    const header = await this.readBlock(12);
     if (header.length < 12) {
       this._valid = false;
       return;
@@ -186,11 +185,11 @@ export abstract class RiffFile extends File {
 
     // Walk chunks
     let pos: offset_t = 12;
-    const fileLen = this.fileLength;
+    const fileLen = await this.fileLength();
 
     while (pos + 8 <= fileLen) {
-      this.seek(pos);
-      const chunkHeader = this.readBlock(8);
+      await this.seek(pos);
+      const chunkHeader = await this.readBlock(8);
       if (chunkHeader.length < 8) break;
 
       const chunkName = chunkHeader.mid(0, 4).toString(StringType.Latin1);
@@ -210,9 +209,9 @@ export abstract class RiffFile extends File {
   }
 
   /** Rewrite the 4-byte file-size field at offset 4. */
-  private updateFileSize(): void {
-    const size = this.fileLength - 8;
-    this.seek(4);
-    this.writeBlock(ByteVector.fromUInt(size, this._bigEndian));
+  private async updateFileSize(): Promise<void> {
+    const size = (await this.fileLength()) - 8;
+    await this.seek(4);
+    await this.writeBlock(ByteVector.fromUInt(size, this._bigEndian));
   }
 }

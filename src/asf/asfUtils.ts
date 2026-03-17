@@ -74,26 +74,26 @@ export interface ReadResult<T> {
   ok: boolean;
 }
 
-export function readWORD(file: File): ReadResult<number> {
-  const v = file.readBlock(2);
+export async function readWORD(file: File): Promise<ReadResult<number>> {
+  const v = await file.readBlock(2);
   if (v.length !== 2) return { value: 0, ok: false };
   return { value: v.toUShort(0, false), ok: true };
 }
 
-export function readDWORD(file: File): ReadResult<number> {
-  const v = file.readBlock(4);
+export async function readDWORD(file: File): Promise<ReadResult<number>> {
+  const v = await file.readBlock(4);
   if (v.length !== 4) return { value: 0, ok: false };
   return { value: v.toUInt(0, false), ok: true };
 }
 
-export function readQWORD(file: File): ReadResult<bigint> {
-  const v = file.readBlock(8);
+export async function readQWORD(file: File): Promise<ReadResult<bigint>> {
+  const v = await file.readBlock(8);
   if (v.length !== 8) return { value: 0n, ok: false };
   return { value: v.toULongLong(0, false), ok: true };
 }
 
-export function readString(file: File, length: number): string {
-  const data = file.readBlock(length);
+export async function readString(file: File, length: number): Promise<string> {
+  const data = await file.readBlock(length);
   let size = data.length;
   // Strip trailing UTF-16 null terminators
   while (size >= 2) {

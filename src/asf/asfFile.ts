@@ -33,7 +33,7 @@ import {
 
 interface BaseObject {
   guid(): ByteVector;
-  parse(file: AsfFile, size: bigint): void;
+  parse(file: AsfFile, size: bigint): Promise<void>;
   render(file: AsfFile): ByteVector;
   data: ByteVector;
 }
@@ -45,11 +45,11 @@ function baseRender(obj: BaseObject): ByteVector {
   return result;
 }
 
-function baseParse(obj: BaseObject, file: AsfFile, size: bigint): void {
+async function baseParse(obj: BaseObject, file: AsfFile, size: bigint): Promise<void> {
   obj.data = new ByteVector();
   const s = Number(size);
-  if (s > 24 && s <= file.fileLength) {
-    obj.data = file.readBlock(s - 24);
+  if (s > 24 && s <= (await file.fileLength())) {
+    obj.data = await file.readBlock(s - 24);
   }
 }
 
@@ -59,7 +59,7 @@ class UnknownObject implements BaseObject {
   private _guid: ByteVector;
   constructor(guid: ByteVector) { this._guid = guid; }
   guid(): ByteVector { return this._guid; }
-  parse(file: AsfFile, size: bigint): void { baseParse(this, file, size); }
+  async parse(file: AsfFile, size: bigint): Promise<void> { await baseParse(this, file, size); }
   render(): ByteVector { return baseRender(this); }
 }
 
@@ -67,8 +67,8 @@ class UnknownObject implements BaseObject {
 class FilePropertiesObject implements BaseObject {
   data = new ByteVector();
   guid(): ByteVector { return filePropertiesGuid; }
-  parse(file: AsfFile, size: bigint): void {
-    baseParse(this, file, size);
+  async parse(file: AsfFile, size: bigint): Promise<void> {
+    await baseParse(this, file, size);
     if (this.data.length < 64) return;
     const duration = this.data.toLongLong(40, false);
     const preroll = this.data.toLongLong(56, false);
@@ -83,8 +83,8 @@ class FilePropertiesObject implements BaseObject {
 class StreamPropertiesObject implements BaseObject {
   data = new ByteVector();
   guid(): ByteVector { return streamPropertiesGuid; }
-  parse(file: AsfFile, size: bigint): void {
-    baseParse(this, file, size);
+  async parse(file: AsfFile, size: bigint): Promise<void> {
+    await baseParse(this, file, size);
     if (this.data.length < 70) return;
     file._properties!.setCodec(this.data.toUShort(54, false));
     file._properties!.setChannels(this.data.toUShort(56, false));
@@ -99,17 +99,17 @@ class StreamPropertiesObject implements BaseObject {
 class ContentDescriptionObject implements BaseObject {
   data = new ByteVector();
   guid(): ByteVector { return contentDescriptionGuid; }
-  parse(file: AsfFile): void {
-    const titleLength = readWORD(file).value;
-    const artistLength = readWORD(file).value;
-    const copyrightLength = readWORD(file).value;
-    const commentLength = readWORD(file).value;
-    const ratingLength = readWORD(file).value;
-    file._tag!.title = readString(file, titleLength);
-    file._tag!.artist = readString(file, artistLength);
-    file._tag!.copyright = readString(file, copyrightLength);
-    file._tag!.comment = readString(file, commentLength);
-    file._tag!.rating = readString(file, ratingLength);
+  async parse(file: AsfFile): Promise<void> {
+    const titleLength = (await readWORD(file)).value;
+    const artistLength = (await readWORD(file)).value;
+    const copyrightLength = (await readWORD(file)).value;
+    const commentLength = (await readWORD(file)).value;
+    const ratingLength = (await readWORD(file)).value;
+    file._tag!.title = await readString(file, titleLength);
+    file._tag!.artist = await readString(file, artistLength);
+    file._tag!.copyright = await readString(file, copyrightLength);
+    file._tag!.comment = await readString(file, commentLength);
+    file._tag!.rating = await readString(file, ratingLength);
   }
   render(file: AsfFile): ByteVector {
     const v1 = renderString(file._tag!.title);
@@ -137,11 +137,11 @@ class ExtendedContentDescriptionObject implements BaseObject {
   data = new ByteVector();
   attributeData: ByteVector[] = [];
   guid(): ByteVector { return extendedContentDescriptionGuid; }
-  parse(file: AsfFile): void {
-    let count = readWORD(file).value;
+  async parse(file: AsfFile): Promise<void> {
+    let count = (await readWORD(file)).value;
     while (count-- > 0) {
       const attribute = new AsfAttribute();
-      const name = attribute.parse(file);
+      const name = await attribute.parse(file);
       file._tag!.addAttribute(name, attribute);
     }
   }
@@ -158,11 +158,11 @@ class MetadataObject implements BaseObject {
   data = new ByteVector();
   attributeData: ByteVector[] = [];
   guid(): ByteVector { return metadataGuid; }
-  parse(file: AsfFile): void {
-    let count = readWORD(file).value;
+  async parse(file: AsfFile): Promise<void> {
+    let count = (await readWORD(file)).value;
     while (count-- > 0) {
       const attribute = new AsfAttribute();
-      const name = attribute.parse(file, 1);
+      const name = await attribute.parse(file, 1);
       file._tag!.addAttribute(name, attribute);
     }
   }
@@ -179,11 +179,11 @@ class MetadataLibraryObject implements BaseObject {
   data = new ByteVector();
   attributeData: ByteVector[] = [];
   guid(): ByteVector { return metadataLibraryGuid; }
-  parse(file: AsfFile): void {
-    let count = readWORD(file).value;
+  async parse(file: AsfFile): Promise<void> {
+    let count = (await readWORD(file)).value;
     while (count-- > 0) {
       const attribute = new AsfAttribute();
-      const name = attribute.parse(file, 2);
+      const name = await attribute.parse(file, 2);
       file._tag!.addAttribute(name, attribute);
     }
   }
@@ -200,17 +200,17 @@ class HeaderExtensionObject implements BaseObject {
   data = new ByteVector();
   objects: BaseObject[] = [];
   guid(): ByteVector { return headerExtensionGuid; }
-  parse(file: AsfFile): void {
-    file.seek(18, Position.Current);
-    const dataSize = readDWORD(file).value;
+  async parse(file: AsfFile): Promise<void> {
+    await file.seek(18, Position.Current);
+    const dataSize = (await readDWORD(file)).value;
     let dataPos = 0;
     while (dataPos < dataSize) {
-      const uid = file.readBlock(16);
+      const uid = await file.readBlock(16);
       if (uid.length !== 16) {
         file.setFileInvalid();
         break;
       }
-      const sizeResult = readQWORD(file);
+      const sizeResult = await readQWORD(file);
       if (!sizeResult.ok || sizeResult.value < 0n || sizeResult.value > BigInt(dataSize - dataPos)) {
         file.setFileInvalid();
         break;
@@ -227,7 +227,7 @@ class HeaderExtensionObject implements BaseObject {
       } else {
         obj = new UnknownObject(uid);
       }
-      obj.parse(file, sizeResult.value);
+      await obj.parse(file, sizeResult.value);
       this.objects.push(obj);
       dataPos += Number(sizeResult.value);
     }
@@ -256,8 +256,8 @@ class HeaderExtensionObject implements BaseObject {
 class CodecListObject implements BaseObject {
   data = new ByteVector();
   guid(): ByteVector { return codecListGuid; }
-  parse(file: AsfFile, size: bigint): void {
-    baseParse(this, file, size);
+  async parse(file: AsfFile, size: bigint): Promise<void> {
+    await baseParse(this, file, size);
     if (this.data.length <= 20) return;
 
     let pos = 16;
@@ -316,15 +316,20 @@ export class AsfFile extends File {
   /** @internal - used by inner parser objects to invalidate */
   setFileInvalid(): void { this._valid = false; }
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+  }
+
+  static async open(
     stream: IOStream,
     _readProperties = true,
     _readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    if (this.isOpen) {
-      this.read();
+  ): Promise<AsfFile> {
+    const file = new AsfFile(stream);
+    if (file.isOpen) {
+      await file.read();
     }
+    return file;
   }
 
   // -- File interface --
@@ -332,7 +337,7 @@ export class AsfFile extends File {
   tag(): AsfTag | null { return this._tag; }
   audioProperties(): AsfProperties | null { return this._properties; }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this.isValid) return false;
     if (!this._tag) return false;
@@ -391,12 +396,12 @@ export class AsfFile extends File {
     }
 
     // Write header
-    this.seek(16);
-    this.writeBlock(ByteVector.fromLongLong(BigInt(data.length + 30), false));
-    this.writeBlock(ByteVector.fromUInt(this._objects.length, false));
-    this.writeBlock(ByteVector.fromByteArray(new Uint8Array([0x01, 0x02])));
+    await this.seek(16);
+    await this.writeBlock(ByteVector.fromLongLong(BigInt(data.length + 30), false));
+    await this.writeBlock(ByteVector.fromUInt(this._objects.length, false));
+    await this.writeBlock(ByteVector.fromByteArray(new Uint8Array([0x01, 0x02])));
 
-    this.insert(data, 30, Number(this._headerSize) - 30);
+    await this.insert(data, 30, Number(this._headerSize) - 30);
     this._headerSize = BigInt(data.length + 30);
 
     return true;
@@ -404,9 +409,9 @@ export class AsfFile extends File {
 
   // -- Static --
 
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const id = stream.readBlock(16);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const id = await stream.readBlock(16);
     return id.equals(headerGuid);
   }
 
@@ -421,10 +426,10 @@ export class AsfFile extends File {
 
   // -- Internal --
 
-  private read(): void {
+  private async read(): Promise<void> {
     if (!this.isValid) return;
 
-    if (!this.readBlock(16).equals(headerGuid)) {
+    if (!(await this.readBlock(16)).equals(headerGuid)) {
       this._valid = false;
       return;
     }
@@ -432,31 +437,31 @@ export class AsfFile extends File {
     this._tag = new AsfTag();
     this._properties = new AsfProperties();
 
-    const headerSizeResult = readQWORD(this);
+    const headerSizeResult = await readQWORD(this);
     if (!headerSizeResult.ok) {
       this._valid = false;
       return;
     }
     this._headerSize = headerSizeResult.value;
 
-    const numObjectsResult = readDWORD(this);
+    const numObjectsResult = await readDWORD(this);
     if (!numObjectsResult.ok) {
       this._valid = false;
       return;
     }
     const numObjects = numObjectsResult.value;
-    this.seek(2, Position.Current);
+    await this.seek(2, Position.Current);
 
     let filePropertiesFound = false;
     let streamPropertiesFound = false;
 
     for (let i = 0; i < numObjects; i++) {
-      const guid = this.readBlock(16);
+      const guid = await this.readBlock(16);
       if (guid.length !== 16) {
         this._valid = false;
         break;
       }
-      const sizeResult = readQWORD(this);
+      const sizeResult = await readQWORD(this);
       if (!sizeResult.ok) {
         this._valid = false;
         break;
@@ -490,7 +495,7 @@ export class AsfFile extends File {
         obj = new UnknownObject(guid);
       }
 
-      obj.parse(this, size);
+      await obj.parse(this, size);
       this._objects.push(obj);
     }
 

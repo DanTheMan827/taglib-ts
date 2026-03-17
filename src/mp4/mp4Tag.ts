@@ -885,22 +885,26 @@ export class Mp4Tag extends Tag {
   private _atoms: Mp4Atoms;
   private _items: Map<string, Mp4Item> = new Map();
 
-  constructor(stream: IOStream, atoms: Mp4Atoms) {
+  private constructor(stream: IOStream, atoms: Mp4Atoms) {
     super();
     this._stream = stream;
     this._atoms = atoms;
+  }
 
+  static async create(stream: IOStream, atoms: Mp4Atoms): Promise<Mp4Tag> {
+    const tag = new Mp4Tag(stream, atoms);
     const ilst = atoms.find("moov", "udta", "meta", "ilst");
     if (ilst) {
       for (const atom of ilst.children) {
-        this._stream.seek(atom.offset + 8);
-        const data = this._stream.readBlock(atom.length - 8);
+        await stream.seek(atom.offset + 8);
+        const data = await stream.readBlock(atom.length - 8);
         const [name, item] = parseItem(atom.name, data);
-        if (item.isValid() && !this._items.has(name)) {
-          this._items.set(name, item);
+        if (item.isValid() && !tag._items.has(name)) {
+          tag._items.set(name, item);
         }
       }
     }
+    return tag;
   }
 
   tag(): Tag {
@@ -1101,7 +1105,7 @@ export class Mp4Tag extends Tag {
     return renderAtom("ilst", ilstData);
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     let ilstData = new ByteVector();
     for (const [name, itm] of this._items) {
       ilstData.append(itm.render(name));
@@ -1110,7 +1114,7 @@ export class Mp4Tag extends Tag {
 
     const path = this._atoms.path("moov", "udta", "meta", "ilst");
     if (path.length === 4) {
-      this.saveExisting(ilstData, path);
+      await this.saveExisting(ilstData, path);
     } else {
       const hdlrData = ByteVector.fromSize(8, 0);
       hdlrData.append(ByteVector.fromString("mdirappl", StringType.Latin1));
@@ -1123,16 +1127,16 @@ export class Mp4Tag extends Tag {
       metaPayload.append(ilstData);
       metaPayload.append(padIlst(ilstData));
       const metaData = renderAtom("meta", metaPayload);
-      this.saveNew(metaData);
+      await this.saveNew(metaData);
     }
     return true;
   }
 
-  strip(): boolean {
+  async strip(): Promise<boolean> {
     this._items.clear();
     const path = this._atoms.path("moov", "udta", "meta", "ilst");
     if (path.length === 4) {
-      this.saveExisting(new ByteVector(), path);
+      await this.saveExisting(new ByteVector(), path);
     }
     return true;
   }
@@ -1147,55 +1151,55 @@ export class Mp4Tag extends Tag {
     }
   }
 
-  private updateParents(path: Mp4Atom[], delta: number, ignore = 0): void {
+  private async updateParents(path: Mp4Atom[], delta: number, ignore = 0): Promise<void> {
     const end = path.length - ignore;
     for (let i = 0; i < end; i++) {
       const atom = path[i];
-      this._stream.seek(atom.offset);
-      const sizeWord = this._stream.readBlock(4).toUInt();
+      await this._stream.seek(atom.offset);
+      const sizeWord = (await this._stream.readBlock(4)).toUInt();
       if (sizeWord === 1) {
         // 64-bit size
-        this._stream.seek(4, Position.Current); // skip name
-        const longSize = Number(this._stream.readBlock(8).toLongLong());
-        this._stream.seek(atom.offset + 8);
-        this._stream.writeBlock(ByteVector.fromLongLong(BigInt(longSize + delta)));
+        await this._stream.seek(4, Position.Current); // skip name
+        const longSize = Number((await this._stream.readBlock(8)).toLongLong());
+        await this._stream.seek(atom.offset + 8);
+        await this._stream.writeBlock(ByteVector.fromLongLong(BigInt(longSize + delta)));
       } else {
-        this._stream.seek(atom.offset);
-        this._stream.writeBlock(ByteVector.fromUInt(sizeWord + delta));
+        await this._stream.seek(atom.offset);
+        await this._stream.writeBlock(ByteVector.fromUInt(sizeWord + delta));
       }
     }
   }
 
-  private updateOffsets(delta: number, offset: number): void {
+  private async updateOffsets(delta: number, offset: number): Promise<void> {
     const moov = this._atoms.find("moov");
     if (moov) {
       // Update stco (32-bit chunk offsets)
       for (const atom of moov.findAll("stco", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
-        this._stream.seek(atom.offset + 12);
-        const data = this._stream.readBlock(atom.length - 12);
+        await this._stream.seek(atom.offset + 12);
+        const data = await this._stream.readBlock(atom.length - 12);
         let count = data.toUInt();
-        this._stream.seek(atom.offset + 16);
+        await this._stream.seek(atom.offset + 16);
         let pos = 4;
         while (count-- > 0) {
           let o = data.toUInt(pos);
           if (o > offset) o += delta;
-          this._stream.writeBlock(ByteVector.fromUInt(o));
+          await this._stream.writeBlock(ByteVector.fromUInt(o));
           pos += 4;
         }
       }
       // Update co64 (64-bit chunk offsets)
       for (const atom of moov.findAll("co64", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
-        this._stream.seek(atom.offset + 12);
-        const data = this._stream.readBlock(atom.length - 12);
+        await this._stream.seek(atom.offset + 12);
+        const data = await this._stream.readBlock(atom.length - 12);
         let count = data.toUInt();
-        this._stream.seek(atom.offset + 16);
+        await this._stream.seek(atom.offset + 16);
         let pos = 4;
         while (count-- > 0) {
           let o = Number(data.toLongLong(pos));
           if (o > offset) o += delta;
-          this._stream.writeBlock(ByteVector.fromLongLong(BigInt(o)));
+          await this._stream.writeBlock(ByteVector.fromLongLong(BigInt(o)));
           pos += 8;
         }
       }
@@ -1205,20 +1209,20 @@ export class Mp4Tag extends Tag {
     if (moof) {
       for (const atom of moof.findAll("tfhd", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
-        this._stream.seek(atom.offset + 9);
-        const data = this._stream.readBlock(atom.length - 9);
+        await this._stream.seek(atom.offset + 9);
+        const data = await this._stream.readBlock(atom.length - 9);
         const flags = data.toUInt(0, 3);
         if (flags & 1) {
           let o = Number(data.toLongLong(7));
           if (o > offset) o += delta;
-          this._stream.seek(atom.offset + 16);
-          this._stream.writeBlock(ByteVector.fromLongLong(BigInt(o)));
+          await this._stream.seek(atom.offset + 16);
+          await this._stream.writeBlock(ByteVector.fromLongLong(BigInt(o)));
         }
       }
     }
   }
 
-  private saveNew(data: ByteVector): void {
+  private async saveNew(data: ByteVector): Promise<void> {
     let path = this._atoms.path("moov", "udta");
     if (path.length !== 2) {
       path = this._atoms.path("moov");
@@ -1226,16 +1230,16 @@ export class Mp4Tag extends Tag {
     }
 
     const offset = path[path.length - 1].offset + 8;
-    this._stream.insert(data, offset, 0);
-    this.updateParents(path, data.length);
-    this.updateOffsets(data.length, offset);
+    await this._stream.insert(data, offset, 0);
+    await this.updateParents(path, data.length);
+    await this.updateOffsets(data.length, offset);
 
     // Insert newly-created atom into tree
-    this._stream.seek(offset);
-    path[path.length - 1].prependChild(new Mp4Atom(this._stream));
+    await this._stream.seek(offset);
+    path[path.length - 1].prependChild(await Mp4Atom.parse(this._stream));
   }
 
-  private saveExisting(data: ByteVector, path: Mp4Atom[]): void {
+  private async saveExisting(data: ByteVector, path: Mp4Atom[]): Promise<void> {
     const ilst = path[path.length - 1];
     let offset = ilst.offset;
     let length = ilst.length;
@@ -1269,11 +1273,11 @@ export class Mp4Tag extends Tag {
         delta = 0;
       }
 
-      this._stream.insert(data, offset, length);
+      await this._stream.insert(data, offset, length);
 
       if (delta) {
-        this.updateParents(path, delta, 1);
-        this.updateOffsets(delta, offset);
+        await this.updateParents(path, delta, 1);
+        await this.updateOffsets(delta, offset);
       }
     } else {
       // Strip: remove the meta atom
@@ -1281,10 +1285,10 @@ export class Mp4Tag extends Tag {
       if (udta && udta.removeChild(meta)) {
         const metaOffset = meta.offset;
         const metaDelta = -meta.length;
-        this._stream.removeBlock(meta.offset, meta.length);
+        await this._stream.removeBlock(meta.offset, meta.length);
         if (metaDelta) {
-          this.updateParents(path, metaDelta, 2);
-          this.updateOffsets(metaDelta, metaOffset);
+          await this.updateParents(path, metaDelta, 2);
+          await this.updateOffsets(metaDelta, metaOffset);
         }
       }
     }

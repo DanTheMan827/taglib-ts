@@ -25,73 +25,81 @@ export class Mp4Atom {
   headerSize: number;
   children: Mp4Atom[];
 
-  /** Parse one atom from the current stream position. */
-  constructor(stream: IOStream) {
-    this.offset = stream.tell();
-    this.children = [];
+  private constructor() {
+    this.name = "";
+    this.offset = 0;
+    this.length = 0;
     this.headerSize = 8;
+    this.children = [];
+  }
 
-    const header = stream.readBlock(8);
+  /** Parse one atom from the current stream position. */
+  static async parse(stream: IOStream): Promise<Mp4Atom> {
+    const atom = new Mp4Atom();
+    atom.offset = await stream.tell();
+
+    const header = await stream.readBlock(8);
     if (header.length !== 8) {
-      this.name = "";
-      this.length = 0;
-      stream.seek(0, Position.End);
-      return;
+      atom.name = "";
+      atom.length = 0;
+      await stream.seek(0, Position.End);
+      return atom;
     }
 
     let size = header.toUInt();
 
     if (size === 0) {
       // Atom extends to end of file
-      size = stream.length() - this.offset;
+      size = (await stream.length()) - atom.offset;
     } else if (size === 1) {
       // 64-bit extended size
-      const extSize = stream.readBlock(8);
+      const extSize = await stream.readBlock(8);
       size = Number(extSize.toLongLong());
-      this.headerSize = 16;
+      atom.headerSize = 16;
     }
 
-    if (size < 8 || size > stream.length() - this.offset) {
-      this.name = "";
-      this.length = 0;
-      stream.seek(0, Position.End);
-      return;
+    if (size < 8 || size > (await stream.length()) - atom.offset) {
+      atom.name = "";
+      atom.length = 0;
+      await stream.seek(0, Position.End);
+      return atom;
     }
 
-    this.length = size;
-    this.name = header.mid(4, 4).toString(StringType.Latin1);
+    atom.length = size;
+    atom.name = header.mid(4, 4).toString(StringType.Latin1);
 
     // "stem" is not parsed as a container (per C++ reference)
-    if (this.name === "stem") {
-      stream.seek(this.length - 8, Position.Current);
-      return;
+    if (atom.name === "stem") {
+      await stream.seek(atom.length - 8, Position.Current);
+      return atom;
     }
 
-    if (CONTAINERS.has(this.name)) {
-      if (this.name === "meta") {
+    if (CONTAINERS.has(atom.name)) {
+      if (atom.name === "meta") {
         // meta may or may not be a "full box" (version + flags before children).
         // Peek at the next 8 bytes: if bytes 4..8 match a known child name,
         // it is NOT a full box.
-        const posAfterMeta = stream.tell();
-        const peek = stream.readBlock(8);
+        const posAfterMeta = await stream.tell();
+        const peek = await stream.readBlock(8);
         const nextName = peek.mid(4, 4).toString(StringType.Latin1);
         const isFullAtom = !META_CHILDREN_NAMES.has(nextName);
-        stream.seek(posAfterMeta + (isFullAtom ? 4 : 0));
-      } else if (this.name === "stsd") {
+        await stream.seek(posAfterMeta + (isFullAtom ? 4 : 0));
+      } else if (atom.name === "stsd") {
         // Skip 8-byte version/flags + entry count
-        stream.seek(8, Position.Current);
+        await stream.seek(8, Position.Current);
       }
 
-      while (stream.tell() < this.offset + this.length) {
-        const child = new Mp4Atom(stream);
-        this.children.push(child);
-        if (child.length === 0) return;
+      while ((await stream.tell()) < atom.offset + atom.length) {
+        const child = await Mp4Atom.parse(stream);
+        atom.children.push(child);
+        if (child.length === 0) return atom;
       }
-      return;
+      return atom;
     }
 
     // Leaf atom – skip past its data
-    stream.seek(this.offset + this.length);
+    await stream.seek(atom.offset + atom.length);
+    return atom;
   }
 
   /**
@@ -152,16 +160,21 @@ export class Mp4Atom {
 export class Mp4Atoms {
   atoms: Mp4Atom[];
 
-  constructor(stream: IOStream) {
+  private constructor() {
     this.atoms = [];
-    stream.seek(0, Position.End);
-    const end = stream.tell();
-    stream.seek(0);
-    while (stream.tell() + 8 <= end) {
-      const atom = new Mp4Atom(stream);
-      this.atoms.push(atom);
+  }
+
+  static async create(stream: IOStream): Promise<Mp4Atoms> {
+    const mp4Atoms = new Mp4Atoms();
+    await stream.seek(0, Position.End);
+    const end = await stream.tell();
+    await stream.seek(0);
+    while ((await stream.tell()) + 8 <= end) {
+      const atom = await Mp4Atom.parse(stream);
+      mp4Atoms.atoms.push(atom);
       if (atom.length === 0) break;
     }
+    return mp4Atoms;
   }
 
   /** Navigate from a root-level atom through successive child names. */

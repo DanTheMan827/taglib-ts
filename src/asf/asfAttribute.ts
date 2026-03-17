@@ -115,7 +115,7 @@ export class AsfAttribute {
    * @param kind 0 = extended content descriptor, 1 = metadata, 2 = metadata library
    * @returns the attribute name
    */
-  parse(file: File, kind = 0): string {
+  async parse(file: File, kind = 0): Promise<string> {
     let size: number;
     let nameLength: number;
     let name: string;
@@ -124,51 +124,51 @@ export class AsfAttribute {
 
     if (kind === 0) {
       // Extended content descriptor
-      nameLength = readWORD(file).value;
-      name = readString(file, nameLength);
-      this._type = readWORD(file).value as AsfAttributeType;
-      size = readWORD(file).value;
+      nameLength = (await readWORD(file)).value;
+      name = await readString(file, nameLength);
+      this._type = (await readWORD(file)).value as AsfAttributeType;
+      size = (await readWORD(file)).value;
     } else {
       // Metadata or metadata library
-      const temp = readWORD(file).value;
+      const temp = (await readWORD(file)).value;
       if (kind === 2) {
         this._language = temp;
       }
-      this._stream = readWORD(file).value;
-      nameLength = readWORD(file).value;
-      this._type = readWORD(file).value as AsfAttributeType;
-      size = readDWORD(file).value;
-      name = readString(file, nameLength);
+      this._stream = (await readWORD(file)).value;
+      nameLength = (await readWORD(file)).value;
+      this._type = (await readWORD(file)).value as AsfAttributeType;
+      size = (await readDWORD(file)).value;
+      name = await readString(file, nameLength);
     }
 
     switch (this._type) {
       case AsfAttributeType.WordType:
-        this._numericValue = BigInt(readWORD(file).value);
+        this._numericValue = BigInt((await readWORD(file)).value);
         break;
 
       case AsfAttributeType.BoolType:
         if (kind === 0) {
-          this._numericValue = readDWORD(file).value !== 0 ? 1n : 0n;
+          this._numericValue = (await readDWORD(file)).value !== 0 ? 1n : 0n;
         } else {
-          this._numericValue = readWORD(file).value !== 0 ? 1n : 0n;
+          this._numericValue = (await readWORD(file)).value !== 0 ? 1n : 0n;
         }
         break;
 
       case AsfAttributeType.DWordType:
-        this._numericValue = BigInt(readDWORD(file).value);
+        this._numericValue = BigInt((await readDWORD(file)).value);
         break;
 
       case AsfAttributeType.QWordType:
-        this._numericValue = readQWORD(file).value;
+        this._numericValue = (await readQWORD(file)).value;
         break;
 
       case AsfAttributeType.UnicodeType:
-        this._stringValue = readString(file, size);
+        this._stringValue = await readString(file, size);
         break;
 
       case AsfAttributeType.BytesType:
       case AsfAttributeType.GuidType:
-        this._byteVectorValue = file.readBlock(size);
+        this._byteVectorValue = await file.readBlock(size);
         break;
     }
 
