@@ -1,15 +1,33 @@
+/**
+ * @file In-memory IOStream backed by a ByteVector.
+ */
+
 import { ByteVector } from "../byteVector.js";
 import { type offset_t, Position } from "./types.js";
 import { IOStream } from "./ioStream.js";
 
 /**
- * An in-memory IOStream backed by a ByteVector. Useful for reading/writing
- * metadata without touching the filesystem.
+ * An in-memory {@link IOStream} backed by a {@link ByteVector}. Useful for
+ * reading and writing tag metadata without touching the filesystem, or for
+ * constructing binary payloads in memory.
+ *
+ * All operations are synchronous under the hood; the async signatures exist
+ * solely to satisfy the {@link IOStream} contract.
  */
 export class ByteVectorStream extends IOStream {
+  /** The underlying buffer. */
   private _data: ByteVector;
+
+  /** Current read/write position (bytes from the start). */
   private _position: offset_t = 0;
 
+  /**
+   * Creates a new ByteVectorStream.
+   *
+   * @param data - Initial content. If a `Uint8Array` is provided it is
+   *   wrapped in a new {@link ByteVector}. If a {@link ByteVector} is
+   *   provided a copy is made. Defaults to an empty buffer.
+   */
   constructor(data: ByteVector | Uint8Array = new ByteVector()) {
     super();
     if (data instanceof Uint8Array) {
@@ -23,11 +41,21 @@ export class ByteVectorStream extends IOStream {
   // IOStream implementation
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns an empty string — in-memory streams have no meaningful name.
+   */
   name(): string {
     return "";
   }
 
-  readBlock(length: number): ByteVector {
+  /**
+   * Reads up to `length` bytes from the current position and advances the
+   * position by the number of bytes actually read.
+   *
+   * @param length - Maximum number of bytes to read.
+   * @returns Resolves with a {@link ByteVector} containing the bytes read.
+   */
+  async readBlock(length: number): Promise<ByteVector> {
     if (length <= 0) {
       return new ByteVector();
     }
@@ -43,7 +71,13 @@ export class ByteVectorStream extends IOStream {
     return result;
   }
 
-  writeBlock(data: ByteVector): void {
+  /**
+   * Writes `data` at the current position, extending the buffer if necessary,
+   * and advances the position by `data.length`.
+   *
+   * @param data - The bytes to write.
+   */
+  async writeBlock(data: ByteVector): Promise<void> {
     if (data.length === 0) {
       return;
     }
@@ -59,7 +93,15 @@ export class ByteVectorStream extends IOStream {
     this._position = end;
   }
 
-  insert(data: ByteVector, start: offset_t, replace: number = 0): void {
+  /**
+   * Inserts `data` at byte offset `start`, optionally replacing `replace`
+   * bytes of existing content.
+   *
+   * @param data    - The bytes to insert.
+   * @param start   - Byte offset at which to begin the insertion.
+   * @param replace - Number of existing bytes to overwrite. Defaults to 0.
+   */
+  async insert(data: ByteVector, start: offset_t, replace: number = 0): Promise<void> {
     if (start > this._data.length) {
       // Pad with zeros up to start, then append data
       this._data.resize(start);
@@ -88,7 +130,13 @@ export class ByteVectorStream extends IOStream {
     this._position = start + data.length;
   }
 
-  removeBlock(start: offset_t, length: number): void {
+  /**
+   * Removes `length` bytes beginning at byte offset `start`.
+   *
+   * @param start  - Byte offset of the first byte to remove.
+   * @param length - Number of bytes to remove.
+   */
+  async removeBlock(start: offset_t, length: number): Promise<void> {
     if (start >= this._data.length || length <= 0) {
       return;
     }
@@ -115,14 +163,22 @@ export class ByteVectorStream extends IOStream {
     }
   }
 
+  /** Returns `false` — ByteVectorStream is always writable. */
   readOnly(): boolean {
     return false;
   }
 
+  /** Returns `true` — ByteVectorStream is always open. */
   isOpen(): boolean {
     return true;
   }
 
+  /**
+   * Moves the read/write position.
+   *
+   * @param offset   - Number of bytes to move.
+   * @param position - Reference point. Defaults to {@link Position.Beginning}.
+   */
   seek(offset: offset_t, position: Position = Position.Beginning): void {
     switch (position) {
       case Position.Beginning:
@@ -137,19 +193,28 @@ export class ByteVectorStream extends IOStream {
     }
   }
 
+  /** Resets the stream position to the beginning. */
   clear(): void {
     this._position = 0;
   }
 
+  /** Returns the current read/write position in bytes. */
   tell(): offset_t {
     return this._position;
   }
 
+  /** Returns the total number of bytes in the stream. */
   length(): offset_t {
     return this._data.length;
   }
 
-  truncate(length: offset_t): void {
+  /**
+   * Truncates or zero-extends the stream to exactly `length` bytes. If the
+   * current position exceeds the new length, it is clamped.
+   *
+   * @param length - The desired stream length in bytes.
+   */
+  async truncate(length: offset_t): Promise<void> {
     this._data.resize(length);
     if (this._position > length) {
       this._position = length;
@@ -160,7 +225,7 @@ export class ByteVectorStream extends IOStream {
   // ByteVectorStream-specific
   // ---------------------------------------------------------------------------
 
-  /** Returns a copy of the underlying ByteVector. */
+  /** Returns a copy of the underlying {@link ByteVector}. */
   data(): ByteVector {
     return ByteVector.fromByteVector(this._data);
   }
