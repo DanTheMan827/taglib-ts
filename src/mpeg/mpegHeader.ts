@@ -1,3 +1,4 @@
+import type { ByteVector } from "../byteVector.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 import type { offset_t } from "../toolkit/types.js";
 
@@ -81,8 +82,16 @@ export class MpegHeader {
   private _isADTS: boolean = false;
   private _channels: number = 0;
 
-  constructor(stream: IOStream, offset: offset_t, checkLength: boolean = false) {
-    this.parse(stream, offset, checkLength);
+  private constructor() {}
+
+  static async fromStream(
+    stream: IOStream,
+    offset: offset_t,
+    checkLength: boolean = false,
+  ): Promise<MpegHeader> {
+    const h = new MpegHeader();
+    await h.parse(stream, offset, checkLength);
+    return h;
   }
 
   // ---------------------------------------------------------------------------
@@ -108,9 +117,9 @@ export class MpegHeader {
   // Private
   // ---------------------------------------------------------------------------
 
-  private parse(stream: IOStream, offset: offset_t, checkLength: boolean): void {
-    stream.seek(offset);
-    const data = stream.readBlock(4);
+  private async parse(stream: IOStream, offset: offset_t, checkLength: boolean): Promise<void> {
+    await stream.seek(offset);
+    const data = await stream.readBlock(4);
     if (data.length < 4) return;
 
     if (!isFrameSync(data.get(0), data.get(1))) return;
@@ -132,7 +141,7 @@ export class MpegHeader {
         return; // invalid
       }
       this._isADTS = true;
-      this.parseADTS(data, stream, offset, checkLength);
+      await this.parseADTS(data, stream, offset, checkLength);
       return;
     }
 
@@ -190,18 +199,18 @@ export class MpegHeader {
 
     // -- Validate next frame if requested --
     if (checkLength) {
-      if (!this.validateNextFrame(stream, offset, data)) return;
+      if (!await this.validateNextFrame(stream, offset, data)) return;
     }
 
     this._isValid = true;
   }
 
-  private parseADTS(
-    data: ReturnType<IOStream["readBlock"]>,
+  private async parseADTS(
+    data: ByteVector,
     stream: IOStream,
     offset: offset_t,
     checkLength: boolean,
-  ): void {
+  ): Promise<void> {
     // Protection bit (inverted)
     this._protectionEnabled = (data.get(1) & 0x01) === 0;
 
@@ -233,8 +242,8 @@ export class MpegHeader {
 
     // Frame length (13-bit field spread across bytes 3-5)
     // Need to read 2 more bytes (bytes 4 and 5)
-    stream.seek(offset);
-    const fullData = stream.readBlock(6);
+    await stream.seek(offset);
+    const fullData = await stream.readBlock(6);
     if (fullData.length < 6) return;
 
     this._frameLength =
@@ -254,19 +263,19 @@ export class MpegHeader {
     this._layer = 0;
 
     if (checkLength) {
-      if (!this.validateNextFrame(stream, offset, data)) return;
+      if (!await this.validateNextFrame(stream, offset, data)) return;
     }
 
     this._isValid = true;
   }
 
-  private validateNextFrame(
+  private async validateNextFrame(
     stream: IOStream,
     offset: offset_t,
-    data: ReturnType<IOStream["readBlock"]>,
-  ): boolean {
-    stream.seek(offset + this._frameLength);
-    const nextData = stream.readBlock(4);
+    data: ByteVector,
+  ): Promise<boolean> {
+    await stream.seek(offset + this._frameLength);
+    const nextData = await stream.readBlock(4);
     if (nextData.length < 4) return false;
 
     const currentMasked = data.toUInt(0, true) & HEADER_MASK;

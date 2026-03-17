@@ -27,15 +27,15 @@ export class ID3v1Tag extends Tag {
   }
 
   /**
-   * Read and parse an ID3v1 tag from the given stream at the specified
-   * offset.  The offset should point to the first byte of the 128-byte tag
-   * (i.e. the "T" in "TAG").
+   * Asynchronously read and parse an ID3v1 tag from the given stream at the
+   * specified offset. The offset should point to the first byte of the
+   * 128-byte tag (i.e. the "T" in "TAG"). Returns a `Promise<ID3v1Tag>`.
    */
-  static readFrom(stream: IOStream, tagOffset: offset_t): ID3v1Tag {
+  static async readFrom(stream: IOStream, tagOffset: offset_t): Promise<ID3v1Tag> {
     const tag = new ID3v1Tag();
 
-    stream.seek(tagOffset);
-    const data = stream.readBlock(128);
+    await stream.seek(tagOffset);
+    const data = await stream.readBlock(128);
 
     if (data.length === 128 && data.startsWith(ID3v1Tag.fileIdentifier())) {
       tag.parse(data);

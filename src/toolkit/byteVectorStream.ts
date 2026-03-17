@@ -179,7 +179,7 @@ export class ByteVectorStream extends IOStream {
    * @param offset   - Number of bytes to move.
    * @param position - Reference point. Defaults to {@link Position.Beginning}.
    */
-  seek(offset: offset_t, position: Position = Position.Beginning): void {
+  async seek(offset: offset_t, position: Position = Position.Beginning): Promise<void> {
     switch (position) {
       case Position.Beginning:
         this._position = Math.max(0, offset);
@@ -194,17 +194,17 @@ export class ByteVectorStream extends IOStream {
   }
 
   /** Resets the stream position to the beginning. */
-  clear(): void {
+  async clear(): Promise<void> {
     this._position = 0;
   }
 
   /** Returns the current read/write position in bytes. */
-  tell(): offset_t {
+  async tell(): Promise<offset_t> {
     return this._position;
   }
 
   /** Returns the total number of bytes in the stream. */
-  length(): offset_t {
+  async length(): Promise<offset_t> {
     return this._data.length;
   }
 

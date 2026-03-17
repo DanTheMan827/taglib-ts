@@ -179,14 +179,14 @@ export abstract class OggFile extends File {
   // Packet access
   // ---------------------------------------------------------------------------
 
-  packet(index: number): ByteVector {
+  async packet(index: number): Promise<ByteVector> {
     const dirty = this._dirtyPackets.get(index);
     if (dirty) return dirty;
 
     const cached = this._packets.get(index);
     if (cached) return cached;
 
-    this.readPages();
+    await this.readPages();
     return this._packets.get(index) ?? new ByteVector();
   }
 
@@ -198,13 +198,13 @@ export abstract class OggFile extends File {
   // Page access
   // ---------------------------------------------------------------------------
 
-  firstPageHeader(): OggPageHeader | null {
-    this.readPages();
+  async firstPageHeader(): Promise<OggPageHeader | null> {
+    await this.readPages();
     return this._pages?.[0] ?? null;
   }
 
-  lastPageHeader(): OggPageHeader | null {
-    this.readPages();
+  async lastPageHeader(): Promise<OggPageHeader | null> {
+    await this.readPages();
     if (this._pages && this._pages.length > 0) {
       return this._pages[this._pages.length - 1];
     }
@@ -215,10 +215,10 @@ export abstract class OggFile extends File {
   // Save — preserves audio pages, only re-renders header pages
   // ---------------------------------------------------------------------------
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
-    this.readPages();
+    await this.readPages();
     if (!this._pages || this._pages.length === 0) return false;
 
     const headerPktCount = this.numHeaderPackets;
@@ -265,9 +265,9 @@ export abstract class OggFile extends File {
       offset += chunk.length;
     }
 
-    this._stream.seek(0, Position.Beginning);
-    this._stream.truncate(0);
-    this._stream.writeBlock(new ByteVector(output));
+    await this._stream.seek(0, Position.Beginning);
+    await this._stream.truncate(0);
+    await this._stream.writeBlock(new ByteVector(output));
 
     // Clear caches
     this._dirtyPackets.clear();
@@ -284,7 +284,7 @@ export abstract class OggFile extends File {
   // Internal page/packet reading
   // ---------------------------------------------------------------------------
 
-  private readPages(): void {
+  private async readPages(): Promise<void> {
     if (this._pages !== null) return;
 
     this._pages = [];
@@ -294,13 +294,13 @@ export abstract class OggFile extends File {
     this._packets.clear();
 
     let offset = 0;
-    const fileLen = this.fileLength;
+    const fileLen = await this.fileLength();
     let packetIndex = 0;
     let currentPacket = new ByteVector();
     let continued = false;
 
     while (offset < fileLen) {
-      const page = OggPageHeader.parse(this._stream, offset);
+      const page = await OggPageHeader.parse(this._stream, offset);
       if (!page || !page.isValid) break;
 
       this._pages.push(page);
@@ -310,8 +310,8 @@ export abstract class OggFile extends File {
       this._pageFirstPktIdx.push(packetIndex);
 
       // Read raw page bytes for later verbatim copying
-      this._stream.seek(offset, Position.Beginning);
-      const rawBv = this._stream.readBlock(page.totalSize);
+      await this._stream.seek(offset, Position.Beginning);
+      const rawBv = await this._stream.readBlock(page.totalSize);
       this._pageRawData.push(new Uint8Array(rawBv.data));
 
       if (this._pages.length === 1) {
@@ -319,8 +319,8 @@ export abstract class OggFile extends File {
       }
 
       // Read page payload for packet reassembly
-      this._stream.seek(offset + page.headerSize, Position.Beginning);
-      const payload = this._stream.readBlock(page.dataSize);
+      await this._stream.seek(offset + page.headerSize, Position.Beginning);
+      const payload = await this._stream.readBlock(page.dataSize);
 
       // Reassemble packets from segment table
       let payloadOffset = 0;

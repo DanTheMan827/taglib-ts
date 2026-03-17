@@ -78,7 +78,7 @@ export class FileRef {
         }
         case "flac": {
           const { FlacFile } = await import("./flac/flacFile.js");
-          return new FlacFile(stream, readProperties, readStyle);
+          return FlacFile.open(stream, readProperties, readStyle);
         }
         case "mp4": {
           const { Mp4File } = await import("./mp4/mp4File.js");
@@ -86,19 +86,19 @@ export class FileRef {
         }
         case "ogg-vorbis": {
           const { OggVorbisFile } = await import("./ogg/vorbis/vorbisFile.js");
-          return new OggVorbisFile(stream, readProperties, readStyle);
+          return OggVorbisFile.open(stream, readProperties, readStyle);
         }
         case "ogg-opus": {
           const { OggOpusFile } = await import("./ogg/opus/opusFile.js");
-          return new OggOpusFile(stream, readProperties, readStyle);
+          return OggOpusFile.open(stream, readProperties, readStyle);
         }
         case "ogg-speex": {
           const { OggSpeexFile } = await import("./ogg/speex/speexFile.js");
-          return new OggSpeexFile(stream, readProperties, readStyle);
+          return OggSpeexFile.open(stream, readProperties, readStyle);
         }
         case "ogg-flac": {
           const { OggFlacFile } = await import("./ogg/flac/oggFlacFile.js");
-          return new OggFlacFile(stream, readProperties, readStyle);
+          return OggFlacFile.open(stream, readProperties, readStyle);
         }
         case "wav": {
           const { WavFile } = await import("./riff/wav/wavFile.js");

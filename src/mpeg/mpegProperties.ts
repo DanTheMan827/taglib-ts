@@ -23,9 +23,17 @@ export class MpegProperties extends AudioProperties {
   private _isADTS: boolean = false;
   private _channelMode: ChannelMode = ChannelMode.Stereo;
 
-  constructor(file: MpegFile, readStyle: ReadStyle = ReadStyle.Average) {
+  private constructor(readStyle: ReadStyle) {
     super(readStyle);
-    this.read(file);
+  }
+
+  static async create(
+    file: MpegFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<MpegProperties> {
+    const props = new MpegProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
@@ -53,12 +61,12 @@ export class MpegProperties extends AudioProperties {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: MpegFile): void {
+  private async read(file: MpegFile): Promise<void> {
     // 1. Find first valid frame
-    const firstOffset = file.firstFrameOffset();
+    const firstOffset = await file.firstFrameOffset();
     if (firstOffset < 0) return;
 
-    const firstHeader = new MpegHeader(file["_stream"], firstOffset, false);
+    const firstHeader = await MpegHeader.fromStream(file["_stream"], firstOffset, false);
     if (!firstHeader.isValid) return;
 
     // Copy header properties
@@ -73,8 +81,8 @@ export class MpegProperties extends AudioProperties {
     this._isADTS = firstHeader.isADTS;
 
     // 2. Try Xing/VBRI VBR header from first frame data
-    file.seek(firstOffset);
-    const firstFrameData = file.readBlock(firstHeader.frameLength);
+    await file.seek(firstOffset);
+    const firstFrameData = await file.readBlock(firstHeader.frameLength);
     const xingHeader = new XingHeader(firstFrameData);
 
     if (xingHeader.isValid) {
@@ -98,7 +106,7 @@ export class MpegProperties extends AudioProperties {
         this._lengthInMs = 0;
         return;
       }
-      this.readADTS(file, firstOffset, firstHeader);
+      await this.readADTS(file, firstOffset, firstHeader);
       return;
     }
 
@@ -109,19 +117,15 @@ export class MpegProperties extends AudioProperties {
 
     // 5. Calculate duration from stream extent
     if (this._bitrate > 0) {
-      this.computeLength(file, firstOffset, firstHeader);
+      await this.computeLength(file, firstOffset, firstHeader);
     }
   }
 
-  /**
-   * Scan ADTS frames to compute average bitrate, then derive duration
-   * from the audio stream extent.
-   */
-  private readADTS(
+  private async readADTS(
     file: MpegFile,
     firstOffset: number,
     firstHeader: MpegHeader,
-  ): void {
+  ): Promise<void> {
     let offset = firstOffset;
     let frameLen = firstHeader.frameLength;
     let totalFrameSize = 0;
@@ -131,11 +135,11 @@ export class MpegProperties extends AudioProperties {
 
 
     while (true) {
-      const nextOffset = file.nextFrameOffset(offset + frameLen);
+      const nextOffset = await file.nextFrameOffset(offset + frameLen);
       if (nextOffset <= offset) break;
 
       offset = nextOffset;
-      const header = new MpegHeader(file["_stream"], offset, false);
+      const header = await MpegHeader.fromStream(file["_stream"], offset, false);
       if (!header.isValid) break;
       frameLen = header.frameLength;
 
@@ -165,22 +169,19 @@ export class MpegProperties extends AudioProperties {
     }
 
     if (this._bitrate > 0) {
-      this.computeLength(file, firstOffset, firstHeader);
+      await this.computeLength(file, firstOffset, firstHeader);
     }
   }
 
-  /**
-   * Compute duration from the byte extent between first and last frames.
-   */
-  private computeLength(
+  private async computeLength(
     file: MpegFile,
     firstOffset: number,
     _firstHeader: MpegHeader,
-  ): void {
-    const lastOffset = file.lastFrameOffset();
+  ): Promise<void> {
+    const lastOffset = await file.lastFrameOffset();
     if (lastOffset < 0) return;
 
-    const lastHeader = new MpegHeader(file["_stream"], lastOffset, false);
+    const lastHeader = await MpegHeader.fromStream(file["_stream"], lastOffset, false);
     if (!lastHeader.isValid) return;
 
     const streamLength = lastOffset - firstOffset + lastHeader.frameLength;

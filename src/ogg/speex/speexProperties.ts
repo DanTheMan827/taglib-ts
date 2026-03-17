@@ -21,9 +21,17 @@ export class SpeexProperties extends AudioProperties {
   private _sampleRate: number = 0;
   private _channels: number = 0;
 
-  constructor(file: OggFile, readStyle: ReadStyle = ReadStyle.Average) {
+  constructor(readStyle: ReadStyle = ReadStyle.Average) {
     super(readStyle);
-    this.read(file);
+  }
+
+  static async create(
+    file: OggFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<SpeexProperties> {
+    const props = new SpeexProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
@@ -50,8 +58,8 @@ export class SpeexProperties extends AudioProperties {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: OggFile): void {
-    const data = file.packet(0);
+  private async read(file: OggFile): Promise<void> {
+    const data = await file.packet(0);
 
     // Minimum Speex header: 8 + 20 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 = 68 bytes
     if (data.length < 68) {
@@ -72,8 +80,8 @@ export class SpeexProperties extends AudioProperties {
 
     // Compute duration from granule positions
     if (this._sampleRate > 0) {
-      const first = file.firstPageHeader();
-      const last = file.lastPageHeader();
+      const first = await file.firstPageHeader();
+      const last = await file.lastPageHeader();
 
       if (first && last) {
         const totalSamples = last.granulePosition - first.granulePosition;
@@ -82,7 +90,7 @@ export class SpeexProperties extends AudioProperties {
             Number(totalSamples) * 1000.0 / this._sampleRate;
           this._lengthInMs = Math.round(durationMs);
 
-          const streamLength = file.fileLength;
+          const streamLength = await file.fileLength();
           if (this._lengthInMs > 0) {
             this._bitrate = Math.round(
               (streamLength * 8.0) / durationMs,

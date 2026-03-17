@@ -24,9 +24,17 @@ export class VorbisProperties extends AudioProperties {
   private _bitrateNominal: number = 0;
   private _bitrateMinimum: number = 0;
 
-  constructor(file: OggFile, readStyle: ReadStyle = ReadStyle.Average) {
+  constructor(readStyle: ReadStyle = ReadStyle.Average) {
     super(readStyle);
-    this.read(file);
+  }
+
+  static async create(
+    file: OggFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<VorbisProperties> {
+    const props = new VorbisProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
@@ -73,8 +81,8 @@ export class VorbisProperties extends AudioProperties {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: OggFile): void {
-    const data = file.packet(0);
+  private async read(file: OggFile): Promise<void> {
+    const data = await file.packet(0);
 
     // Minimum identification header is 30 bytes
     if (data.length < 30) {
@@ -100,8 +108,8 @@ export class VorbisProperties extends AudioProperties {
 
     // Compute duration from granule positions of first and last pages
     if (this._sampleRate > 0) {
-      const first = file.firstPageHeader();
-      const last = file.lastPageHeader();
+      const first = await file.firstPageHeader();
+      const last = await file.lastPageHeader();
 
       if (first && last) {
         const totalSamples = last.granulePosition - first.granulePosition;
@@ -111,7 +119,7 @@ export class VorbisProperties extends AudioProperties {
           this._lengthInMs = Math.round(durationMs);
 
           // Compute average bitrate from stream length
-          const streamLength = file.fileLength;
+          const streamLength = await file.fileLength();
           if (this._lengthInMs > 0) {
             this._bitrate = Math.round(
               (streamLength * 8.0) / durationMs,

@@ -9,8 +9,12 @@ import { type offset_t, Position } from "./types.js";
  * Abstract base class for I/O streams. Concrete subclasses provide
  * byte-level read/write access to a backing store (file, memory, network, etc.).
  *
- * Methods that perform actual I/O are async; methods that only track in-memory
- * state (position, length, name, flags) remain synchronous.
+ * All I/O and position methods are async to support backends such as
+ * `Blob`/`File`, `FileSystemFileHandle`, and the Deno native FS API where
+ * operations like seeking and querying length are genuinely asynchronous.
+ *
+ * Only identity/flag queries ({@link name}, {@link readOnly}, {@link isOpen})
+ * remain synchronous.
  */
 export abstract class IOStream {
   /** Returns the name or identifier of the stream (e.g., a file path). */
@@ -21,7 +25,7 @@ export abstract class IOStream {
    * the position by the number of bytes actually read.
    *
    * @param length - Maximum number of bytes to read.
-   * @returns A ByteVector containing the bytes read. May be shorter than
+   * @returns A `ByteVector` containing the bytes read. May be shorter than
    *   `length` if the end of the stream is reached.
    */
   abstract readBlock(length: number): Promise<ByteVector>;
@@ -69,16 +73,22 @@ export abstract class IOStream {
    * @param position - Reference point for the seek. Defaults to
    *   {@link Position.Beginning}.
    */
-  abstract seek(offset: offset_t, position?: Position): void;
+  abstract seek(offset: offset_t, position?: Position): Promise<void>;
 
-  /** Resets the stream position to the beginning (equivalent to `seek(0)`). */
-  abstract clear(): void;
+  /**
+   * Resets the stream position to the beginning (equivalent to
+   * `seek(0, Position.Beginning)`).
+   */
+  abstract clear(): Promise<void>;
 
-  /** Returns the current read/write position in bytes from the start. */
-  abstract tell(): offset_t;
+  /**
+   * Returns the current read/write position in bytes from the start of the
+   * stream.
+   */
+  abstract tell(): Promise<offset_t>;
 
   /** Returns the total length of the stream in bytes. */
-  abstract length(): offset_t;
+  abstract length(): Promise<offset_t>;
 
   /**
    * Truncates or extends the stream to exactly `length` bytes. If the new

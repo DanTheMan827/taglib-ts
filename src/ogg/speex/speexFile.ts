@@ -16,14 +16,19 @@ export class OggSpeexFile extends OggFile {
 
   protected override get numHeaderPackets(): number { return 2; }
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._tag = new XiphComment();
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._tag = new XiphComment();
-    this.read(readProperties, readStyle);
+  ): Promise<OggSpeexFile> {
+    const file = new OggSpeexFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   tag(): XiphComment {
@@ -34,7 +39,7 @@ export class OggSpeexFile extends OggFile {
     return this._properties;
   }
 
-  override save(): boolean {
+  override async save(): Promise<boolean> {
     if (this.readOnly) {
       return false;
     }
@@ -50,15 +55,15 @@ export class OggSpeexFile extends OggFile {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // Parse comment header (packet 1) — raw XiphComment data with framing bit
-    const commentPacket = this.packet(1);
+    const commentPacket = await this.packet(1);
     if (commentPacket.length > 0) {
       this._tag = XiphComment.readFrom(commentPacket, 0);
     }
 
     if (readProperties) {
-      this._properties = new SpeexProperties(this, readStyle);
+      this._properties = await SpeexProperties.create(this, readStyle);
     }
   }
 }

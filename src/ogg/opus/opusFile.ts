@@ -22,14 +22,19 @@ export class OggOpusFile extends OggFile {
 
   protected override get numHeaderPackets(): number { return 2; }
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._tag = new XiphComment();
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._tag = new XiphComment();
-    this.read(readProperties, readStyle);
+  ): Promise<OggOpusFile> {
+    const file = new OggOpusFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   tag(): XiphComment {
@@ -40,7 +45,7 @@ export class OggOpusFile extends OggFile {
     return this._properties;
   }
 
-  override save(): boolean {
+  override async save(): Promise<boolean> {
     if (this.readOnly) {
       return false;
     }
@@ -59,9 +64,9 @@ export class OggOpusFile extends OggFile {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // Parse comment header (packet 1)
-    const commentPacket = this.packet(1);
+    const commentPacket = await this.packet(1);
     if (
       commentPacket.length > 8 &&
       commentPacket.startsWith(OPUS_TAGS_HEADER)
@@ -71,7 +76,7 @@ export class OggOpusFile extends OggFile {
     }
 
     if (readProperties) {
-      this._properties = new OpusProperties(this, readStyle);
+      this._properties = await OpusProperties.create(this, readStyle);
     }
   }
 }

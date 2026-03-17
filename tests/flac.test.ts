@@ -6,14 +6,18 @@ import { ReadStyle } from "../src/toolkit/types.js";
 import { Variant } from "../src/toolkit/variant.js";
 import { openTestStream, readTestData } from "./testHelper.js";
 
-function openFlacFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): FlacFile {
+async function openFlacFile(
+  filename: string,
+  readProperties = true,
+  readStyle = ReadStyle.Average,
+): Promise<FlacFile> {
   const stream = openTestStream(filename);
-  return new FlacFile(stream, readProperties, readStyle);
+  return FlacFile.open(stream, readProperties, readStyle);
 }
 
 describe("FLAC", () => {
-  it("should read silence file", () => {
-    const f = openFlacFile("silence-44-s.flac");
+  it("should read silence file", async () => {
+    const f = await openFlacFile("silence-44-s.flac");
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -25,73 +29,73 @@ describe("FLAC", () => {
     }
   });
 
-  it("should read sinewave file", () => {
-    const f = openFlacFile("sinewave.flac");
+  it("should read sinewave file", async () => {
+    const f = await openFlacFile("sinewave.flac");
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
   });
 
-  it("should read no-tags file", () => {
-    const f = openFlacFile("no-tags.flac");
+  it("should read no-tags file", async () => {
+    const f = await openFlacFile("no-tags.flac");
     expect(f.isValid).toBe(true);
   });
 
-  it("should read empty-seektable file", () => {
-    const f = openFlacFile("empty-seektable.flac");
+  it("should read empty-seektable file", async () => {
+    const f = await openFlacFile("empty-seektable.flac");
     expect(f.isValid).toBe(true);
   });
 
-  it("should read zero-sized-padding file", () => {
-    const f = openFlacFile("zero-sized-padding.flac");
+  it("should read zero-sized-padding file", async () => {
+    const f = await openFlacFile("zero-sized-padding.flac");
     expect(f.isValid).toBe(true);
   });
 
-  it("should read multiple-vc file", () => {
-    const f = openFlacFile("multiple-vc.flac");
+  it("should read multiple-vc file", async () => {
+    const f = await openFlacFile("multiple-vc.flac");
     expect(f.isValid).toBe(true);
   });
 
-  it("should read Xiph Comment", () => {
-    const f = openFlacFile("silence-44-s.flac");
+  it("should read Xiph Comment", async () => {
+    const f = await openFlacFile("silence-44-s.flac");
     expect(f.xiphComment).not.toBeNull();
   });
 
-  it("should access pictures", () => {
-    const f = openFlacFile("silence-44-s.flac");
+  it("should access pictures", async () => {
+    const f = await openFlacFile("silence-44-s.flac");
     // Silence file may or may not have pictures, but API should work
     const pics = f.pictureList;
     expect(Array.isArray(pics)).toBe(true);
   });
 
-  it("should save and re-read", () => {
+  it("should save and re-read", async () => {
     const data = readTestData("silence-44-s.flac");
     const stream = new ByteVectorStream(data);
-    const f = new FlacFile(stream, true, ReadStyle.Average);
+    const f = await FlacFile.open(stream, true, ReadStyle.Average);
 
     if (f.isValid && f.xiphComment) {
       f.xiphComment.title = "FLAC Test";
       f.xiphComment.artist = "Test Artist";
-      f.save();
+      await f.save();
     }
 
     // Re-read
-    stream.seek(0);
-    const f2 = new FlacFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await FlacFile.open(stream, true, ReadStyle.Average);
     if (f2.isValid && f2.xiphComment) {
       expect(f2.xiphComment.title).toBe("FLAC Test");
       expect(f2.xiphComment.artist).toBe("Test Artist");
     }
   });
 
-  it("should save and re-read artwork via complexProperties", () => {
+  it("should save and re-read artwork via complexProperties", async () => {
     const data = readTestData("silence-44-s.flac");
     const stream = new ByteVectorStream(data);
-    const f = new FlacFile(stream, true, ReadStyle.Average);
+    const f = await FlacFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
 
     // Create a small fake image
-    const imgData = ByteVector.fromSize(64, 0xFF);
+    const imgData = ByteVector.fromSize(64, 0xff);
 
     const pictureMap: Map<string, Variant> = new Map();
     pictureMap.set("data", Variant.fromByteVector(imgData));
@@ -104,11 +108,11 @@ describe("FLAC", () => {
     pictureMap.set("numColors", Variant.fromInt(0));
 
     f.setComplexProperties("PICTURE", [pictureMap]);
-    f.save();
+    await f.save();
 
     // Re-read
-    stream.seek(0);
-    const f2 = new FlacFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await FlacFile.open(stream, true, ReadStyle.Average);
     expect(f2.isValid).toBe(true);
     expect(f2.pictureList.length).toBe(1);
     expect(f2.pictureList[0].mimeType).toBe("image/png");

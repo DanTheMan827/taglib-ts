@@ -7,17 +7,17 @@ import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream, readTestData } from "./testHelper.js";
 
 describe("OGG Vorbis", () => {
-  it("should read empty ogg file", () => {
+  it("should read empty ogg file", async () => {
     const stream = openTestStream("empty.ogg");
-    const f = new OggVorbisFile(stream, true, ReadStyle.Average);
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const tag = f.tag();
     expect(tag).not.toBeNull();
   });
 
-  it("should read test ogg file", () => {
+  it("should read test ogg file", async () => {
     const stream = openTestStream("test.ogg");
-    const f = new OggVorbisFile(stream, true, ReadStyle.Average);
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -27,33 +27,33 @@ describe("OGG Vorbis", () => {
     }
   });
 
-  it("should read lowercase fields ogg", () => {
+  it("should read lowercase fields ogg", async () => {
     const stream = openTestStream("lowercase-fields.ogg");
-    const f = new OggVorbisFile(stream, true, ReadStyle.Average);
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
-  it("should read empty_vorbis.oga", () => {
+  it("should read empty_vorbis.oga", async () => {
     const stream = openTestStream("empty_vorbis.oga");
-    const f = new OggVorbisFile(stream, true, ReadStyle.Average);
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
-  it("should save and re-read", () => {
+  it("should save and re-read", async () => {
     const data = readTestData("empty.ogg");
     const stream = new ByteVectorStream(data);
-    const f = new OggVorbisFile(stream, true, ReadStyle.Average);
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
 
     if (f.isValid) {
       const tag = f.tag();
       if (tag) {
         tag.title = "Ogg Test";
         tag.artist = "Test Artist";
-        f.save();
+        await f.save();
       }
 
-      stream.seek(0);
-      const f2 = new OggVorbisFile(stream, true, ReadStyle.Average);
+      await stream.seek(0);
+      const f2 = await OggVorbisFile.open(stream, true, ReadStyle.Average);
       const tag2 = f2.tag();
       if (tag2) {
         expect(tag2.title).toBe("Ogg Test");
@@ -64,9 +64,9 @@ describe("OGG Vorbis", () => {
 });
 
 describe("OGG Opus", () => {
-  it("should read opus file", () => {
+  it("should read opus file", async () => {
     const stream = openTestStream("correctness_gain_silent_output.opus");
-    const f = new OggOpusFile(stream, true, ReadStyle.Average);
+    const f = await OggOpusFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -78,9 +78,9 @@ describe("OGG Opus", () => {
 });
 
 describe("OGG Speex", () => {
-  it("should read speex file", () => {
+  it("should read speex file", async () => {
     const stream = openTestStream("empty.spx");
-    const f = new OggSpeexFile(stream, true, ReadStyle.Average);
+    const f = await OggSpeexFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();

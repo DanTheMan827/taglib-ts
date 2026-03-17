@@ -160,19 +160,20 @@ export class Id3v2Tag extends Tag {
   }
 
   /**
-   * Read an ID3v2 tag from a stream at the given offset.
+   * Asynchronously read an ID3v2 tag from a stream at the given offset.
+   * Returns a `Promise<Id3v2Tag>`.
    */
-  static readFrom(
+  static async readFrom(
     stream: IOStream,
     offset: offset_t,
     factory?: Id3v2FrameFactory,
-  ): Id3v2Tag {
+  ): Promise<Id3v2Tag> {
     const tag = new Id3v2Tag();
     const frameFactory = factory ?? Id3v2FrameFactory.instance;
 
     // Read and parse the header
-    stream.seek(offset);
-    const headerData = stream.readBlock(Id3v2Header.size);
+    await stream.seek(offset);
+    const headerData = await stream.readBlock(Id3v2Header.size);
     const header = Id3v2Header.parse(headerData);
     if (!header) {
       return tag;
@@ -182,7 +183,7 @@ export class Id3v2Tag extends Tag {
     const version = header.majorVersion;
 
     // Read all tag data (after the header, before any footer)
-    const tagData = stream.readBlock(header.tagSize);
+    const tagData = await stream.readBlock(header.tagSize);
 
     // If the tag uses unsynchronisation (v2.3 whole-tag unsync), decode it
     let frameData: ByteVector;

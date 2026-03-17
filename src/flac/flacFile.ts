@@ -67,14 +67,19 @@ export class FlacFile extends File {
   private _flacStart: offset_t = 0;
   private _streamStart: offset_t = 0;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    this.read(readProperties, readStyle);
+  ): Promise<FlacFile> {
+    const file = new FlacFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   // ---------------------------------------------------------------------------
@@ -89,7 +94,7 @@ export class FlacFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this.isValid) return false;
 
@@ -153,7 +158,7 @@ export class FlacFile extends File {
     if (paddingLength <= 0) {
       paddingLength = MIN_PADDING_LENGTH;
     } else {
-      let threshold = Math.floor(this.fileLength / 100);
+      let threshold = Math.floor((await this.fileLength()) / 100);
       threshold = Math.max(threshold, MIN_PADDING_LENGTH);
       threshold = Math.min(threshold, MAX_PADDING_LENGTH);
       if (paddingLength > threshold) {
@@ -179,7 +184,7 @@ export class FlacFile extends File {
     const data = new ByteVector(dataArr);
 
     // Write metadata blocks (replace old region after "fLaC")
-    this.insert(data, this._flacStart, originalLength);
+    await this.insert(data, this._flacStart, originalLength);
 
     const sizeDelta = data.length - originalLength;
     this._streamStart += sizeDelta;
@@ -193,7 +198,7 @@ export class FlacFile extends File {
       if (this._id3v2Location < 0) this._id3v2Location = 0;
 
       const id3v2Data = this._id3v2Tag.render();
-      this.insert(id3v2Data, this._id3v2Location, this._id3v2OriginalSize);
+      await this.insert(id3v2Data, this._id3v2Location, this._id3v2OriginalSize);
 
       const id3v2Delta = id3v2Data.length - this._id3v2OriginalSize;
       this._flacStart += id3v2Delta;
@@ -201,7 +206,7 @@ export class FlacFile extends File {
       if (this._id3v1Location >= 0) this._id3v1Location += id3v2Delta;
       this._id3v2OriginalSize = id3v2Data.length;
     } else if (this._id3v2Location >= 0) {
-      this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
+      await this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
       this._flacStart -= this._id3v2OriginalSize;
       this._streamStart -= this._id3v2OriginalSize;
       if (this._id3v1Location >= 0) this._id3v1Location -= this._id3v2OriginalSize;
@@ -215,14 +220,14 @@ export class FlacFile extends File {
 
     if (this._id3v1Tag && !this._id3v1Tag.isEmpty) {
       if (this._id3v1Location >= 0) {
-        this.seek(this._id3v1Location);
+        await this.seek(this._id3v1Location);
       } else {
-        this.seek(0, Position.End);
-        this._id3v1Location = this.tell();
+        await this.seek(0, Position.End);
+        this._id3v1Location = await this.tell();
       }
-      this.writeBlock(this._id3v1Tag.render());
+      await this.writeBlock(this._id3v1Tag.render());
     } else if (this._id3v1Location >= 0) {
-      this.truncate(this._id3v1Location);
+      await this.truncate(this._id3v1Location);
       this._id3v1Location = -1;
     }
 
@@ -332,15 +337,15 @@ export class FlacFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Look for an ID3v2 tag at the start
-    this.findID3v2();
+    await this.findID3v2();
 
     // 2. Look for an ID3v1 tag at the end
-    this.findID3v1();
+    await this.findID3v1();
 
     // 3. Scan FLAC metadata blocks
-    this.scan();
+    await this.scan();
 
     if (!this.isValid) return;
 
@@ -354,15 +359,15 @@ export class FlacFile extends File {
       if (this._id3v1Location >= 0) {
         streamLength = this._id3v1Location - this._streamStart;
       } else {
-        streamLength = this.fileLength - this._streamStart;
+        streamLength = (await this.fileLength()) - this._streamStart;
       }
       this._properties = new FlacProperties(infoData, streamLength, readStyle);
     }
   }
 
-  private findID3v2(): void {
-    this.seek(0);
-    const headerData = this.readBlock(Id3v2Header.size);
+  private async findID3v2(): Promise<void> {
+    await this.seek(0);
+    const headerData = await this.readBlock(Id3v2Header.size);
     if (headerData.length < Id3v2Header.size) return;
 
     if (!headerData.startsWith(Id3v2Header.fileIdentifier)) return;
@@ -375,12 +380,13 @@ export class FlacFile extends File {
     this._id3v2Tag = Id3v2Tag.readFrom(this._stream, 0);
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  private async findID3v1(): Promise<void> {
+    const fileLen = await this.fileLength();
+    if (fileLen < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = fileLen - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
 
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
@@ -389,16 +395,16 @@ export class FlacFile extends File {
     this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
-  private scan(): void {
+  private async scan(): Promise<void> {
     // Locate "fLaC" magic after any ID3v2 tag
     let nextBlockOffset: offset_t;
     if (this._id3v2Location >= 0) {
-      nextBlockOffset = this.find(
+      nextBlockOffset = await this.find(
         FLAC_MAGIC,
         this._id3v2Location + this._id3v2OriginalSize,
       );
     } else {
-      nextBlockOffset = this.find(FLAC_MAGIC);
+      nextBlockOffset = await this.find(FLAC_MAGIC);
     }
 
     if (nextBlockOffset < 0) {
@@ -412,8 +418,8 @@ export class FlacFile extends File {
     let xiphCommentData: ByteVector | null = null;
 
     while (true) {
-      this.seek(nextBlockOffset);
-      const header = this.readBlock(4);
+      await this.seek(nextBlockOffset);
+      const header = await this.readBlock(4);
       if (header.length < 4) {
         this._valid = false;
         return;
@@ -438,7 +444,7 @@ export class FlacFile extends File {
         return;
       }
 
-      const data = this.readBlock(blockLength);
+      const data = await this.readBlock(blockLength);
       if (data.length !== blockLength) {
         this._valid = false;
         return;

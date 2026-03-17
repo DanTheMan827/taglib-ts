@@ -85,9 +85,12 @@ export class OggPageHeader {
    * Parse an OGG page header from the given stream at the specified offset.
    * Returns `null` if the data at offset is not a valid OGG page.
    */
-  static parse(stream: IOStream, offset: offset_t): OggPageHeader | null {
-    stream.seek(offset, Position.Beginning);
-    const header = stream.readBlock(27);
+  static async parse(
+    stream: IOStream,
+    offset: offset_t,
+  ): Promise<OggPageHeader | null> {
+    await stream.seek(offset, Position.Beginning);
+    const header = await stream.readBlock(27);
     if (header.length < 27) {
       return null;
     }
@@ -111,7 +114,7 @@ export class OggPageHeader {
 
     const segmentCount = header.get(26);
     if (segmentCount > 0) {
-      const segData = stream.readBlock(segmentCount);
+      const segData = await stream.readBlock(segmentCount);
       if (segData.length < segmentCount) {
         return null;
       }

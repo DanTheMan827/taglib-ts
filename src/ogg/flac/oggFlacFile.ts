@@ -30,14 +30,19 @@ export class OggFlacFile extends OggFile {
 
   protected override get numHeaderPackets(): number { return 2; }
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._tag = new XiphComment();
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._tag = new XiphComment();
-    this.read(readProperties, readStyle);
+  ): Promise<OggFlacFile> {
+    const file = new OggFlacFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   tag(): XiphComment {
@@ -48,7 +53,7 @@ export class OggFlacFile extends OggFile {
     return this._properties;
   }
 
-  override save(): boolean {
+  override async save(): Promise<boolean> {
     if (this.readOnly) {
       return false;
     }
@@ -77,8 +82,8 @@ export class OggFlacFile extends OggFile {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
-    const headerPacket = this.packet(0);
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
+    const headerPacket = await this.packet(0);
 
     // Minimum: 5 (prefix) + 2 (versions) + 2 (numHeaders) + 4 (fLaC) + 4 (block header) = 17
     if (headerPacket.length < 17) {
@@ -108,14 +113,14 @@ export class OggFlacFile extends OggFile {
       const streamInfoData = headerPacket.mid(17, 34);
       this._properties = new FlacProperties(
         streamInfoData,
-        this.fileLength,
+        await this.fileLength(),
         readStyle,
       );
     }
 
     // Search subsequent packets for the Vorbis comment block (type 4)
     for (let i = 1; i <= numHeaderPackets; i++) {
-      const pkt = this.packet(i);
+      const pkt = await this.packet(i);
       if (pkt.length < 4) {
         continue;
       }

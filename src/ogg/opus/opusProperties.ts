@@ -21,9 +21,17 @@ export class OpusProperties extends AudioProperties {
   private _opusVersion: number = 0;
   private _inputSampleRate: number = 0;
 
-  constructor(file: OggFile, readStyle: ReadStyle = ReadStyle.Average) {
+  constructor(readStyle: ReadStyle = ReadStyle.Average) {
     super(readStyle);
-    this.read(file);
+  }
+
+  static async create(
+    file: OggFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<OpusProperties> {
+    const props = new OpusProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
@@ -64,8 +72,8 @@ export class OpusProperties extends AudioProperties {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: OggFile): void {
-    const data = file.packet(0);
+  private async read(file: OggFile): Promise<void> {
+    const data = await file.packet(0);
 
     // Minimum OpusHead is 19 bytes
     if (data.length < 19) {
@@ -82,8 +90,8 @@ export class OpusProperties extends AudioProperties {
     this._inputSampleRate = data.toUInt(12, false);
 
     // Compute duration from granule positions (Opus uses 48 kHz granule clock)
-    const first = file.firstPageHeader();
-    const last = file.lastPageHeader();
+    const first = await file.firstPageHeader();
+    const last = await file.lastPageHeader();
 
     if (first && last) {
       const totalSamples = last.granulePosition - first.granulePosition;
@@ -91,7 +99,7 @@ export class OpusProperties extends AudioProperties {
         const durationMs = Number(totalSamples) * 1000.0 / 48000;
         this._lengthInMs = Math.round(durationMs);
 
-        const streamLength = file.fileLength;
+        const streamLength = await file.fileLength();
         if (this._lengthInMs > 0) {
           this._bitrate = Math.round(
             (streamLength * 8.0) / durationMs,

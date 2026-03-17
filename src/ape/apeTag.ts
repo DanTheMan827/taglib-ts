@@ -314,14 +314,14 @@ export class ApeTag extends Tag {
   // ---------------------------------------------------------------------------
 
   /**
-   * Read an APE tag from the given stream. `offset` points to the start of
-   * the 32-byte footer.
+   * Asynchronously read an APE tag from the given stream. `offset` points to
+   * the start of the 32-byte footer. Returns a `Promise<ApeTag>`.
    */
-  static readFrom(stream: IOStream, offset: offset_t): ApeTag {
+  static async readFrom(stream: IOStream, offset: offset_t): Promise<ApeTag> {
     const tag = new ApeTag();
 
-    stream.seek(offset, Position.Beginning);
-    const footerData = stream.readBlock(ApeFooter.SIZE);
+    await stream.seek(offset, Position.Beginning);
+    const footerData = await stream.readBlock(ApeFooter.SIZE);
     const footer = ApeFooter.parse(footerData);
     if (!footer) return tag;
 
@@ -331,8 +331,8 @@ export class ApeTag extends Tag {
     const dataSize = footer.tagSize - ApeFooter.SIZE;
     if (dataSize <= 0) return tag;
 
-    stream.seek(dataStart, Position.Beginning);
-    const itemData = stream.readBlock(dataSize);
+    await stream.seek(dataStart, Position.Beginning);
+    const itemData = await stream.readBlock(dataSize);
 
     let pos = 0;
     for (let i = 0; i < footer.itemCount && pos < itemData.length; i++) {
