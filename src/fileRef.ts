@@ -84,7 +84,7 @@ export class FileRef {
     const buffer = await blob.arrayBuffer();
     const data = new Uint8Array(buffer);
     const name = filename ?? (blob instanceof File ? blob.name : "");
-    return FileRef.fromByteArray(data, name, readProperties, readStyle);
+    return await FileRef.fromByteArray(data, name, readProperties, readStyle);
   }
 
   /** The tag exposed by the underlying file, or `null` if unavailable. */
@@ -180,7 +180,7 @@ export class FileRef {
 
     if (!format) return null;
 
-    return FileRef.instantiateFormat(format, stream, readProperties, readStyle);
+    return await FileRef.instantiateFormat(format, stream, readProperties, readStyle);
   }
 
   /**
@@ -198,91 +198,91 @@ export class FileRef {
       switch (format) {
         case "mpeg": {
           const { MpegFile } = await import("./mpeg/mpegFile.js");
-          return MpegFile.open(stream, readProperties, readStyle);
+          return await MpegFile.open(stream, readProperties, readStyle);
         }
         case "flac": {
           const { FlacFile } = await import("./flac/flacFile.js");
-          return FlacFile.open(stream, readProperties, readStyle);
+          return await FlacFile.open(stream, readProperties, readStyle);
         }
         case "mp4": {
           const { Mp4File } = await import("./mp4/mp4File.js");
-          return Mp4File.open(stream, readProperties, readStyle);
+          return await Mp4File.open(stream, readProperties, readStyle);
         }
         case "ogg-vorbis": {
           const { OggVorbisFile } = await import("./ogg/vorbis/vorbisFile.js");
-          return OggVorbisFile.open(stream, readProperties, readStyle);
+          return await OggVorbisFile.open(stream, readProperties, readStyle);
         }
         case "ogg-opus": {
           const { OggOpusFile } = await import("./ogg/opus/opusFile.js");
-          return OggOpusFile.open(stream, readProperties, readStyle);
+          return await OggOpusFile.open(stream, readProperties, readStyle);
         }
         case "ogg-speex": {
           const { OggSpeexFile } = await import("./ogg/speex/speexFile.js");
-          return OggSpeexFile.open(stream, readProperties, readStyle);
+          return await OggSpeexFile.open(stream, readProperties, readStyle);
         }
         case "ogg-flac": {
           const { OggFlacFile } = await import("./ogg/flac/oggFlacFile.js");
-          return OggFlacFile.open(stream, readProperties, readStyle);
+          return await OggFlacFile.open(stream, readProperties, readStyle);
         }
         case "wav": {
           const { WavFile } = await import("./riff/wav/wavFile.js");
-          return WavFile.open(stream, readProperties, readStyle);
+          return await WavFile.open(stream, readProperties, readStyle);
         }
         case "aiff": {
           const { AiffFile } = await import("./riff/aiff/aiffFile.js");
-          return AiffFile.open(stream, readProperties, readStyle);
+          return await AiffFile.open(stream, readProperties, readStyle);
         }
         case "mpc": {
           const { MpcFile } = await import("./mpc/mpcFile.js");
-          return MpcFile.open(stream, readProperties, readStyle);
+          return await MpcFile.open(stream, readProperties, readStyle);
         }
         case "wavpack": {
           const { WavPackFile } = await import("./wavpack/wavpackFile.js");
-          return WavPackFile.open(stream, readProperties, readStyle);
+          return await WavPackFile.open(stream, readProperties, readStyle);
         }
         case "ape-file": {
           const { ApeFile } = await import("./ape/apeFile.js");
-          return ApeFile.open(stream, readProperties, readStyle);
+          return await ApeFile.open(stream, readProperties, readStyle);
         }
         case "trueaudio": {
           const { TrueAudioFile } = await import("./trueaudio/trueAudioFile.js");
-          return TrueAudioFile.open(stream, readProperties, readStyle);
+          return await TrueAudioFile.open(stream, readProperties, readStyle);
         }
         case "dsf": {
           const { DsfFile } = await import("./dsf/dsfFile.js");
-          return DsfFile.open(stream, readProperties, readStyle);
+          return await DsfFile.open(stream, readProperties, readStyle);
         }
         case "dsdiff": {
           const { DsdiffFile } = await import("./dsdiff/dsdiffFile.js");
-          return DsdiffFile.open(stream, readProperties, readStyle);
+          return await DsdiffFile.open(stream, readProperties, readStyle);
         }
         case "mod": {
           const { ModFile } = await import("./mod/modFile.js");
-          return ModFile.open(stream, readProperties, readStyle);
+          return await ModFile.open(stream, readProperties, readStyle);
         }
         case "s3m": {
           const { S3mFile } = await import("./s3m/s3mFile.js");
-          return S3mFile.open(stream, readProperties, readStyle);
+          return await S3mFile.open(stream, readProperties, readStyle);
         }
         case "xm": {
           const { XmFile } = await import("./xm/xmFile.js");
-          return XmFile.open(stream, readProperties, readStyle);
+          return await XmFile.open(stream, readProperties, readStyle);
         }
         case "it": {
           const { ItFile } = await import("./it/itFile.js");
-          return ItFile.open(stream, readProperties, readStyle);
+          return await ItFile.open(stream, readProperties, readStyle);
         }
         case "shorten": {
           const { ShortenFile } = await import("./shorten/shortenFile.js");
-          return ShortenFile.open(stream, readProperties, readStyle);
+          return await ShortenFile.open(stream, readProperties, readStyle);
         }
         case "asf": {
           const { AsfFile } = await import("./asf/asfFile.js");
-          return AsfFile.open(stream, readProperties, readStyle);
+          return await AsfFile.open(stream, readProperties, readStyle);
         }
         case "matroska": {
           const { MatroskaFile } = await import("./matroska/matroskaFile.js");
-          return MatroskaFile.open(stream, readProperties, readStyle);
+          return await MatroskaFile.open(stream, readProperties, readStyle);
         }
         default:
           return null;

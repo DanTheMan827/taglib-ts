@@ -9,14 +9,13 @@
  */
 
 import { ByteVector } from "../byteVector.js";
-import { type offset_t, Position } from "./types.js";
 import { IOStream } from "./ioStream.js";
+import { type offset_t, Position } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Minimal Deno type declarations (avoids a hard dependency on Deno's type lib)
 // ---------------------------------------------------------------------------
 
-/* eslint-disable no-var */
 declare var Deno: {
   open(
     path: string,
@@ -24,7 +23,6 @@ declare var Deno: {
   ): Promise<DenoFsFile>;
   SeekMode: { Start: 0; Current: 1; End: 2 };
 };
-/* eslint-enable no-var */
 
 interface DenoFsFile {
   read(p: Uint8Array): Promise<number | null>;

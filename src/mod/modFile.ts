@@ -141,7 +141,6 @@ export class ModFile extends File {
 
     const modId = modIdData.toString(StringType.Latin1);
 
-    // eslint-disable-next-line no-useless-assignment
     let _channels = 4;
     let instruments = 31;
 

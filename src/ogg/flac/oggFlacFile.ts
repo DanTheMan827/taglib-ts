@@ -75,7 +75,7 @@ export class OggFlacFile extends OggFile {
     // The Vorbis comment is typically in packet 1
     this.setPacket(1, blockHeader);
 
-    return super.save();
+    return await super.save();
   }
 
   // ---------------------------------------------------------------------------

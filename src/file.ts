@@ -163,7 +163,7 @@ export abstract class File {
    * @returns A promise resolving to the bytes read as a {@link ByteVector}.
    */
   async readBlock(length: number): Promise<ByteVector> {
-    return this._stream.readBlock(length);
+    return await this._stream.readBlock(length);
   }
 
   /**
@@ -255,7 +255,7 @@ export abstract class File {
    * @returns A promise resolving to the cursor position.
    */
   async tell(): Promise<offset_t> {
-    return this._stream.tell();
+    return await this._stream.tell();
   }
 
   /**
@@ -267,7 +267,7 @@ export abstract class File {
    * @returns A promise resolving to the stream length in bytes.
    */
   async fileLength(): Promise<number> {
-    return this._stream.length();
+    return await this._stream.length();
   }
 
   /**

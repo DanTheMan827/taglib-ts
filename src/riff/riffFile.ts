@@ -54,7 +54,7 @@ export abstract class RiffFile extends File {
 
   async chunkData(index: number): Promise<ByteVector> {
     await this.seek(this._chunks[index].offset);
-    return this.readBlock(this._chunks[index].size);
+    return await this.readBlock(this._chunks[index].size);
   }
 
   chunkPadding(index: number): number {

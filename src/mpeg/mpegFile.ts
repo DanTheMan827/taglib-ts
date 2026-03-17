@@ -1,14 +1,14 @@
 /** @file MPEG (MP3) file format handler supporting ID3v1, ID3v2, and APE tags with audio property reading. */
+import { ApeFooter, ApeTag } from "../ape/apeTag.js";
 import { ByteVector, StringType } from "../byteVector.js";
-import { File } from "../file.js";
-import { type offset_t, Position, ReadStyle, StripTags } from "../toolkit/types.js";
-import type { IOStream } from "../toolkit/ioStream.js";
-import { Tag } from "../tag.js";
 import { CombinedTag } from "../combinedTag.js";
+import { File } from "../file.js";
+import { Tag } from "../tag.js";
+import type { IOStream } from "../toolkit/ioStream.js";
+import { type offset_t, Position, ReadStyle, StripTags } from "../toolkit/types.js";
 import { ID3v1Tag } from "./id3v1/id3v1Tag.js";
-import { Id3v2Tag } from "./id3v2/id3v2Tag.js";
 import { Id3v2Header } from "./id3v2/id3v2Header.js";
-import { ApeTag, ApeFooter } from "../ape/apeTag.js";
+import { Id3v2Tag } from "./id3v2/id3v2Tag.js";
 import { MpegHeader } from "./mpegHeader.js";
 import { MpegProperties } from "./mpegProperties.js";
 
@@ -134,11 +134,11 @@ export class MpegFile extends File {
     // Copy metadata between tag formats so both stay in sync.
     // Skip duplication when the source tag is about to be stripped.
     if ((tags & MpegTagTypes.ID3v2) && this._id3v1Tag &&
-        (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v1))) {
+      (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v1))) {
       Tag.duplicate(this._id3v1Tag, this.id3v2Tag(true)!, false);
     }
     if ((tags & MpegTagTypes.ID3v1) && this._id3v2Tag &&
-        (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v2))) {
+      (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v2))) {
       Tag.duplicate(this._id3v2Tag, this.id3v1Tag(true)!, false);
     }
 
@@ -243,7 +243,7 @@ export class MpegFile extends File {
     if (this._id3v2Tag) {
       position = this._id3v2Location + this._id3v2OriginalSize;
     }
-    return this.nextFrameOffset(position);
+    return await this.nextFrameOffset(position);
   }
 
   /**
@@ -261,7 +261,7 @@ export class MpegFile extends File {
     } else {
       position = await this.fileLength();
     }
-    return this.previousFrameOffset(position);
+    return await this.previousFrameOffset(position);
   }
 
   /**
@@ -320,7 +320,7 @@ export class MpegFile extends File {
         const curByte = buffer.get(i);
 
         if (curByte === 0xff && nextByte !== -1 &&
-            nextByte !== 0xff && (nextByte & 0xe0) === 0xe0) {
+          nextByte !== 0xff && (nextByte & 0xe0) === 0xe0) {
           const frameOffset = position + i;
           const header = await MpegHeader.fromStream(this._stream, frameOffset, true);
           if (header.isValid) return frameOffset;

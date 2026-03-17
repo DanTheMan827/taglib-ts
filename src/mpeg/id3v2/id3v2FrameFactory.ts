@@ -174,7 +174,7 @@ export class Id3v2FrameFactory {
     // Check for padding (frame ID is all zeros or invalid)
     const frameIdStr = frameHeader.frameId.toString(StringType.Latin1);
     if (frameIdStr === "\0\0\0\0" || frameIdStr === "\0\0\0" ||
-        frameIdStr.trim() === "") {
+      frameIdStr.trim() === "") {
       return { frame: null, size: 0 };
     }
 
@@ -197,7 +197,6 @@ export class Id3v2FrameFactory {
     const frameData = data.mid(offset, totalFrameSize);
     const frameId = frameHeader.frameId.toString(StringType.Latin1);
 
-    // eslint-disable-next-line no-useless-assignment
     let frame: Id3v2Frame | null = null;
 
     try {
@@ -231,7 +230,7 @@ export class Id3v2FrameFactory {
 
     // Text identification frames (T*** except TXXX), plus Apple text frames
     if ((frameId.startsWith("T") && frameId !== "TXXX") ||
-        appleTextFrames.includes(frameId)) {
+      appleTextFrames.includes(frameId)) {
       return TextIdentificationFrame.fromData(frameData, frameHeader, version);
     }
 

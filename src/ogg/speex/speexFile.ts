@@ -48,7 +48,7 @@ export class OggSpeexFile extends OggFile {
     const commentData = this._tag.render(true);
     this.setPacket(1, commentData);
 
-    return super.save();
+    return await super.save();
   }
 
   // ---------------------------------------------------------------------------

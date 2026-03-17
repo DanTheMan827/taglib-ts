@@ -56,7 +56,7 @@ export class OggVorbisFile extends OggFile {
     packet.append(commentData);
     this.setPacket(1, packet);
 
-    return super.save();
+    return await super.save();
   }
 
   // ---------------------------------------------------------------------------

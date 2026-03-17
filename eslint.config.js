@@ -62,7 +62,6 @@ export default [
         { checksVoidReturn: true, checksConditionals: true },
       ],
       "@typescript-eslint/return-await": ["error", "always"],
-      "@typescript-eslint/require-await": "error",
     },
 
     // Ignore build outputs and JS files

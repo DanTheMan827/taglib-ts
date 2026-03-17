@@ -2,6 +2,55 @@
 import { ByteVector, StringType } from "../byteVector.js";
 
 /**
+ * FLAC picture type codes (matching FLAC__STREAM_METADATA_PICTURE_TYPE_*).
+ * @enum
+ */
+export enum FlacPictureType {
+  /** Other */
+  other = 0,
+  /** 32x32 pixels "file icon" (PNG only) */
+  fileIconStandard = 1,
+  /** General file icon */
+  fileIcon = 2,
+  /** Cover (front) */
+  frontCover = 3,
+  /** Cover (back) */
+  backCover = 4,
+  /** Leaflet page */
+  leafletPage = 5,
+  /** Media (e.g. label side of CD) */
+  media = 6,
+  /** Lead artist / lead performer / soloist */
+  leadArtist = 7,
+  /** Artist / performer */
+  artist = 8,
+  /** Conductor */
+  conductor = 9,
+  /** Band / Orchestra */
+  band = 10,
+  /** Composer */
+  composer = 11,
+  /** Lyricist / text writer */
+  lyricist = 12,
+  /** Recording location */
+  recordingLocation = 13,
+  /** During recording */
+  duringRecording = 14,
+  /** During performance */
+  duringPerformance = 15,
+  /** Movie / video screen capture */
+  videoScreenCapture = 16,
+  /** A bright coloured fish */
+  fish = 17,
+  /** Illustration */
+  illustration = 18,
+  /** Band / artist logotype */
+  bandLogotype = 19,
+  /** Publisher / studio logotype */
+  publisherLogotype = 20,
+}
+
+/**
  * FLAC picture metadata block. All integer fields are big-endian.
  *
  * Layout:
@@ -12,7 +61,7 @@ import { ByteVector, StringType } from "../byteVector.js";
  */
 export class FlacPicture {
   /** Picture type code as defined by the ID3v2 APIC frame (e.g. 3 = cover art). */
-  pictureType: number = 0;
+  pictureType: FlacPictureType = FlacPictureType.other;
   /** MIME type string (e.g. `"image/jpeg"`). */
   mimeType: string = "";
   /** UTF-8 description of the picture. */
