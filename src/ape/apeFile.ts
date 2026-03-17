@@ -1,3 +1,10 @@
+/**
+ * @file apeFile.ts
+ * Monkey's Audio (APE) file format handler.
+ * Reads and writes APE, ID3v1, and (detection-only) ID3v2 tags embedded
+ * in `.ape` files and exposes audio properties parsed from the MAC header.
+ */
+
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";
@@ -13,11 +20,23 @@ import { ApeProperties } from "./apeProperties.js";
 // Enums
 // =============================================================================
 
+/**
+ * Bitmask constants identifying the tag types that may be present in an APE
+ * file.  Used with {@link ApeFile.strip} to select which tags to remove.
+ */
 export enum ApeFileTagTypes {
+  /** No tags. */
   NoTags = 0x0000,
+  /** ID3v1 tag appended at the end of the file. */
   ID3v1 = 0x0001,
+  /**
+   * ID3v2 tag prepended at the start of the file.
+   * APEv2 files should not contain ID3v2; it is detected but not parsed.
+   */
   ID3v2 = 0x0002,
+  /** APEv2 tag. */
   APE = 0x0004,
+  /** All supported tag types. */
   AllTags = 0xffff,
 }
 
@@ -46,11 +65,22 @@ export class ApeFile extends File {
   private _id3v2Size: number = 0;
   private _hasId3v2: boolean = false;
 
+  /**
+   * Private constructor — use {@link ApeFile.open} to create instances.
+   * @param stream - The underlying I/O stream for this file.
+   */
   private constructor(stream: IOStream) {
     super(stream);
     this._combinedTag = new CombinedTag([]);
   }
 
+  /**
+   * Open an APE file from the given stream and parse its metadata.
+   * @param stream - Readable (and optionally writable) I/O stream.
+   * @param readProperties - When `true` (default), parse audio properties.
+   * @param readStyle - Controls parsing accuracy vs. speed trade-off.
+   * @returns A fully initialised `ApeFile` instance.
+   */
   static async open(
     stream: IOStream,
     readProperties: boolean = true,
@@ -95,14 +125,30 @@ export class ApeFile extends File {
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Return the combined tag (APE preferred over ID3v1) for this file.
+   * @returns The {@link CombinedTag} aggregating all present tag types.
+   */
   tag(): Tag {
     return this._combinedTag;
   }
 
+  /**
+   * Return the audio properties parsed from the MAC header, or `null` if
+   * `readProperties` was `false` when the file was opened.
+   */
   audioProperties(): ApeProperties | null {
     return this._properties;
   }
 
+  /**
+   * Persist all in-memory tags back to the underlying stream.
+   *
+   * - An existing ID3v1 tag is updated in-place or removed if empty.
+   * - An APE tag is written immediately before the ID3v1 tag (or at EOF).
+   * - An ID3v2 tag, if detected, is left untouched.
+   * @returns `true` on success, `false` if the file is read-only.
+   */
   async save(): Promise<boolean> {
     if (this.readOnly) return false;
 

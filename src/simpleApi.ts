@@ -1,7 +1,5 @@
 /**
- * @module simpleApi
- *
- * Simple high-level API for reading and writing audio file tags.
+ * @file Simple high-level API for reading and writing audio file tags.
  *
  * Provides two convenience functions — {@link readTags} and {@link writeTags} —
  * that accept `File`, `Blob`, or `Uint8Array` inputs and return/accept plain
@@ -232,6 +230,14 @@ export async function writeTags(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Open an {@link AudioInput} as a {@link FileRef}, handling all supported
+ * input types.
+ *
+ * @param input          The audio data to open.
+ * @param readProperties Whether to parse audio properties.
+ * @returns A `FileRef`, or `null` if the input cannot be opened.
+ */
 async function openFileRef(
   input: AudioInput,
   readProperties: boolean,

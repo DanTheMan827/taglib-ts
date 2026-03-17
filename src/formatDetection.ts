@@ -1,7 +1,21 @@
+/**
+ * @file Format detection utilities for mapping file extensions and magic bytes
+ * to taglib-ts format keys. This module has no imports of format-specific
+ * classes to enable tree-shaking and code splitting.
+ */
+
 import { ByteVector, StringType } from "./byteVector.js";
 import { IOStream } from "./toolkit/ioStream.js";
 import { Position } from "./toolkit/types.js";
 
+/**
+ * Determine the audio format from a filename extension.
+ *
+ * @param name A filename or path whose extension is used for detection
+ *             (e.g. `"track.mp3"` or `"/music/song.flac"`).
+ * @returns A format key string (e.g. `"mpeg"`, `"flac"`), or `null` when the
+ *          extension is not recognised.
+ */
 export function detectByExtension(name: string): string | null {
   const ext = name.split(".").pop()?.toUpperCase() ?? "";
   switch (ext) {
@@ -30,6 +44,16 @@ export function detectByExtension(name: string): string | null {
   }
 }
 
+/**
+ * Determine the audio format by inspecting magic bytes in the stream.
+ *
+ * Reads up to the first 36 bytes (and occasionally seeks further for formats
+ * such as S3M and MOD). MPEG is matched last because its frame-sync bytes
+ * (`0xff 0xe*`) are prone to false positives.
+ *
+ * @param stream The audio data stream, seeked to any position on entry.
+ * @returns A format key string, or `null` when the format cannot be identified.
+ */
 export async function detectByContent(stream: IOStream): Promise<string | null> {
   await stream.seek(0, Position.Beginning);
   const header = await stream.readBlock(36);
@@ -147,6 +171,14 @@ export async function detectByContent(stream: IOStream): Promise<string | null> 
   return null;
 }
 
+/**
+ * Detect the Ogg sub-format (Vorbis, Opus, Speex, or FLAC) by scanning the
+ * first 128 bytes of a stream already identified as Ogg.
+ *
+ * @param stream The Ogg audio data stream.
+ * @returns One of `"ogg-opus"`, `"ogg-speex"`, `"ogg-flac"`, or `"ogg-vorbis"`
+ *          (the last is used as a fallback when none of the others match).
+ */
 export async function detectOggSubFormat(stream: IOStream): Promise<string> {
   await stream.seek(0, Position.Beginning);
   const buf = await stream.readBlock(128);
@@ -160,6 +192,13 @@ export async function detectOggSubFormat(stream: IOStream): Promise<string> {
   return "ogg-vorbis";
 }
 
+/**
+ * Check whether a 4-character MOD tag is one of the recognised MOD format
+ * identifiers.
+ *
+ * @param id The 4-byte string read from offset 1080 of the file.
+ * @returns `true` if the tag is a known MOD identifier.
+ */
 function isKnownModTag(id: string): boolean {
   if (id === "M.K." || id === "M!K!" || id === "M&K!" || id === "N.T.") return true;
   if (id === "CD81" || id === "OKTA") return true;
@@ -179,6 +218,11 @@ function isKnownModTag(id: string): boolean {
   return false;
 }
 
+/**
+ * Return the full list of file extensions supported by taglib-ts.
+ *
+ * @returns An array of lowercase extension strings without a leading dot.
+ */
 export function defaultFileExtensions(): string[] {
   return [
     "mp3", "mp2", "aac", "ogg", "oga", "opus", "spx", "flac",
