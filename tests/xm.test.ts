@@ -78,7 +78,7 @@ const commentAfter =
   "also abused as\n" +
   "comments.\n";
 
-function await testRead(
+async function testRead(
   stream: ByteVectorStream,
   title: string,
   comment: string,
@@ -162,7 +162,7 @@ describe("XM", () => {
     (file.tag() as ModTag).trackerName = trackerNameAfter;
     expect(await file.save()).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter, trackerNameAfter);
   });
 
@@ -176,7 +176,7 @@ describe("XM", () => {
     (file.tag() as ModTag).trackerName = trackerNameAfter;
     expect(await file.save()).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter, trackerNameAfter);
   });
 });

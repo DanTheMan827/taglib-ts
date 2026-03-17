@@ -542,7 +542,7 @@ describe("OGG page structure validation", () => {
     const data = readTestData("empty.ogg");
     const ref  = await FileRef.fromByteArray(new Uint8Array(data), "test.ogg");
     ref.tag()!.title = "Check for broken pages";
-    ref.save();
+    await ref.save();
 
     const stream = ref.file()!.stream() as ByteVectorStream;
     const pages  = parseOggPages(new Uint8Array(stream.data().data));
@@ -555,7 +555,7 @@ describe("OGG page structure validation", () => {
     const data = readTestData("empty.ogg");
     const ref  = await FileRef.fromByteArray(new Uint8Array(data), "test.ogg");
     ref.tag()!.title = "Header granule check";
-    ref.save();
+    await ref.save();
 
     const stream = ref.file()!.stream() as ByteVectorStream;
     const pages  = parseOggPages(new Uint8Array(stream.data().data));

@@ -7,21 +7,21 @@ import { ByteVector } from "../src/byteVector.js";
 import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { openTestStream, readTestDataBV } from "./testHelper.js";
 
-function openAsfFile(name: string): AsfFile {
+async function openAsfFile(name: string): Promise<AsfFile> {
   const stream = openTestStream(name);
-  return new AsfFile(stream, true, ReadStyle.Average);
+  return AsfFile.open(stream, true, ReadStyle.Average);
 }
 
-function openAsfFileCopy(name: string): { file: AsfFile; stream: ByteVectorStream } {
+async function openAsfFileCopy(name: string): Promise<{ file: AsfFile; stream: ByteVectorStream }> {
   const data = readTestDataBV(name);
   const stream = new ByteVectorStream(data);
-  const file = new AsfFile(stream, true, ReadStyle.Average);
+  const file = await AsfFile.open(stream, true, ReadStyle.Average);
   return { file, stream };
 }
 
 describe("ASF", () => {
-  it("should read audio properties", () => {
-    const f = openAsfFile("silence-1.wma");
+  it("should read audio properties", async () => {
+    const f = await openAsfFile("silence-1.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     expect(props!.lengthInSeconds).toBe(4);
@@ -35,8 +35,8 @@ describe("ASF", () => {
     expect(props!.isEncrypted).toBe(false);
   });
 
-  it("should read lossless properties", () => {
-    const f = openAsfFile("lossless.wma");
+  it("should read lossless properties", async () => {
+    const f = await openAsfFile("lossless.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     expect(props!.lengthInSeconds).toBe(4);
@@ -50,99 +50,99 @@ describe("ASF", () => {
     expect(props!.isEncrypted).toBe(false);
   });
 
-  it("should read tags", () => {
-    const f = openAsfFile("silence-1.wma");
+  it("should read tags", async () => {
+    const f = await openAsfFile("silence-1.wma");
     expect(f.tag()!.title).toBe("test");
   });
 
-  it("should save multiple values", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save multiple values", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const values = [
       AsfAttribute.fromString("Foo"),
       AsfAttribute.fromString("Bar"),
     ];
     f.tag()!.setAttributeList("WM/AlbumTitle", values);
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     expect(f2.tag()!.attribute("WM/AlbumTitle").length).toBe(2);
   });
 
-  it("should save stream", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save stream", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const attr = AsfAttribute.fromString("Foo");
     attr.stream = 43;
     f.tag()!.setAttribute("WM/AlbumTitle", attr);
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     expect(f2.tag()!.attribute("WM/AlbumTitle")[0].stream).toBe(43);
   });
 
-  it("should save language", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save language", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const attr = AsfAttribute.fromString("Foo");
     attr.stream = 32;
     attr.language = 56;
     f.tag()!.setAttribute("WM/AlbumTitle", attr);
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     expect(f2.tag()!.attribute("WM/AlbumTitle")[0].stream).toBe(32);
     expect(f2.tag()!.attribute("WM/AlbumTitle")[0].language).toBe(56);
   });
 
-  it("should handle DWord track number", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should handle DWord track number", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     expect(f.tag()!.contains("WM/TrackNumber")).toBe(false);
     f.tag()!.setAttribute("WM/TrackNumber", AsfAttribute.fromUInt(123));
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     expect(f2.tag()!.contains("WM/TrackNumber")).toBe(true);
     expect(f2.tag()!.attribute("WM/TrackNumber")[0].type).toBe(AsfAttributeType.DWordType);
     expect(f2.tag()!.track).toBe(123);
     f2.tag()!.track = 234;
-    f2.save();
+    await f2.save();
 
-    stream.seek(0);
-    const f3 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f3 = await AsfFile.open(stream, true, ReadStyle.Average);
     expect(f3.tag()!.contains("WM/TrackNumber")).toBe(true);
     expect(f3.tag()!.attribute("WM/TrackNumber")[0].type).toBe(AsfAttributeType.UnicodeType);
     expect(f3.tag()!.track).toBe(234);
   });
 
-  it("should save large value", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save large value", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const bigData = ByteVector.fromSize(70000, 0x78); // 'x'
     const attr = AsfAttribute.fromByteVector(bigData);
     f.tag()!.setAttribute("WM/Blob", attr);
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     const result = f2.tag()!.attribute("WM/Blob")[0].toByteVector();
     expect(result.length).toBe(70000);
     expect(result.get(0)).toBe(0x78);
     expect(result.get(69999)).toBe(0x78);
   });
 
-  it("should save picture", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save picture", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const picture = AsfPicture.create();
     picture.mimeType = "image/jpeg";
     picture.type = AsfPictureType.FrontCover;
     picture.description = "description";
     picture.picture = ByteVector.fromString("data");
     f.tag()!.setAttribute("WM/Picture", AsfAttribute.fromPicture(picture));
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     const values2 = f2.tag()!.attribute("WM/Picture");
     expect(values2.length).toBe(1);
     const picture2 = values2[0].toPicture();
@@ -153,8 +153,8 @@ describe("ASF", () => {
     expect(picture2.picture.toString()).toBe("data");
   });
 
-  it("should save multiple pictures", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should save multiple pictures", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const picture = AsfPicture.create();
     picture.mimeType = "image/jpeg";
     picture.type = AsfPictureType.FrontCover;
@@ -171,10 +171,10 @@ describe("ASF", () => {
       AsfAttribute.fromPicture(picture),
       AsfAttribute.fromPicture(picture2),
     ]);
-    f.save();
+    await f.save();
 
-    stream.seek(0);
-    const f2 = new AsfFile(stream, true, ReadStyle.Average);
+    await stream.seek(0);
+    const f2 = await AsfFile.open(stream, true, ReadStyle.Average);
     const values2 = f2.tag()!.attribute("WM/Picture");
     expect(values2.length).toBe(2);
 
@@ -197,8 +197,8 @@ describe("ASF", () => {
     expect(backCover!.picture.toString()).toBe("PNG data");
   });
 
-  it("should handle properties", () => {
-    const { file: f } = openAsfFileCopy("silence-1.wma");
+  it("should handle properties", async () => {
+    const { file: f } = await openAsfFileCopy("silence-1.wma");
 
     const tags = f.properties();
     tags.replace("TRACKNUMBER", ["2"]);
@@ -228,16 +228,16 @@ describe("ASF", () => {
     expect(tags2.get("DISCNUMBER")).toEqual(["3"]);
   });
 
-  it("should handle repeated save", () => {
-    const { file: f, stream } = openAsfFileCopy("silence-1.wma");
+  it("should handle repeated save", async () => {
+    const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     // Generate long text (~128KB)
     let longText = "";
     for (let i = 0; i < 128 * 1024; i++) {
       longText += String.fromCharCode(0x41 + (i % 26));
     }
     f.tag()!.title = longText;
-    f.save();
-    const len1 = stream.length();
+    await f.save();
+    const len1 = await stream.length();
 
     // Generate shorter text (~16KB)
     let shortText = "";
@@ -245,8 +245,8 @@ describe("ASF", () => {
       shortText += String.fromCharCode(0x41 + (i % 26));
     }
     f.tag()!.title = shortText;
-    f.save();
-    const len2 = stream.length();
+    await f.save();
+    const len2 = await stream.length();
 
     // After shrinking the title, file should be smaller
     expect(len2).toBeLessThan(len1);

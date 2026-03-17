@@ -29,7 +29,7 @@ async function fileRefSave(filename: string, ext: string): Promise<void> {
   tag!.comment = "a comment";
   tag!.track = 5;
   tag!.year = 2020;
-  ref.save();
+  await ref.save();
 
   // Capture modified bytes
   const stream1 = ref.file()!.stream() as ByteVectorStream;
@@ -55,7 +55,7 @@ async function fileRefSave(filename: string, ext: string): Promise<void> {
   tag2.comment = "another comment";
   tag2.track = 7;
   tag2.year = 2080;
-  ref.save();
+  await ref.save();
 
   const stream2 = ref.file()!.stream() as ByteVectorStream;
   const modified2 = stream2.data().data;
@@ -158,7 +158,7 @@ describe("FileRef", () => {
     const tag = ref.tag();
     expect(tag).not.toBeNull();
     tag!.title = "tracker title";
-    ref.save();
+    await ref.save();
 
     const stream1 = ref.file()!.stream() as ByteVectorStream;
     const modified1 = stream1.data().data;
@@ -168,7 +168,7 @@ describe("FileRef", () => {
     expect(ref.tag()!.title).toBe("tracker title");
 
     ref.tag()!.title = "updated title";
-    ref.save();
+    await ref.save();
 
     const stream2 = ref.file()!.stream() as ByteVectorStream;
     const modified2 = stream2.data().data;
@@ -201,7 +201,7 @@ describe("FileRef", () => {
     expect(ref.isValid).toBe(true);
     expect(ref.tag()).not.toBeNull();
     // Shorten is read-only — save() returns false
-    expect(ref.save()).toBe(false);
+    expect(await ref.save()).toBe(false);
   });
 
   it("should return null for unsupported files", async () => {

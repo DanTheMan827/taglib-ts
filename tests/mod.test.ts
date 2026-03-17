@@ -26,7 +26,7 @@ const commentAfter =
   "This line is ok.\n" +
   "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 
-function await testRead(stream: ByteVectorStream, title: string, comment: string) {
+async function testRead(stream: ByteVectorStream, title: string, comment: string) {
   const file = await ModFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
@@ -66,7 +66,7 @@ describe("MOD", () => {
     file.tag()!.comment = newComment;
     expect(await file.save()).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter);
   });
 

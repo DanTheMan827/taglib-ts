@@ -9,15 +9,19 @@ import { resolve } from "path";
 
 const TEST_DATA_DIR = resolve(import.meta.dirname ?? __dirname, "data");
 
-function openMatroskaFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): MatroskaFile {
+async function openMatroskaFile(
+  filename: string,
+  readProperties = true,
+  readStyle = ReadStyle.Average,
+): Promise<MatroskaFile> {
   const stream = openTestStream(filename);
-  return new MatroskaFile(stream, readProperties, readStyle);
+  return await MatroskaFile.open(stream, readProperties, readStyle);
 }
 
 describe("Matroska", () => {
   describe("Properties", () => {
-    it("should read MKA properties", () => {
-      const f = openMatroskaFile("no-tags.mka");
+    it("should read MKA properties", async () => {
+      const f = await openMatroskaFile("no-tags.mka");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).toBeTruthy();
@@ -32,8 +36,8 @@ describe("Matroska", () => {
       expect(props!.title).toBe("");
     });
 
-    it("should read MKV properties", () => {
-      const f = openMatroskaFile("tags-before-cues.mkv");
+    it("should read MKV properties", async () => {
+      const f = await openMatroskaFile("tags-before-cues.mkv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).toBeTruthy();
@@ -48,8 +52,8 @@ describe("Matroska", () => {
       expect(props!.title).toBe("handbrake");
     });
 
-    it("should read WebM properties", () => {
-      const f = openMatroskaFile("no-tags.webm");
+    it("should read WebM properties", async () => {
+      const f = await openMatroskaFile("no-tags.webm");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).toBeTruthy();
@@ -64,32 +68,32 @@ describe("Matroska", () => {
       expect(props!.title).toBe("");
     });
 
-    it("should not read properties when readProperties=false", () => {
-      const f = openMatroskaFile("no-tags.webm", false);
+    it("should not read properties when readProperties=false", async () => {
+      const f = await openMatroskaFile("no-tags.webm", false);
       expect(f.isValid).toBe(true);
       expect(f.audioProperties()).toBeNull();
     });
   });
 
   describe("Tags", () => {
-    it("should read tags from MKV", () => {
-      const f = openMatroskaFile("tags-before-cues.mkv");
+    it("should read tags from MKV", async () => {
+      const f = await openMatroskaFile("tags-before-cues.mkv");
       expect(f.isValid).toBe(true);
       // tags-before-cues.mkv has a TITLE tag added by Handbrake
       expect(f.tag()).not.toBeNull();
       expect(f.tag()!.title).toBe("handbrake");
     });
 
-    it("should handle file with no tags", () => {
-      const f = openMatroskaFile("no-tags.mka");
+    it("should handle file with no tags", async () => {
+      const f = await openMatroskaFile("no-tags.mka");
       // No tags element in the file - always returns an empty tag
       const tag = f.tag();
       expect(tag).not.toBeNull();
       expect(tag!.isEmpty).toBe(true);
     });
 
-    it("should support PropertyMap interface", () => {
-      const f = openMatroskaFile("tags-before-cues.mkv");
+    it("should support PropertyMap interface", async () => {
+      const f = await openMatroskaFile("tags-before-cues.mkv");
       // The file should be readable and produce a PropertyMap
       const props = f.properties();
       expect(props).toBeTruthy();
@@ -97,8 +101,8 @@ describe("Matroska", () => {
   });
 
   describe("Save and re-read", () => {
-    it("should save and re-read tags for MKA (no existing tags)", () => {
-      const f = openMatroskaFile("no-tags.mka");
+    it("should save and re-read tags for MKA (no existing tags)", async () => {
+      const f = await openMatroskaFile("no-tags.mka");
       expect(f.isValid).toBe(true);
 
       const tag = f.tag()!;
@@ -110,10 +114,10 @@ describe("Matroska", () => {
       tag.comment = "Test Comment";
       tag.genre = "Electronic";
 
-      expect(f.save()).toBe(true);
+      expect(await f.save()).toBe(true);
 
       const modified = (f.stream() as ByteVectorStream).data();
-      const f2 = new MatroskaFile(new ByteVectorStream(modified));
+      const f2 = await MatroskaFile.open(new ByteVectorStream(modified));
       expect(f2.isValid).toBe(true);
       const tag2 = f2.tag()!;
       expect(tag2.title).toBe("Test Title");
@@ -157,8 +161,8 @@ describe("Matroska", () => {
   });
 
   describe("Tag title fallback", () => {
-    it("should use segment title when no TITLE tag present", () => {
-      const f = openMatroskaFile("tags-before-cues.mkv");
+    it("should use segment title when no TITLE tag present", async () => {
+      const f = await openMatroskaFile("tags-before-cues.mkv");
       // MKV with "handbrake" as segment title
       const props = f.audioProperties();
       expect(props).toBeTruthy();

@@ -30,7 +30,7 @@ const commentAfter =
   "as multiline comments.\n" +
   "---------------------------";
 
-function await testRead(stream: ByteVectorStream, title: string, comment: string) {
+async function testRead(stream: ByteVectorStream, title: string, comment: string) {
   const file = await S3mFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
@@ -80,7 +80,7 @@ describe("S3M", () => {
     (file.tag() as ModTag).trackerName = "won't be saved";
     expect(await file.save()).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter);
   });
 });

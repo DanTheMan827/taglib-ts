@@ -11,7 +11,7 @@ async function openDsfFile(filename: string, readProperties = true, readStyle = 
 
 describe("DSF", () => {
   it("testBasic", async () => {
-    const f = openDsfFile("empty10ms.dsf");
+    const f = await openDsfFile("empty10ms.dsf");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -36,7 +36,7 @@ describe("DSF", () => {
       await f.save();
     }
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await DsfFile.open(stream, true, ReadStyle.Average);
     const tag2 = f2.tag();
     expect(tag2).not.toBeNull();

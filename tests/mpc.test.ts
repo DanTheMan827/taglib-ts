@@ -12,7 +12,7 @@ async function openMpcFile(filename: string, readProperties = true, readStyle = 
 describe("MPC", () => {
   describe("properties", () => {
     it("should read SV8 properties", async () => {
-      const f = openMpcFile("sv8_header.mpc");
+      const f = await openMpcFile("sv8_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -27,7 +27,7 @@ describe("MPC", () => {
     });
 
     it("should read SV7 properties", async () => {
-      const f = openMpcFile("click.mpc");
+      const f = await openMpcFile("click.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -46,7 +46,7 @@ describe("MPC", () => {
     });
 
     it("should read SV5 properties", async () => {
-      const f = openMpcFile("sv5_header.mpc");
+      const f = await openMpcFile("sv5_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -61,7 +61,7 @@ describe("MPC", () => {
     });
 
     it("should read SV4 properties", async () => {
-      const f = openMpcFile("sv4_header.mpc");
+      const f = await openMpcFile("sv4_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -78,22 +78,22 @@ describe("MPC", () => {
 
   describe("fuzzed files", () => {
     it("should handle zerodiv.mpc without crashing", async () => {
-      const f = openMpcFile("zerodiv.mpc");
+      const f = await openMpcFile("zerodiv.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle infloop.mpc without crashing", async () => {
-      const f = openMpcFile("infloop.mpc");
+      const f = await openMpcFile("infloop.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle segfault.mpc without crashing", async () => {
-      const f = openMpcFile("segfault.mpc");
+      const f = await openMpcFile("segfault.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle segfault2.mpc without crashing", async () => {
-      const f = openMpcFile("segfault2.mpc");
+      const f = await openMpcFile("segfault2.mpc");
       expect(f.isValid).toBe(true);
     });
   });
@@ -141,7 +141,7 @@ describe("MPC", () => {
 
       // Re-read, verify both tags exist, then strip and save
       {
-        stream.seek(0);
+        await stream.seek(0);
         const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);
@@ -151,7 +151,7 @@ describe("MPC", () => {
 
       // Re-read and verify the file is still valid
       {
-        stream.seek(0);
+        await stream.seek(0);
         const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.isValid).toBe(true);
         expect(f.hasID3v1Tag).toBe(false);
@@ -183,7 +183,7 @@ describe("MPC", () => {
 
       // Phase 2: Re-read and verify both tags exist
       {
-        stream.seek(0);
+        await stream.seek(0);
         const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);

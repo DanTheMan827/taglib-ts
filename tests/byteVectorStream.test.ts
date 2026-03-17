@@ -10,67 +10,67 @@ describe("ByteVectorStream", () => {
     expect(stream.data().equals(ByteVector.fromString("abcd", StringType.Latin1))).toBe(true);
   });
 
-  it("should write block", () => {
+  it("should write block", async () => {
     const v = ByteVector.fromString("abcd", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    stream.seek(1);
-    stream.writeBlock(ByteVector.fromString("xx", StringType.Latin1));
+    await stream.seek(1);
+    await stream.writeBlock(ByteVector.fromString("xx", StringType.Latin1));
     expect(stream.data().equals(ByteVector.fromString("axxd", StringType.Latin1))).toBe(true);
   });
 
-  it("should write block with resize", () => {
+  it("should write block with resize", async () => {
     const v = ByteVector.fromString("abcd", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    stream.seek(3);
-    stream.writeBlock(ByteVector.fromString("xx", StringType.Latin1));
+    await stream.seek(3);
+    await stream.writeBlock(ByteVector.fromString("xx", StringType.Latin1));
     expect(stream.data().equals(ByteVector.fromString("abcxx", StringType.Latin1))).toBe(true);
-    stream.seek(5);
-    stream.writeBlock(ByteVector.fromString("yy", StringType.Latin1));
+    await stream.seek(5);
+    await stream.writeBlock(ByteVector.fromString("yy", StringType.Latin1));
     expect(stream.data().equals(ByteVector.fromString("abcxxyy", StringType.Latin1))).toBe(true);
   });
 
-  it("should read block", () => {
+  it("should read block", async () => {
     const v = ByteVector.fromString("abcd", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    expect(stream.readBlock(1).equals(ByteVector.fromString("a", StringType.Latin1))).toBe(true);
-    expect(stream.readBlock(2).equals(ByteVector.fromString("bc", StringType.Latin1))).toBe(true);
-    expect(stream.readBlock(3).equals(ByteVector.fromString("d", StringType.Latin1))).toBe(true);
-    expect(stream.readBlock(3).isEmpty).toBe(true);
+    expect((await stream.readBlock(1)).equals(ByteVector.fromString("a", StringType.Latin1))).toBe(true);
+    expect((await stream.readBlock(2)).equals(ByteVector.fromString("bc", StringType.Latin1))).toBe(true);
+    expect((await stream.readBlock(3)).equals(ByteVector.fromString("d", StringType.Latin1))).toBe(true);
+    expect((await stream.readBlock(3)).isEmpty).toBe(true);
   });
 
-  it("should remove block", () => {
+  it("should remove block", async () => {
     const v = ByteVector.fromString("abcd", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    stream.removeBlock(1, 1);
+    await stream.removeBlock(1, 1);
     expect(stream.data().equals(ByteVector.fromString("acd", StringType.Latin1))).toBe(true);
-    stream.removeBlock(0, 2);
+    await stream.removeBlock(0, 2);
     expect(stream.data().equals(ByteVector.fromString("d", StringType.Latin1))).toBe(true);
-    stream.removeBlock(0, 2);
+    await stream.removeBlock(0, 2);
     expect(stream.data().isEmpty).toBe(true);
   });
 
-  it("should insert", () => {
+  it("should insert", async () => {
     const v = ByteVector.fromString("abcd", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    stream.insert(ByteVector.fromString("xx", StringType.Latin1), 1, 1);
+    await stream.insert(ByteVector.fromString("xx", StringType.Latin1), 1, 1);
     expect(stream.data().equals(ByteVector.fromString("axxcd", StringType.Latin1))).toBe(true);
-    stream.insert(ByteVector.fromString("yy", StringType.Latin1), 0, 2);
+    await stream.insert(ByteVector.fromString("yy", StringType.Latin1), 0, 2);
     expect(stream.data().equals(ByteVector.fromString("yyxcd", StringType.Latin1))).toBe(true);
-    stream.insert(ByteVector.fromString("foa", StringType.Latin1), 3, 2);
+    await stream.insert(ByteVector.fromString("foa", StringType.Latin1), 3, 2);
     expect(stream.data().equals(ByteVector.fromString("yyxfoa", StringType.Latin1))).toBe(true);
-    stream.insert(ByteVector.fromString("123", StringType.Latin1), 3, 0);
+    await stream.insert(ByteVector.fromString("123", StringType.Latin1), 3, 0);
     expect(stream.data().equals(ByteVector.fromString("yyx123foa", StringType.Latin1))).toBe(true);
   });
 
-  it("should seek from end", () => {
+  it("should seek from end", async () => {
     const v = ByteVector.fromString("abcdefghijklmnopqrstuvwxyz", StringType.Latin1);
     const stream = new ByteVectorStream(v);
-    expect(stream.length()).toBe(26);
+    expect(await stream.length()).toBe(26);
 
-    stream.seek(-4, Position.End);
-    expect(stream.readBlock(1).equals(ByteVector.fromString("w", StringType.Latin1))).toBe(true);
+    await stream.seek(-4, Position.End);
+    expect((await stream.readBlock(1)).equals(ByteVector.fromString("w", StringType.Latin1))).toBe(true);
 
-    stream.seek(-25, Position.End);
-    expect(stream.readBlock(1).equals(ByteVector.fromString("b", StringType.Latin1))).toBe(true);
+    await stream.seek(-25, Position.End);
+    expect((await stream.readBlock(1)).equals(ByteVector.fromString("b", StringType.Latin1))).toBe(true);
   });
 });

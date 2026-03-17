@@ -41,7 +41,7 @@ const commentAfter =
   "This is because it is saved in the 'message' proportion of\n" +
   "IT files.";
 
-function await testRead(stream: ByteVectorStream, title: string, comment: string) {
+async function testRead(stream: ByteVectorStream, title: string, comment: string) {
   const file = await ItFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
@@ -94,7 +94,7 @@ describe("IT", () => {
     (file.tag() as ModTag).trackerName = "won't be saved";
     expect(await file.save()).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter);
   });
 });

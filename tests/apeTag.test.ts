@@ -81,7 +81,7 @@ describe("APE Tag", () => {
     }
   });
 
-  it("should render and re-parse full tag", () => {
+  it("should render and re-parse full tag", async () => {
     const tag = new ApeTag();
     tag.title = "Render Test";
     tag.artist = "Artist";
@@ -97,7 +97,7 @@ describe("APE Tag", () => {
     const stream = new ByteVectorStream(rendered);
     // Footer is at the end
     const footerOffset = rendered.length - ApeFooter.SIZE;
-    const parsed = ApeTag.readFrom(stream, footerOffset);
+    const parsed = await ApeTag.readFrom(stream, footerOffset);
 
     expect(parsed.title).toBe("Render Test");
     expect(parsed.artist).toBe("Artist");

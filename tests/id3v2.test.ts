@@ -1063,9 +1063,9 @@ describe("ID3v2", () => {
   // Duplicate ID3v2 tags
   // =========================================================================
   describe("duplicate tags", () => {
-    it("should handle duplicate ID3v2 tags", () => {
+    it("should handle duplicate ID3v2 tags", async () => {
       const stream = openTestStream("duplicate_id3v2.mp3");
-      const f = new MpegFile(stream, true, ReadStyle.Average);
+      const f = await MpegFile.open(stream, true, ReadStyle.Average);
 
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -1080,10 +1080,10 @@ describe("ID3v2", () => {
   // Empty frame
   // =========================================================================
   describe("empty frame handling", () => {
-    it("should save and re-read with empty WOAF frame", () => {
+    it("should save and re-read with empty WOAF frame", async () => {
       const data = readTestData("xing.mp3");
       const stream = new ByteVectorStream(data);
-      const f = new MpegFile(stream, true, ReadStyle.Average);
+      const f = await MpegFile.open(stream, true, ReadStyle.Average);
 
       const tag = f.id3v2Tag(true)!;
 
@@ -1106,11 +1106,11 @@ describe("ID3v2", () => {
       tit2.text = "Title";
       tag.addFrame(tit2);
 
-      f.save();
+      await f.save();
 
       // Re-read
-      stream.seek(0);
-      const f2 = new MpegFile(stream, true, ReadStyle.Average);
+      await stream.seek(0);
+      const f2 = await MpegFile.open(stream, true, ReadStyle.Average);
       const tag2 = f2.tag();
       expect(tag2?.title).toBe("Title");
     });

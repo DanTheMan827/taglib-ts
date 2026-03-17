@@ -12,7 +12,7 @@ async function openWavPackFile(filename: string, readProperties = true, readStyl
 describe("WavPack", () => {
   describe("properties", () => {
     it("should read no_length properties", async () => {
-      const f = openWavPackFile("no_length.wv");
+      const f = await openWavPackFile("no_length.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -29,7 +29,7 @@ describe("WavPack", () => {
     });
 
     it("should read multi-channel properties", async () => {
-      const f = openWavPackFile("four_channels.wv");
+      const f = await openWavPackFile("four_channels.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -44,7 +44,7 @@ describe("WavPack", () => {
     });
 
     it("should read DSD stereo properties", async () => {
-      const f = openWavPackFile("dsd_stereo.wv");
+      const f = await openWavPackFile("dsd_stereo.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -63,7 +63,7 @@ describe("WavPack", () => {
     });
 
     it("should read non-standard rate properties", async () => {
-      const f = openWavPackFile("non_standard_rate.wv");
+      const f = await openWavPackFile("non_standard_rate.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -75,7 +75,7 @@ describe("WavPack", () => {
     });
 
     it("should read tagged file properties", async () => {
-      const f = openWavPackFile("tagged.wv");
+      const f = await openWavPackFile("tagged.wv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
       expect(props).not.toBeNull();
@@ -89,7 +89,7 @@ describe("WavPack", () => {
 
   describe("fuzzed files", () => {
     it("should handle infloop.wv without crashing", async () => {
-      const f = openWavPackFile("infloop.wv");
+      const f = await openWavPackFile("infloop.wv");
       expect(f.isValid).toBe(true);
     });
   });
@@ -137,7 +137,7 @@ describe("WavPack", () => {
 
       // Re-read, verify both tags exist, then strip and save
       {
-        stream.seek(0);
+        await stream.seek(0);
         const f = await WavPackFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);
@@ -180,7 +180,7 @@ describe("WavPack", () => {
 
       // Phase 2: Re-read and verify both tags exist
       {
-        stream.seek(0);
+        await stream.seek(0);
         const f = await WavPackFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);

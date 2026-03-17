@@ -11,7 +11,7 @@ async function openTrueAudioFile(filename: string, readProperties = true, readSt
 
 describe("TrueAudio", () => {
   it("testReadPropertiesWithoutID3v2", async () => {
-    const f = openTrueAudioFile("empty.tta");
+    const f = await openTrueAudioFile("empty.tta");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -26,7 +26,7 @@ describe("TrueAudio", () => {
   });
 
   it("testReadPropertiesWithTags", async () => {
-    const f = openTrueAudioFile("tagged.tta");
+    const f = await openTrueAudioFile("tagged.tta");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -49,7 +49,7 @@ describe("TrueAudio", () => {
     f.id3v1Tag(true)!.title = "ID3v1";
     await f.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v1Tag).toBe(true);
     expect(f2.hasID3v2Tag).toBe(true);
@@ -58,14 +58,14 @@ describe("TrueAudio", () => {
     f2.strip(TrueAudioTagTypes.ID3v2);
     await f2.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f3 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f3.tag().title).toBe("ID3v1");
 
     f3.strip(TrueAudioTagTypes.ID3v1);
     await f3.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f4 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f4.tag().title).toBe("");
   });
@@ -88,7 +88,7 @@ describe("TrueAudio", () => {
     f.id3v2Tag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
     await f.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v2Tag).toBe(true);
     expect(f2.hasID3v1Tag).toBe(true);

@@ -54,44 +54,44 @@ describe("Format Detection", () => {
   });
 
   describe("detectByContent", () => {
-    it("should detect FLAC by content", () => {
+    it("should detect FLAC by content", async () => {
       const stream = openTestStream("silence-44-s.flac");
-      expect(detectByContent(stream)).toBe("flac");
+      expect(await detectByContent(stream)).toBe("flac");
     });
 
-    it("should detect OGG Vorbis by content", () => {
+    it("should detect OGG Vorbis by content", async () => {
       const stream = openTestStream("empty.ogg");
-      expect(detectByContent(stream)).toBe("ogg-vorbis");
+      expect(await detectByContent(stream)).toBe("ogg-vorbis");
     });
 
-    it("should detect Opus by content", () => {
+    it("should detect Opus by content", async () => {
       const stream = openTestStream("correctness_gain_silent_output.opus");
-      expect(detectByContent(stream)).toBe("ogg-opus");
+      expect(await detectByContent(stream)).toBe("ogg-opus");
     });
 
-    it("should detect Speex by content", () => {
+    it("should detect Speex by content", async () => {
       const stream = openTestStream("empty.spx");
-      expect(detectByContent(stream)).toBe("ogg-speex");
+      expect(await detectByContent(stream)).toBe("ogg-speex");
     });
 
-    it("should detect MP4 by content", () => {
+    it("should detect MP4 by content", async () => {
       const stream = openTestStream("has-tags.m4a");
-      expect(detectByContent(stream)).toBe("mp4");
+      expect(await detectByContent(stream)).toBe("mp4");
     });
 
-    it("should detect WAV by content", () => {
+    it("should detect WAV by content", async () => {
       const stream = openTestStream("empty.wav");
-      expect(detectByContent(stream)).toBe("wav");
+      expect(await detectByContent(stream)).toBe("wav");
     });
 
-    it("should detect AIFF by content", () => {
+    it("should detect AIFF by content", async () => {
       const stream = openTestStream("empty.aiff");
-      expect(detectByContent(stream)).toBe("aiff");
+      expect(await detectByContent(stream)).toBe("aiff");
     });
 
-    it("should detect MPEG by content (with ID3v2)", () => {
+    it("should detect MPEG by content (with ID3v2)", async () => {
       const stream = openTestStream("xing.mp3");
-      expect(detectByContent(stream)).toBe("mpeg");
+      expect(await detectByContent(stream)).toBe("mpeg");
     });
   });
 

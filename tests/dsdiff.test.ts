@@ -11,7 +11,7 @@ async function openDsdiffFile(filename: string, readProperties = true, readStyle
 
 describe("DSDIFF", () => {
   it("testProperties", async () => {
-    const f = openDsdiffFile("empty10ms.dff");
+    const f = await openDsdiffFile("empty10ms.dff");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -33,7 +33,7 @@ describe("DSDIFF", () => {
     f.tag().artist = "The Artist";
     await f.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await DsdiffFile.open(stream, true, ReadStyle.Average);
     expect(f2.tag().artist).toBe("The Artist");
   });
@@ -48,7 +48,7 @@ describe("DSDIFF", () => {
     await f.save();
     expect(f.hasID3v2Tag).toBe(true);
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await DsdiffFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v2Tag).toBe(true);
     expect(f2.tag().title).toBe("TitleXXX");
@@ -56,7 +56,7 @@ describe("DSDIFF", () => {
     f2.tag().title = "";
     await f2.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f3 = await DsdiffFile.open(stream, true, ReadStyle.Average);
     expect(f3.hasID3v2Tag).toBe(false);
   });
@@ -69,7 +69,7 @@ describe("DSDIFF", () => {
     f.tag().artist = "X";
     await f.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await DsdiffFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v2Tag).toBe(true);
     expect(f2.tag().artist).toBe("X");
@@ -79,7 +79,7 @@ describe("DSDIFF", () => {
     f2.tag().title = "";
     await f2.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f3 = await DsdiffFile.open(stream, true, ReadStyle.Average);
     expect(f3.hasID3v2Tag).toBe(false);
   });

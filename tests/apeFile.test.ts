@@ -11,7 +11,7 @@ async function openApeFile(filename: string, readProperties = true, readStyle = 
 
 describe("APE", () => {
   it("testProperties399", async () => {
-    const f = openApeFile("mac-399.ape");
+    const f = await openApeFile("mac-399.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -26,7 +26,7 @@ describe("APE", () => {
   });
 
   it("testProperties399Tagged", async () => {
-    const f = openApeFile("mac-399-tagged.ape");
+    const f = await openApeFile("mac-399-tagged.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -41,7 +41,7 @@ describe("APE", () => {
   });
 
   it("testProperties399Id3v2", async () => {
-    const f = openApeFile("mac-399-id3v2.ape");
+    const f = await openApeFile("mac-399-id3v2.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -56,7 +56,7 @@ describe("APE", () => {
   });
 
   it("testProperties396", async () => {
-    const f = openApeFile("mac-396.ape");
+    const f = await openApeFile("mac-396.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -71,7 +71,7 @@ describe("APE", () => {
   });
 
   it("testProperties390", async () => {
-    const f = openApeFile("mac-390-hdr.ape");
+    const f = await openApeFile("mac-390-hdr.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
     if (props) {
@@ -86,17 +86,13 @@ describe("APE", () => {
   });
 
   it("testFuzzedFile1 - longloop.ape", async () => {
-    expect(() => {
-      const f = openApeFile("longloop.ape");
-      expect(typeof f.isValid).toBe("boolean");
-    }).not.toThrow();
+    const f = await openApeFile("longloop.ape");
+    expect(typeof f.isValid).toBe("boolean");
   });
 
   it("testFuzzedFile2 - zerodiv.ape", async () => {
-    expect(() => {
-      const f = openApeFile("zerodiv.ape");
-      expect(typeof f.isValid).toBe("boolean");
-    }).not.toThrow();
+    const f = await openApeFile("zerodiv.ape");
+    expect(typeof f.isValid).toBe("boolean");
   });
 
   it("testStripAndProperties", async () => {
@@ -139,7 +135,7 @@ describe("APE", () => {
     f.apeTag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
     await f.save();
 
-    stream.seek(0);
+    await stream.seek(0);
     const f2 = await ApeFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasAPETag).toBe(true);
     expect(f2.hasID3v1Tag).toBe(true);

@@ -61,7 +61,7 @@ async function writePictureAndReRead(
 
   const ok = ref.setComplexProperties("PICTURE", pictures);
   expect(ok).toBe(true);
-  ref.save();
+  await ref.save();
 
   // Capture modified bytes and re-read
   const stream = ref.file()!.stream() as ByteVectorStream;
@@ -115,7 +115,7 @@ describe("Picture write/read — FLAC", () => {
     const data = readTestData("silence-44-s.flac");
     let ref = await FileRef.fromByteArray(new Uint8Array(data), "test.flac");
     ref.setComplexProperties("PICTURE", [makePicture({ description: "Old" })]);
-    ref.save();
+    await ref.save();
 
     const stream1 = ref.file()!.stream() as ByteVectorStream;
     const modified1 = stream1.data().data;
@@ -123,7 +123,7 @@ describe("Picture write/read — FLAC", () => {
     // Now replace with a different picture
     ref = await FileRef.fromByteArray(new Uint8Array(modified1), "test.flac");
     ref.setComplexProperties("PICTURE", [makePicture({ description: "New", size: 64 })]);
-    ref.save();
+    await ref.save();
 
     const stream2 = ref.file()!.stream() as ByteVectorStream;
     const modified2 = stream2.data().data;
