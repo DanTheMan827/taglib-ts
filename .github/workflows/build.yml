@@ -58,10 +58,11 @@ jobs:
     needs: build-c-validators
     strategy:
       matrix:
-        - node-version: 'lts/*'
-        - node-version: 'latest'
-        - node-version: 'latest'
-          artifacts: 'yes'
+        include:
+          - node-version: 'lts/*'
+          - node-version: 'latest'
+          - node-version: 'latest'
+            artifacts: 'yes'
     name: Node ${{ matrix.node-version }}
     steps:
       - name: Checkout
