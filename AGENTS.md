@@ -136,6 +136,6 @@ examples/               ← TypeScript usage examples
 ## Documentation
 - The npm package name is `@dantheman827/taglib-ts`
 - All TypeScript files must have an `@file` comment describing the purpose of the file.
-- All classes, methods, properties, and variables must have tsdoc tags regardless of if they're public or not.
+- All classes, methods, properties, and variables must have JSDoc tags regardless of if they're public or not.
 - Examples must always be accurate to the current state of the code.
 - The AGENTS.md must remain current as changes are made to the project structure.
