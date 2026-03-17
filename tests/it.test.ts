@@ -41,8 +41,8 @@ const commentAfter =
   "This is because it is saved in the 'message' proportion of\n" +
   "IT files.";
 
-function testRead(stream: ByteVectorStream, title: string, comment: string) {
-  const file = new ItFile(stream, true, ReadStyle.Average);
+function await testRead(stream: ByteVectorStream, title: string, comment: string) {
+  const file = await ItFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
   const p = file.audioProperties();
@@ -79,22 +79,22 @@ function testRead(stream: ByteVectorStream, title: string, comment: string) {
 }
 
 describe("IT", () => {
-  it("should read tags", () => {
+  it("should read tags", async () => {
     const stream = openTestStream("test.it");
-    testRead(stream, titleBefore, commentBefore);
+    await testRead(stream, titleBefore, commentBefore);
   });
 
-  it("should write tags", () => {
+  it("should write tags", async () => {
     const data = readTestDataBV("test.it");
     const stream = new ByteVectorStream(data);
-    const file = new ItFile(stream, true, ReadStyle.Average);
+    const file = await ItFile.open(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();
     file.tag()!.title = titleAfter;
     file.tag()!.comment = newComment;
     (file.tag() as ModTag).trackerName = "won't be saved";
-    expect(file.save()).toBe(true);
+    expect(await file.save()).toBe(true);
 
     stream.seek(0);
-    testRead(stream, titleAfter, commentAfter);
+    await testRead(stream, titleAfter, commentAfter);
   });
 });

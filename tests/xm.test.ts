@@ -78,13 +78,13 @@ const commentAfter =
   "also abused as\n" +
   "comments.\n";
 
-function testRead(
+function await testRead(
   stream: ByteVectorStream,
   title: string,
   comment: string,
   trackerName: string,
 ) {
-  const file = new XmFile(stream, true, ReadStyle.Average);
+  const file = await XmFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
   const p = file.audioProperties();
@@ -115,14 +115,14 @@ function testRead(
 }
 
 describe("XM", () => {
-  it("should read tags", () => {
+  it("should read tags", async () => {
     const stream = openTestStream("test.xm");
-    testRead(stream, titleBefore, commentBefore, trackerNameBefore);
+    await testRead(stream, titleBefore, commentBefore, trackerNameBefore);
   });
 
-  it("should read stripped tags", () => {
+  it("should read stripped tags", async () => {
     const stream = openTestStream("stripped.xm");
-    const file = new XmFile(stream, true, ReadStyle.Average);
+    const file = await XmFile.open(stream, true, ReadStyle.Average);
     expect(file.isValid).toBe(true);
 
     const p = file.audioProperties();
@@ -152,31 +152,31 @@ describe("XM", () => {
     expect((t as ModTag).trackerName).toBe("");
   });
 
-  it("should write tags (short comment)", () => {
+  it("should write tags (short comment)", async () => {
     const data = readTestDataBV("test.xm");
     const stream = new ByteVectorStream(data);
-    const file = new XmFile(stream, true, ReadStyle.Average);
+    const file = await XmFile.open(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();
     file.tag()!.title = titleAfter;
     file.tag()!.comment = newCommentShort;
     (file.tag() as ModTag).trackerName = trackerNameAfter;
-    expect(file.save()).toBe(true);
+    expect(await file.save()).toBe(true);
 
     stream.seek(0);
-    testRead(stream, titleAfter, commentAfter, trackerNameAfter);
+    await testRead(stream, titleAfter, commentAfter, trackerNameAfter);
   });
 
-  it("should write tags (long comment)", () => {
+  it("should write tags (long comment)", async () => {
     const data = readTestDataBV("test.xm");
     const stream = new ByteVectorStream(data);
-    const file = new XmFile(stream, true, ReadStyle.Average);
+    const file = await XmFile.open(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();
     file.tag()!.title = titleAfter;
     file.tag()!.comment = newCommentLong;
     (file.tag() as ModTag).trackerName = trackerNameAfter;
-    expect(file.save()).toBe(true);
+    expect(await file.save()).toBe(true);
 
     stream.seek(0);
-    testRead(stream, titleAfter, commentAfter, trackerNameAfter);
+    await testRead(stream, titleAfter, commentAfter, trackerNameAfter);
   });
 });

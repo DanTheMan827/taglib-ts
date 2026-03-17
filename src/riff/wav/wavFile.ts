@@ -102,7 +102,7 @@ export class WavFile extends RiffFile {
         streamLength = this.chunkDataSize(i);
       } else if (name === "ID3 " || name === "id3 ") {
         this._id3v2ChunkIndex = i;
-        this._id3v2Tag = Id3v2Tag.readFrom(
+        this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,
           this.chunkOffset(i),
         );

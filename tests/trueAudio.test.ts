@@ -4,13 +4,13 @@ import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream, readTestData } from "./testHelper.js";
 
-function openTrueAudioFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): TrueAudioFile {
+async function openTrueAudioFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): Promise<TrueAudioFile> {
   const stream = openTestStream(filename);
-  return new TrueAudioFile(stream, readProperties, readStyle);
+  return await TrueAudioFile.open(stream, readProperties, readStyle);
 }
 
 describe("TrueAudio", () => {
-  it("testReadPropertiesWithoutID3v2", () => {
+  it("testReadPropertiesWithoutID3v2", async () => {
     const f = openTrueAudioFile("empty.tta");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -25,7 +25,7 @@ describe("TrueAudio", () => {
     }
   });
 
-  it("testReadPropertiesWithTags", () => {
+  it("testReadPropertiesWithTags", async () => {
     const f = openTrueAudioFile("tagged.tta");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -40,56 +40,56 @@ describe("TrueAudio", () => {
     }
   });
 
-  it("testStripAndProperties", () => {
+  it("testStripAndProperties", async () => {
     const data = readTestData("empty.tta");
     const stream = new ByteVectorStream(data);
-    const f = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f = await TrueAudioFile.open(stream, true, ReadStyle.Average);
 
     f.id3v2Tag(true)!.title = "ID3v2";
     f.id3v1Tag(true)!.title = "ID3v1";
-    f.save();
+    await f.save();
 
     stream.seek(0);
-    const f2 = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f2 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v1Tag).toBe(true);
     expect(f2.hasID3v2Tag).toBe(true);
     expect(f2.tag().title).toBe("ID3v2");
 
     f2.strip(TrueAudioTagTypes.ID3v2);
-    f2.save();
+    await f2.save();
 
     stream.seek(0);
-    const f3 = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f3 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f3.tag().title).toBe("ID3v1");
 
     f3.strip(TrueAudioTagTypes.ID3v1);
-    f3.save();
+    await f3.save();
 
     stream.seek(0);
-    const f4 = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f4 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f4.tag().title).toBe("");
   });
 
-  it("testRepeatedSave", () => {
+  it("testRepeatedSave", async () => {
     const data = readTestData("empty.tta");
     const stream = new ByteVectorStream(data);
-    const f = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f = await TrueAudioFile.open(stream, true, ReadStyle.Average);
 
     expect(f.hasID3v2Tag).toBe(false);
     expect(f.hasID3v1Tag).toBe(false);
 
     f.id3v2Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
-    f.save();
+    await f.save();
 
     f.id3v2Tag()!.title = "0";
-    f.save();
+    await f.save();
 
     f.id3v1Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
     f.id3v2Tag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
-    f.save();
+    await f.save();
 
     stream.seek(0);
-    const f2 = new TrueAudioFile(stream, true, ReadStyle.Average);
+    const f2 = await TrueAudioFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasID3v2Tag).toBe(true);
     expect(f2.hasID3v1Tag).toBe(true);
   });

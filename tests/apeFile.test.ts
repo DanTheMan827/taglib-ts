@@ -4,13 +4,13 @@ import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream, readTestData } from "./testHelper.js";
 
-function openApeFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): ApeFile {
+async function openApeFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): Promise<ApeFile> {
   const stream = openTestStream(filename);
-  return new ApeFile(stream, readProperties, readStyle);
+  return await ApeFile.open(stream, readProperties, readStyle);
 }
 
 describe("APE", () => {
-  it("testProperties399", () => {
+  it("testProperties399", async () => {
     const f = openApeFile("mac-399.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -25,7 +25,7 @@ describe("APE", () => {
     }
   });
 
-  it("testProperties399Tagged", () => {
+  it("testProperties399Tagged", async () => {
     const f = openApeFile("mac-399-tagged.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -40,7 +40,7 @@ describe("APE", () => {
     }
   });
 
-  it("testProperties399Id3v2", () => {
+  it("testProperties399Id3v2", async () => {
     const f = openApeFile("mac-399-id3v2.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -55,7 +55,7 @@ describe("APE", () => {
     }
   });
 
-  it("testProperties396", () => {
+  it("testProperties396", async () => {
     const f = openApeFile("mac-396.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -70,7 +70,7 @@ describe("APE", () => {
     }
   });
 
-  it("testProperties390", () => {
+  it("testProperties390", async () => {
     const f = openApeFile("mac-390-hdr.ape");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -85,31 +85,31 @@ describe("APE", () => {
     }
   });
 
-  it("testFuzzedFile1 - longloop.ape", () => {
+  it("testFuzzedFile1 - longloop.ape", async () => {
     expect(() => {
       const f = openApeFile("longloop.ape");
       expect(typeof f.isValid).toBe("boolean");
     }).not.toThrow();
   });
 
-  it("testFuzzedFile2 - zerodiv.ape", () => {
+  it("testFuzzedFile2 - zerodiv.ape", async () => {
     expect(() => {
       const f = openApeFile("zerodiv.ape");
       expect(typeof f.isValid).toBe("boolean");
     }).not.toThrow();
   });
 
-  it("testStripAndProperties", () => {
+  it("testStripAndProperties", async () => {
     const data = readTestData("mac-399-tagged.ape");
     const stream = new ByteVectorStream(data);
-    const f = new ApeFile(stream, true, ReadStyle.Average);
+    const f = await ApeFile.open(stream, true, ReadStyle.Average);
 
     // Verify the file has an APE tag
     expect(f.hasAPETag).toBe(true);
 
     // Strip APE tag and save
     f.strip(ApeFileTagTypes.APE);
-    f.save();
+    await f.save();
 
     // Audio properties should still be valid
     const props = f.audioProperties();
@@ -121,26 +121,26 @@ describe("APE", () => {
     }
   });
 
-  it("testRepeatedSave", () => {
+  it("testRepeatedSave", async () => {
     const data = readTestData("mac-399.ape");
     const stream = new ByteVectorStream(data);
-    const f = new ApeFile(stream, true, ReadStyle.Average);
+    const f = await ApeFile.open(stream, true, ReadStyle.Average);
 
     expect(f.hasAPETag).toBe(false);
     expect(f.hasID3v1Tag).toBe(false);
 
     f.apeTag(true)!.title = "01234 56789 ABCDE FGHIJ";
-    f.save();
+    await f.save();
 
     f.apeTag()!.title = "0";
-    f.save();
+    await f.save();
 
     f.id3v1Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
     f.apeTag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
-    f.save();
+    await f.save();
 
     stream.seek(0);
-    const f2 = new ApeFile(stream, true, ReadStyle.Average);
+    const f2 = await ApeFile.open(stream, true, ReadStyle.Average);
     expect(f2.hasAPETag).toBe(true);
     expect(f2.hasID3v1Tag).toBe(true);
   });

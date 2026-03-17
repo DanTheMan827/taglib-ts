@@ -40,16 +40,21 @@ export class TrueAudioFile extends File {
 
   private _id3v1Location: offset_t = -1;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<TrueAudioFile> {
+    const f = new TrueAudioFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -60,27 +65,27 @@ export class TrueAudioFile extends File {
    * Quick-check whether `stream` looks like a valid TrueAudio file.
    * A TTA file starts with "TTA"; an ID3v2 tag may precede the signature.
    */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    let headerData = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    let headerData = await stream.readBlock(4);
     if (headerData.length < 3) return false;
 
     // Skip ID3v2 tag if present
     if (headerData.startsWith(Id3v2Header.fileIdentifier)) {
       if (headerData.length < Id3v2Header.size) {
-        const rest = stream.readBlock(Id3v2Header.size - headerData.length);
+        const rest = await stream.readBlock(Id3v2Header.size - headerData.length);
         const full = ByteVector.fromByteVector(headerData);
         full.append(rest);
         headerData = full;
       } else {
         // Re-read full header
-        stream.seek(0);
-        headerData = stream.readBlock(Id3v2Header.size);
+        await stream.seek(0);
+        headerData = await stream.readBlock(Id3v2Header.size);
       }
       const id3Header = Id3v2Header.parse(headerData);
       if (!id3Header) return false;
-      stream.seek(id3Header.completeTagSize);
-      headerData = stream.readBlock(3);
+      await stream.seek(id3Header.completeTagSize);
+      headerData = await stream.readBlock(3);
       if (headerData.length < 3) return false;
     }
 
@@ -100,7 +105,7 @@ export class TrueAudioFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     // -- ID3v2 --
@@ -111,14 +116,14 @@ export class TrueAudioFile extends File {
       }
 
       const data = id3v2.render();
-      this.insert(data, this._id3v2Location, this._id3v2OriginalSize);
+      await this.insert(data, this._id3v2Location, this._id3v2OriginalSize);
 
       if (this._id3v1Location >= 0) {
         this._id3v1Location += data.length - this._id3v2OriginalSize;
       }
       this._id3v2OriginalSize = data.length;
     } else if (this._id3v2Location >= 0) {
-      this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
+      await this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
 
       if (this._id3v1Location >= 0) {
         this._id3v1Location -= this._id3v2OriginalSize;
@@ -131,14 +136,14 @@ export class TrueAudioFile extends File {
     const id3v1 = this.id3v1Tag();
     if (id3v1 && !id3v1.isEmpty) {
       if (this._id3v1Location >= 0) {
-        this.seek(this._id3v1Location);
+        await this.seek(this._id3v1Location);
       } else {
-        this.seek(0, Position.End);
-        this._id3v1Location = this.tell();
+        await this.seek(0, Position.End);
+        this._id3v1Location = (await this.tell());
       }
-      this.writeBlock(id3v1.render());
+      await this.writeBlock(id3v1.render());
     } else if (this._id3v1Location >= 0) {
-      this.truncate(this._id3v1Location);
+      await this.truncate(this._id3v1Location);
       this._id3v1Location = -1;
     }
 
@@ -205,12 +210,12 @@ export class TrueAudioFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Find ID3v2
-    this.findID3v2();
+    await this.findID3v2();
 
     // 2. Find ID3v1
-    this.findID3v1();
+    await this.findID3v1();
 
     // If no ID3v1 tag exists, ensure we have an ID3v2 tag
     if (this._id3v1Location < 0) {
@@ -227,27 +232,27 @@ export class TrueAudioFile extends File {
       if (this._id3v1Location >= 0) {
         streamLength = this._id3v1Location;
       } else {
-        streamLength = this.fileLength;
+        streamLength = (await this.fileLength());
       }
 
       if (this._id3v2Location >= 0) {
-        this.seek(this._id3v2Location + this._id3v2OriginalSize);
+        await this.seek(this._id3v2Location + this._id3v2OriginalSize);
         streamLength -= this._id3v2Location + this._id3v2OriginalSize;
       } else {
-        this.seek(0);
+        await this.seek(0);
       }
 
       this._properties = new TrueAudioProperties(
-        this.readBlock(TTA_HEADER_SIZE),
+        await this.readBlock(TTA_HEADER_SIZE),
         streamLength,
         readStyle,
       );
     }
   }
 
-  private findID3v2(): void {
-    this.seek(0);
-    const headerData = this.readBlock(Id3v2Header.size);
+  private async findID3v2(): Promise<void> {
+    await this.seek(0);
+    const headerData = await this.readBlock(Id3v2Header.size);
     if (headerData.length < Id3v2Header.size) return;
     if (!headerData.startsWith(Id3v2Header.fileIdentifier)) return;
 
@@ -256,20 +261,20 @@ export class TrueAudioFile extends File {
 
     this._id3v2Location = 0;
     this._id3v2OriginalSize = header.completeTagSize;
-    this._id3v2Tag = Id3v2Tag.readFrom(this._stream, this._id3v2Location);
+    this._id3v2Tag = await Id3v2Tag.readFrom(this._stream, this._id3v2Location);
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  private async findID3v1(): Promise<void> {
+    if ((await this.fileLength()) < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = (await this.fileLength()) - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
   private refreshCombinedTag(): void {

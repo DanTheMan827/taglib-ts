@@ -4,14 +4,14 @@ import { ReadStyle } from "../src/toolkit/types.js";
 import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { openTestStream, readTestDataBV } from "./testHelper.js";
 
-function openMpcFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): MpcFile {
+async function openMpcFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): Promise<MpcFile> {
   const stream = openTestStream(filename);
-  return new MpcFile(stream, readProperties, readStyle);
+  return await MpcFile.open(stream, readProperties, readStyle);
 }
 
 describe("MPC", () => {
   describe("properties", () => {
-    it("should read SV8 properties", () => {
+    it("should read SV8 properties", async () => {
       const f = openMpcFile("sv8_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -26,7 +26,7 @@ describe("MPC", () => {
       }
     });
 
-    it("should read SV7 properties", () => {
+    it("should read SV7 properties", async () => {
       const f = openMpcFile("click.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -45,7 +45,7 @@ describe("MPC", () => {
       }
     });
 
-    it("should read SV5 properties", () => {
+    it("should read SV5 properties", async () => {
       const f = openMpcFile("sv5_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -60,7 +60,7 @@ describe("MPC", () => {
       }
     });
 
-    it("should read SV4 properties", () => {
+    it("should read SV4 properties", async () => {
       const f = openMpcFile("sv4_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -77,32 +77,32 @@ describe("MPC", () => {
   });
 
   describe("fuzzed files", () => {
-    it("should handle zerodiv.mpc without crashing", () => {
+    it("should handle zerodiv.mpc without crashing", async () => {
       const f = openMpcFile("zerodiv.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it("should handle infloop.mpc without crashing", () => {
+    it("should handle infloop.mpc without crashing", async () => {
       const f = openMpcFile("infloop.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it("should handle segfault.mpc without crashing", () => {
+    it("should handle segfault.mpc without crashing", async () => {
       const f = openMpcFile("segfault.mpc");
       expect(f.isValid).toBe(true);
     });
 
-    it("should handle segfault2.mpc without crashing", () => {
+    it("should handle segfault2.mpc without crashing", async () => {
       const f = openMpcFile("segfault2.mpc");
       expect(f.isValid).toBe(true);
     });
   });
 
   describe("strip and properties", () => {
-    it("should strip tags in-memory and reflect in properties", () => {
+    it("should strip tags in-memory and reflect in properties", async () => {
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
-      const f = new MpcFile(stream, true, ReadStyle.Average);
+      const f = await MpcFile.open(stream, true, ReadStyle.Average);
 
       // Create both tags and set titles
       f.apeTag(true)!.title = "APE";
@@ -127,32 +127,32 @@ describe("MPC", () => {
       expect(props3.size).toBe(0);
     });
 
-    it("should persist tag removal after save", () => {
+    it("should persist tag removal after save", async () => {
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
       // Add both tags and save
       {
-        const f = new MpcFile(stream, true, ReadStyle.Average);
+        const f = await MpcFile.open(stream, true, ReadStyle.Average);
         f.apeTag(true)!.title = "APE";
         f.id3v1Tag(true)!.title = "ID3v1";
-        f.save();
+        await f.save();
       }
 
       // Re-read, verify both tags exist, then strip and save
       {
         stream.seek(0);
-        const f = new MpcFile(stream, true, ReadStyle.Average);
+        const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);
         f.strip(MpcTagTypes.AllTags);
-        f.save();
+        await f.save();
       }
 
       // Re-read and verify the file is still valid
       {
         stream.seek(0);
-        const f = new MpcFile(stream, true, ReadStyle.Average);
+        const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.isValid).toBe(true);
         expect(f.hasID3v1Tag).toBe(false);
       }
@@ -160,31 +160,31 @@ describe("MPC", () => {
   });
 
   describe("repeated save", () => {
-    it("should handle multiple saves correctly", () => {
+    it("should handle multiple saves correctly", async () => {
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
       // Phase 1: Multiple saves with different tag values
       {
-        const f = new MpcFile(stream, true, ReadStyle.Average);
+        const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(false);
         expect(f.hasID3v1Tag).toBe(false);
 
         f.apeTag(true)!.title = "01234 56789 ABCDE FGHIJ";
-        f.save();
+        await f.save();
 
         f.apeTag()!.title = "0";
-        f.save();
+        await f.save();
 
         f.id3v1Tag(true)!.title = "01234 56789 ABCDE FGHIJ";
         f.apeTag()!.title = "01234 56789 ABCDE FGHIJ 01234 56789 ABCDE FGHIJ 01234 56789";
-        f.save();
+        await f.save();
       }
 
       // Phase 2: Re-read and verify both tags exist
       {
         stream.seek(0);
-        const f = new MpcFile(stream, true, ReadStyle.Average);
+        const f = await MpcFile.open(stream, true, ReadStyle.Average);
         expect(f.hasAPETag).toBe(true);
         expect(f.hasID3v1Tag).toBe(true);
       }

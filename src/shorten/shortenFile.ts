@@ -46,7 +46,7 @@ class VariableLengthInput {
     this.file = file;
   }
 
-  getRiceGolombCode(k: number): { value: number; ok: boolean } {
+  async getRiceGolombCode(k: number): Promise<{ value: number; ok: boolean }> {
     const MASK_TABLE = [
       0x0,
       0x1,        0x3,        0x7,        0xf,
@@ -59,7 +59,7 @@ class VariableLengthInput {
       0x1fffffff, 0x3fffffff, 0x7fffffff, 0xffffffff,
     ];
 
-    if (this.bitsAvailable === 0 && !this.refillBitBuffer()) {
+    if (this.bitsAvailable === 0 && !await this.refillBitBuffer()) {
       return { value: 0, ok: false };
     }
 
@@ -68,7 +68,7 @@ class VariableLengthInput {
       this.bitsAvailable--;
       if (this.bitBuffer & (1 << this.bitsAvailable)) break;
       result++;
-      if (this.bitsAvailable === 0 && !this.refillBitBuffer()) {
+      if (this.bitsAvailable === 0 && !await this.refillBitBuffer()) {
         return { value: 0, ok: false };
       }
     }
@@ -84,7 +84,7 @@ class VariableLengthInput {
         result = ((result << this.bitsAvailable) >>> 0) |
           (this.bitBuffer & MASK_TABLE[this.bitsAvailable]);
         remaining -= this.bitsAvailable;
-        if (!this.refillBitBuffer()) {
+        if (!await this.refillBitBuffer()) {
           return { value: 0, ok: false };
         }
       }
@@ -93,20 +93,20 @@ class VariableLengthInput {
     return { value: result, ok: true };
   }
 
-  getUInt(version: number, k: number): { value: number; ok: boolean } {
+  async getUInt(version: number, k: number): Promise<{ value: number; ok: boolean }> {
     if (version > 0) {
-      const kResult = this.getRiceGolombCode(UINT32_CODE_SIZE);
+      const kResult = await this.getRiceGolombCode(UINT32_CODE_SIZE);
       if (!kResult.ok) return { value: 0, ok: false };
       k = kResult.value;
     }
-    const result = this.getRiceGolombCode(k);
+    const result = await this.getRiceGolombCode(k);
     if (!result.ok) return { value: 0, ok: false };
     return { value: result.value >>> 0, ok: true };
   }
 
-  private refillBitBuffer(): boolean {
+  private async refillBitBuffer(): Promise<boolean> {
     if (this.buffer.length - this.bufferPosition < 4) {
-      const block = this.file.readBlock(512);
+      const block = await this.file.readBlock(512);
       if (block.length < 4) return false;
       this.buffer = block;
       this.bufferPosition = 0;
@@ -135,25 +135,30 @@ export class ShortenFile extends File {
   private _tag: ShortenTag;
   private _properties: ShortenProperties | null = null;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._tag = new ShortenTag();
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._tag = new ShortenTag();
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<ShortenFile> {
+    const f = new ShortenFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
   // Static
   // ---------------------------------------------------------------------------
 
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const magic = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const magic = await stream.readBlock(4);
     if (magic.length < 4) return false;
     return magic.toString(StringType.Latin1) === "ajkg";
   }
@@ -170,7 +175,7 @@ export class ShortenFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     // Shorten files are read-only
     return false;
   }
@@ -179,9 +184,9 @@ export class ShortenFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(_readProperties: boolean, readStyle: ReadStyle): void {
-    this.seek(0);
-    const magic = this.readBlock(4);
+  private async read(_readProperties: boolean, readStyle: ReadStyle): Promise<void> {
+    await this.seek(0);
+    const magic = await this.readBlock(4);
     if (magic.length < 4 || magic.toString(StringType.Latin1) !== "ajkg") {
       this._valid = false;
       return;
@@ -197,7 +202,7 @@ export class ShortenFile extends File {
     };
 
     // Version byte
-    const versionData = this.readBlock(1);
+    const versionData = await this.readBlock(1);
     if (versionData.length < 1) { this._valid = false; return; }
     const version = versionData.get(0);
     if (version < MIN_SUPPORTED_VERSION || version > MAX_SUPPORTED_VERSION) {
@@ -208,12 +213,12 @@ export class ShortenFile extends File {
     const input = new VariableLengthInput(this);
 
     // File type
-    const ftResult = input.getUInt(version, FILE_TYPE_CODE_SIZE);
+    const ftResult = await input.getUInt(version, FILE_TYPE_CODE_SIZE);
     if (!ftResult.ok) { this._valid = false; return; }
     props.fileType = ftResult.value;
 
     // Channel count
-    const ccResult = input.getUInt(version, CHANNEL_COUNT_CODE_SIZE);
+    const ccResult = await input.getUInt(version, CHANNEL_COUNT_CODE_SIZE);
     if (!ccResult.ok || ccResult.value === 0 || ccResult.value > MAX_CHANNEL_COUNT) {
       this._valid = false; return;
     }
@@ -221,33 +226,33 @@ export class ShortenFile extends File {
 
     // Block size and other params for version > 0
     if (version > 0) {
-      const bsResult = input.getUInt(version, Math.floor(Math.log2(DEFAULT_BLOCK_SIZE)));
+      const bsResult = await input.getUInt(version, Math.floor(Math.log2(DEFAULT_BLOCK_SIZE)));
       if (!bsResult.ok || bsResult.value === 0 || bsResult.value > MAX_BLOCK_SIZE) {
         this._valid = false; return;
       }
 
-      const maxnlpcResult = input.getUInt(version, LPCQ_CODE_SIZE);
+      const maxnlpcResult = await input.getUInt(version, LPCQ_CODE_SIZE);
       if (!maxnlpcResult.ok) { this._valid = false; return; }
 
-      const nmeanResult = input.getUInt(version, 0);
+      const nmeanResult = await input.getUInt(version, 0);
       if (!nmeanResult.ok) { this._valid = false; return; }
 
-      const skipCountResult = input.getUInt(version, SKIP_BYTES_CODE_SIZE);
+      const skipCountResult = await input.getUInt(version, SKIP_BYTES_CODE_SIZE);
       if (!skipCountResult.ok) { this._valid = false; return; }
 
       for (let i = 0; i < skipCountResult.value; i++) {
-        const dummyResult = input.getUInt(version, EXTRA_BYTE_CODE_SIZE);
+        const dummyResult = await input.getUInt(version, EXTRA_BYTE_CODE_SIZE);
         if (!dummyResult.ok) { this._valid = false; return; }
       }
     }
 
     // Read verbatim section
-    const funcResult = input.getRiceGolombCode(FUNCTION_CODE_SIZE);
+    const funcResult = await input.getRiceGolombCode(FUNCTION_CODE_SIZE);
     if (!funcResult.ok || funcResult.value !== FUNCTION_VERBATIM) {
       this._valid = false; return;
     }
 
-    const headerSizeResult = input.getRiceGolombCode(VERBATIM_CHUNK_SIZE_CODE_SIZE);
+    const headerSizeResult = await input.getRiceGolombCode(VERBATIM_CHUNK_SIZE_CODE_SIZE);
     if (!headerSizeResult.ok ||
         headerSizeResult.value < CANONICAL_HEADER_SIZE ||
         headerSizeResult.value > VERBATIM_CHUNK_MAX_SIZE) {
@@ -257,7 +262,7 @@ export class ShortenFile extends File {
     const headerSize = headerSizeResult.value;
     const headerArr = new Uint8Array(headerSize);
     for (let i = 0; i < headerSize; i++) {
-      const byteResult = input.getRiceGolombCode(VERBATIM_BYTE_CODE_SIZE);
+      const byteResult = await input.getRiceGolombCode(VERBATIM_BYTE_CODE_SIZE);
       if (!byteResult.ok) { this._valid = false; return; }
       headerArr[i] = byteResult.value & 0xff;
     }

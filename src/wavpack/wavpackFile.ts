@@ -39,16 +39,21 @@ export class WavPackFile extends File {
 
   private _id3v1Location: offset_t = -1;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<WavPackFile> {
+    const f = new WavPackFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -56,9 +61,9 @@ export class WavPackFile extends File {
   // ---------------------------------------------------------------------------
 
   /** Quick-check whether `stream` looks like a valid WavPack file. */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const headerData = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const headerData = await stream.readBlock(4);
     if (headerData.length < 4) return false;
 
     const wvpk = ByteVector.fromString("wvpk", StringType.Latin1);
@@ -77,21 +82,21 @@ export class WavPackFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     // -- ID3v1 --
     const id3v1 = this.id3v1Tag();
     if (id3v1 && !id3v1.isEmpty) {
       if (this._id3v1Location >= 0) {
-        this.seek(this._id3v1Location);
+        await this.seek(this._id3v1Location);
       } else {
-        this.seek(0, Position.End);
-        this._id3v1Location = this.tell();
+        await this.seek(0, Position.End);
+        this._id3v1Location = (await this.tell());
       }
-      this.writeBlock(id3v1.render());
+      await this.writeBlock(id3v1.render());
     } else if (this._id3v1Location >= 0) {
-      this.truncate(this._id3v1Location);
+      await this.truncate(this._id3v1Location);
       this._id3v1Location = -1;
     }
 
@@ -100,17 +105,17 @@ export class WavPackFile extends File {
     if (ape && !ape.isEmpty) {
       if (this._apeLocation < 0) {
         this._apeLocation =
-          this._id3v1Location >= 0 ? this._id3v1Location : this.fileLength;
+          this._id3v1Location >= 0 ? this._id3v1Location : (await this.fileLength());
       }
       const data = ape.render();
-      this.insert(data, this._apeLocation, this._apeOriginalSize);
+      await this.insert(data, this._apeLocation, this._apeOriginalSize);
 
       if (this._id3v1Location >= 0) {
         this._id3v1Location += data.length - this._apeOriginalSize;
       }
       this._apeOriginalSize = data.length;
     } else if (this._apeLocation >= 0) {
-      this.removeBlock(this._apeLocation, this._apeOriginalSize);
+      await this.removeBlock(this._apeLocation, this._apeOriginalSize);
       if (this._id3v1Location >= 0) {
         this._id3v1Location -= this._apeOriginalSize;
       }
@@ -182,12 +187,12 @@ export class WavPackFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Find ID3v1
-    this.findID3v1();
+    await this.findID3v1();
 
     // 2. Find APE
-    this.findAPE();
+    await this.findAPE();
 
     // If no ID3v1 tag exists, ensure we have an APE tag
     if (this._id3v1Location < 0) {
@@ -206,36 +211,36 @@ export class WavPackFile extends File {
       } else if (this._id3v1Location >= 0) {
         streamLength = this._id3v1Location;
       } else {
-        streamLength = this.fileLength;
+        streamLength = (await this.fileLength());
       }
 
-      this.seek(0);
-      this._properties = new WavPackProperties(this, streamLength, readStyle);
+      await this.seek(0);
+      this._properties = await WavPackProperties.create(this, streamLength, readStyle);
     }
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  private async findID3v1(): Promise<void> {
+    if ((await this.fileLength()) < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = (await this.fileLength()) - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
-  private findAPE(): void {
+  private async findAPE(): Promise<void> {
     const searchEnd: offset_t =
-      this._id3v1Location >= 0 ? this._id3v1Location : this.fileLength;
+      this._id3v1Location >= 0 ? this._id3v1Location : (await this.fileLength());
 
     if (searchEnd < ApeFooter.SIZE) return;
 
     const footerOffset = searchEnd - ApeFooter.SIZE;
-    this.seek(footerOffset);
-    const footerData = this.readBlock(ApeFooter.SIZE);
+    await this.seek(footerOffset);
+    const footerData = await this.readBlock(ApeFooter.SIZE);
     if (footerData.length < ApeFooter.SIZE) return;
 
     const magic = ByteVector.fromString("APETAGEX", StringType.Latin1);
@@ -246,7 +251,7 @@ export class WavPackFile extends File {
 
     this._apeLocation = footerOffset + ApeFooter.SIZE - footer.completeTagSize;
     this._apeOriginalSize = footer.completeTagSize;
-    this._apeTag = ApeTag.readFrom(this._stream, footerOffset);
+    this._apeTag = await ApeTag.readFrom(this._stream, footerOffset);
   }
 
   private refreshCombinedTag(): void {

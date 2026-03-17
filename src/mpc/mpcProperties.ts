@@ -19,14 +19,14 @@ interface ReadSizeFromFileResult {
   eof: boolean;
 }
 
-function readSizeFromFile(file: MpcFile): ReadSizeFromFileResult {
+async function readSizeFromFile(file: MpcFile): Promise<ReadSizeFromFileResult> {
   let sizeLength = 0;
   let size = 0;
   let eof = false;
   let tmp: number;
 
   do {
-    const b = file.readBlock(1);
+    const b = await file.readBlock(1);
     if (b.isEmpty) {
       eof = true;
       break;
@@ -81,26 +81,31 @@ export class MpcProperties extends AudioProperties {
   private _albumGain: number = 0;
   private _albumPeak: number = 0;
 
-  constructor(
+  private constructor(readStyle: ReadStyle) {
+    super(readStyle);
+  }
+
+  static async create(
     file: MpcFile,
     streamLength: offset_t,
     readStyle: ReadStyle,
-  ) {
-    super(readStyle);
+  ): Promise<MpcProperties> {
+    const p = new MpcProperties(readStyle);
 
-    const magic = file.readBlock(4);
+    const magic = await file.readBlock(4);
     if (magic.length >= 4 &&
         magic.get(0) === 0x4d && magic.get(1) === 0x50 &&
         magic.get(2) === 0x43 && magic.get(3) === 0x4b) {
       // "MPCK" – Musepack SV8
-      this.readSV8(file, streamLength);
+      await p.readSV8(file, streamLength);
     } else {
       // SV7 or older – fixed-size header
-      const rest = file.readBlock(MPC_HEADER_SIZE - 4);
+      const rest = await file.readBlock(MPC_HEADER_SIZE - 4);
       const header = ByteVector.fromByteVector(magic);
       header.append(rest);
-      this.readSV7(header, streamLength);
+      p.readSV7(header, streamLength);
     }
+    return p;
   }
 
   // ---------------------------------------------------------------------------
@@ -163,19 +168,19 @@ export class MpcProperties extends AudioProperties {
   // Private – SV8
   // ---------------------------------------------------------------------------
 
-  private readSV8(file: MpcFile, streamLength: offset_t): void {
+  private async readSV8(file: MpcFile, streamLength: offset_t): Promise<void> {
     let readSH = false;
     let readRG = false;
 
     while (!readSH || !readRG) {
-      const packetType = file.readBlock(2);
+      const packetType = await file.readBlock(2);
       if (packetType.length < 2) break;
 
-      const { size: packetSize, sizeLength, eof } = readSizeFromFile(file);
+      const { size: packetSize, sizeLength, eof } = await readSizeFromFile(file);
       if (eof) break;
 
       const dataSize = packetSize - 2 - sizeLength;
-      const data = file.readBlock(dataSize);
+      const data = await file.readBlock(dataSize);
       if (data.length !== dataSize) break;
 
       const pt0 = packetType.get(0);

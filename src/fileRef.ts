@@ -41,7 +41,7 @@ export class FileRef {
   get isNull(): boolean { return !this._file; }
   get isValid(): boolean { return this._file?.isValid ?? false; }
 
-  save(): boolean { return this._file?.save() ?? false; }
+  async save(): Promise<boolean> { return (await this._file?.save()) ?? false; }
 
   properties(): PropertyMap { return this._file?.properties() ?? new PropertyMap(); }
   setProperties(props: PropertyMap): PropertyMap { return this._file?.setProperties(props) ?? props; }
@@ -57,11 +57,11 @@ export class FileRef {
 
     // For generic 'ogg' extension, detect sub-format from content
     if (format === "ogg") {
-      format = detectOggSubFormat(stream);
+      format = await detectOggSubFormat(stream);
     }
 
     if (!format) {
-      format = detectByContent(stream);
+      format = await detectByContent(stream);
     }
 
     if (!format) return null;
@@ -74,7 +74,7 @@ export class FileRef {
       switch (format) {
         case "mpeg": {
           const { MpegFile } = await import("./mpeg/mpegFile.js");
-          return new MpegFile(stream, readProperties, readStyle);
+          return MpegFile.open(stream, readProperties, readStyle);
         }
         case "flac": {
           const { FlacFile } = await import("./flac/flacFile.js");
@@ -82,7 +82,7 @@ export class FileRef {
         }
         case "mp4": {
           const { Mp4File } = await import("./mp4/mp4File.js");
-          return new Mp4File(stream, readProperties, readStyle);
+          return Mp4File.open(stream, readProperties, readStyle);
         }
         case "ogg-vorbis": {
           const { OggVorbisFile } = await import("./ogg/vorbis/vorbisFile.js");
@@ -102,63 +102,63 @@ export class FileRef {
         }
         case "wav": {
           const { WavFile } = await import("./riff/wav/wavFile.js");
-          return new WavFile(stream, readProperties, readStyle);
+          return WavFile.open(stream, readProperties, readStyle);
         }
         case "aiff": {
           const { AiffFile } = await import("./riff/aiff/aiffFile.js");
-          return new AiffFile(stream, readProperties, readStyle);
+          return AiffFile.open(stream, readProperties, readStyle);
         }
         case "mpc": {
           const { MpcFile } = await import("./mpc/mpcFile.js");
-          return new MpcFile(stream, readProperties, readStyle);
+          return MpcFile.open(stream, readProperties, readStyle);
         }
         case "wavpack": {
           const { WavPackFile } = await import("./wavpack/wavpackFile.js");
-          return new WavPackFile(stream, readProperties, readStyle);
+          return WavPackFile.open(stream, readProperties, readStyle);
         }
         case "ape-file": {
           const { ApeFile } = await import("./ape/apeFile.js");
-          return new ApeFile(stream, readProperties, readStyle);
+          return ApeFile.open(stream, readProperties, readStyle);
         }
         case "trueaudio": {
           const { TrueAudioFile } = await import("./trueaudio/trueAudioFile.js");
-          return new TrueAudioFile(stream, readProperties, readStyle);
+          return TrueAudioFile.open(stream, readProperties, readStyle);
         }
         case "dsf": {
           const { DsfFile } = await import("./dsf/dsfFile.js");
-          return new DsfFile(stream, readProperties, readStyle);
+          return DsfFile.open(stream, readProperties, readStyle);
         }
         case "dsdiff": {
           const { DsdiffFile } = await import("./dsdiff/dsdiffFile.js");
-          return new DsdiffFile(stream, readProperties, readStyle);
+          return DsdiffFile.open(stream, readProperties, readStyle);
         }
         case "mod": {
           const { ModFile } = await import("./mod/modFile.js");
-          return new ModFile(stream, readProperties, readStyle);
+          return ModFile.open(stream, readProperties, readStyle);
         }
         case "s3m": {
           const { S3mFile } = await import("./s3m/s3mFile.js");
-          return new S3mFile(stream, readProperties, readStyle);
+          return S3mFile.open(stream, readProperties, readStyle);
         }
         case "xm": {
           const { XmFile } = await import("./xm/xmFile.js");
-          return new XmFile(stream, readProperties, readStyle);
+          return XmFile.open(stream, readProperties, readStyle);
         }
         case "it": {
           const { ItFile } = await import("./it/itFile.js");
-          return new ItFile(stream, readProperties, readStyle);
+          return ItFile.open(stream, readProperties, readStyle);
         }
         case "shorten": {
           const { ShortenFile } = await import("./shorten/shortenFile.js");
-          return new ShortenFile(stream, readProperties, readStyle);
+          return ShortenFile.open(stream, readProperties, readStyle);
         }
         case "asf": {
           const { AsfFile } = await import("./asf/asfFile.js");
-          return new AsfFile(stream, readProperties, readStyle);
+          return AsfFile.open(stream, readProperties, readStyle);
         }
         case "matroska": {
           const { MatroskaFile } = await import("./matroska/matroskaFile.js");
-          return new MatroskaFile(stream, readProperties, readStyle);
+          return MatroskaFile.open(stream, readProperties, readStyle);
         }
         default:
           return null;

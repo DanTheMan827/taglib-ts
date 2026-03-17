@@ -46,16 +46,21 @@ export class MpcFile extends File {
   private _id3v2Size: number = 0;
   private _hasId3v2: boolean = false;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<MpcFile> {
+    const f = new MpcFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -66,22 +71,22 @@ export class MpcFile extends File {
    * Quick-check whether `stream` looks like a valid MPC file.
    * Skips a leading ID3v2 tag if present.
    */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    let headerData = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    let headerData = await stream.readBlock(4);
     if (headerData.length < 4) return false;
 
     // Skip ID3v2 tag if present
     if (headerData.startsWith(Id3v2Header.fileIdentifier)) {
-      const fullHeader = stream.readBlock(Id3v2Header.size);
+      const fullHeader = await stream.readBlock(Id3v2Header.size);
       if (fullHeader.length < Id3v2Header.size) return false;
       // Re-read from position 0 to parse the ID3v2 header
-      stream.seek(0);
-      const id3Data = stream.readBlock(Id3v2Header.size);
+      await stream.seek(0);
+      const id3Data = await stream.readBlock(Id3v2Header.size);
       const id3Header = Id3v2Header.parse(id3Data);
       if (!id3Header) return false;
-      stream.seek(id3Header.completeTagSize);
-      headerData = stream.readBlock(4);
+      await stream.seek(id3Header.completeTagSize);
+      headerData = await stream.readBlock(4);
       if (headerData.length < 4) return false;
     }
 
@@ -102,12 +107,12 @@ export class MpcFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     // Strip ID3v2 if it was found on disk (ID3v2 is invalid in MPC)
     if (this._hasId3v2 && this._id3v2Location >= 0) {
-      this.removeBlock(this._id3v2Location, this._id3v2Size);
+      await this.removeBlock(this._id3v2Location, this._id3v2Size);
 
       if (this._apeLocation >= 0) this._apeLocation -= this._id3v2Size;
       if (this._id3v1Location >= 0) this._id3v1Location -= this._id3v2Size;
@@ -121,14 +126,14 @@ export class MpcFile extends File {
     const id3v1 = this.id3v1Tag();
     if (id3v1 && !id3v1.isEmpty) {
       if (this._id3v1Location >= 0) {
-        this.seek(this._id3v1Location);
+        await this.seek(this._id3v1Location);
       } else {
-        this.seek(0, Position.End);
-        this._id3v1Location = this.tell();
+        await this.seek(0, Position.End);
+        this._id3v1Location = (await this.tell());
       }
-      this.writeBlock(id3v1.render());
+      await this.writeBlock(id3v1.render());
     } else if (this._id3v1Location >= 0) {
-      this.truncate(this._id3v1Location);
+      await this.truncate(this._id3v1Location);
       this._id3v1Location = -1;
     }
 
@@ -137,17 +142,17 @@ export class MpcFile extends File {
     if (ape && !ape.isEmpty) {
       if (this._apeLocation < 0) {
         this._apeLocation =
-          this._id3v1Location >= 0 ? this._id3v1Location : this.fileLength;
+          this._id3v1Location >= 0 ? this._id3v1Location : (await this.fileLength());
       }
       const data = ape.render();
-      this.insert(data, this._apeLocation, this._apeOriginalSize);
+      await this.insert(data, this._apeLocation, this._apeOriginalSize);
 
       if (this._id3v1Location >= 0) {
         this._id3v1Location += data.length - this._apeOriginalSize;
       }
       this._apeOriginalSize = data.length;
     } else if (this._apeLocation >= 0) {
-      this.removeBlock(this._apeLocation, this._apeOriginalSize);
+      await this.removeBlock(this._apeLocation, this._apeOriginalSize);
       if (this._id3v1Location >= 0) {
         this._id3v1Location -= this._apeOriginalSize;
       }
@@ -223,15 +228,15 @@ export class MpcFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Detect & skip ID3v2 (invalid in MPC but tolerated)
-    this.findID3v2();
+    await this.findID3v2();
 
     // 2. Find ID3v1
-    this.findID3v1();
+    await this.findID3v1();
 
     // 3. Find APE
-    this.findAPE();
+    await this.findAPE();
 
     // If no ID3v1 tag exists, ensure we have an APE tag
     if (this._id3v1Location < 0) {
@@ -250,23 +255,23 @@ export class MpcFile extends File {
       } else if (this._id3v1Location >= 0) {
         streamLength = this._id3v1Location;
       } else {
-        streamLength = this.fileLength;
+        streamLength = (await this.fileLength());
       }
 
       if (this._id3v2Location >= 0) {
-        this.seek(this._id3v2Location + this._id3v2Size);
+        await this.seek(this._id3v2Location + this._id3v2Size);
         streamLength -= this._id3v2Location + this._id3v2Size;
       } else {
-        this.seek(0);
+        await this.seek(0);
       }
 
-      this._properties = new MpcProperties(this, streamLength, readStyle);
+      this._properties = await MpcProperties.create(this, streamLength, readStyle);
     }
   }
 
-  private findID3v2(): void {
-    this.seek(0);
-    const headerData = this.readBlock(Id3v2Header.size);
+  private async findID3v2(): Promise<void> {
+    await this.seek(0);
+    const headerData = await this.readBlock(Id3v2Header.size);
     if (headerData.length < Id3v2Header.size) return;
     if (!headerData.startsWith(Id3v2Header.fileIdentifier)) return;
 
@@ -278,28 +283,28 @@ export class MpcFile extends File {
     this._hasId3v2 = true;
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  private async findID3v1(): Promise<void> {
+    if ((await this.fileLength()) < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = (await this.fileLength()) - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
-  private findAPE(): void {
+  private async findAPE(): Promise<void> {
     const searchEnd: offset_t =
-      this._id3v1Location >= 0 ? this._id3v1Location : this.fileLength;
+      this._id3v1Location >= 0 ? this._id3v1Location : (await this.fileLength());
 
     if (searchEnd < ApeFooter.SIZE) return;
 
     const footerOffset = searchEnd - ApeFooter.SIZE;
-    this.seek(footerOffset);
-    const footerData = this.readBlock(ApeFooter.SIZE);
+    await this.seek(footerOffset);
+    const footerData = await this.readBlock(ApeFooter.SIZE);
     if (footerData.length < ApeFooter.SIZE) return;
 
     const magic = ByteVector.fromString("APETAGEX", StringType.Latin1);
@@ -310,7 +315,7 @@ export class MpcFile extends File {
 
     this._apeLocation = footerOffset + ApeFooter.SIZE - footer.completeTagSize;
     this._apeOriginalSize = footer.completeTagSize;
-    this._apeTag = ApeTag.readFrom(this._stream, footerOffset);
+    this._apeTag = await ApeTag.readFrom(this._stream, footerOffset);
   }
 
   private refreshCombinedTag(): void {

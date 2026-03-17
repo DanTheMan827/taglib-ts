@@ -26,8 +26,8 @@ const commentAfter =
   "This line is ok.\n" +
   "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 
-function testRead(stream: ByteVectorStream, title: string, comment: string) {
-  const file = new ModFile(stream, true, ReadStyle.Average);
+function await testRead(stream: ByteVectorStream, title: string, comment: string) {
+  const file = await ModFile.open(stream, true, ReadStyle.Average);
   expect(file.isValid).toBe(true);
 
   const p = file.audioProperties();
@@ -52,25 +52,25 @@ function testRead(stream: ByteVectorStream, title: string, comment: string) {
 }
 
 describe("MOD", () => {
-  it("should read tags", () => {
+  it("should read tags", async () => {
     const stream = openTestStream("test.mod");
-    testRead(stream, titleBefore, commentBefore);
+    await testRead(stream, titleBefore, commentBefore);
   });
 
-  it("should write tags", () => {
+  it("should write tags", async () => {
     const data = readTestDataBV("test.mod");
     const stream = new ByteVectorStream(data);
-    const file = new ModFile(stream, true, ReadStyle.Average);
+    const file = await ModFile.open(stream, true, ReadStyle.Average);
     expect(file.tag()).not.toBeNull();
     file.tag()!.title = titleAfter;
     file.tag()!.comment = newComment;
-    expect(file.save()).toBe(true);
+    expect(await file.save()).toBe(true);
 
     stream.seek(0);
-    testRead(stream, titleAfter, commentAfter);
+    await testRead(stream, titleAfter, commentAfter);
   });
 
-  it("should handle property interface", () => {
+  it("should handle property interface", async () => {
     const t = new ModTag();
     const properties = new PropertyMap();
     properties.replace("BLA", ["bla"]);

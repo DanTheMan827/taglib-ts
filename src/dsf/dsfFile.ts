@@ -26,15 +26,20 @@ export class DsfFile extends File {
   private _fileSize: number = 0;
   private _metadataOffset: number = 0;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<DsfFile> {
+    const f = new DsfFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -42,9 +47,9 @@ export class DsfFile extends File {
   // ---------------------------------------------------------------------------
 
   /** Quick-check whether `stream` looks like a valid DSF file. */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const id = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const id = await stream.readBlock(4);
     if (id.length < 4) return false;
 
     const dsd = ByteVector.fromString("DSD ", StringType.Latin1);
@@ -63,7 +68,7 @@ export class DsfFile extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this._tag) return false;
 
@@ -74,7 +79,7 @@ export class DsfFile extends File {
 
       // Update file size in DSD chunk header
       if (this._fileSize !== newFileSize) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newFileSize), false),
           12,
           8,
@@ -84,12 +89,12 @@ export class DsfFile extends File {
 
       // Clear metadata offset (no tag)
       if (this._metadataOffset) {
-        this.insert(ByteVector.fromLongLong(0n, false), 20, 8);
+        await this.insert(ByteVector.fromLongLong(0n, false), 20, 8);
         this._metadataOffset = 0;
       }
 
       // Truncate file to remove old tag
-      this.truncate(newFileSize);
+      await this.truncate(newFileSize);
     } else {
       const tagData = this._tag.render();
 
@@ -101,7 +106,7 @@ export class DsfFile extends File {
 
       // Update file size
       if (this._fileSize !== newFileSize) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newFileSize), false),
           12,
           8,
@@ -111,7 +116,7 @@ export class DsfFile extends File {
 
       // Update metadata offset
       if (this._metadataOffset !== newMetadataOffset) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newMetadataOffset), false),
           20,
           8,
@@ -120,7 +125,7 @@ export class DsfFile extends File {
       }
 
       // Write the tag
-      this.insert(tagData, newMetadataOffset, oldTagSize);
+      await this.insert(tagData, newMetadataOffset, oldTagSize);
     }
 
     return true;
@@ -130,44 +135,44 @@ export class DsfFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // DSD chunk
-    this.seek(0);
-    const chunkName = this.readBlock(4);
+    await this.seek(0);
+    const chunkName = await this.readBlock(4);
     const dsd = ByteVector.fromString("DSD ", StringType.Latin1);
     if (!chunkName.startsWith(dsd)) {
       this._valid = false;
       return;
     }
 
-    const dsdHeaderSizeData = this.readBlock(8);
+    const dsdHeaderSizeData = await this.readBlock(8);
     const dsdHeaderSize = Number(dsdHeaderSizeData.toLongLong(false));
     if (dsdHeaderSize !== 28) {
       this._valid = false;
       return;
     }
 
-    this._fileSize = Number(this.readBlock(8).toLongLong(false));
-    if (this._fileSize > this.fileLength) {
+    this._fileSize = Number((await this.readBlock(8)).toLongLong(false));
+    if (this._fileSize > (await this.fileLength())) {
       this._valid = false;
       return;
     }
 
-    this._metadataOffset = Number(this.readBlock(8).toLongLong(false));
+    this._metadataOffset = Number((await this.readBlock(8)).toLongLong(false));
     if (this._metadataOffset > this._fileSize) {
       this._valid = false;
       return;
     }
 
     // fmt chunk
-    const fmtName = this.readBlock(4);
+    const fmtName = await this.readBlock(4);
     const fmt = ByteVector.fromString("fmt ", StringType.Latin1);
     if (!fmtName.startsWith(fmt)) {
       this._valid = false;
       return;
     }
 
-    const fmtHeaderSize = Number(this.readBlock(8).toLongLong(false));
+    const fmtHeaderSize = Number((await this.readBlock(8)).toLongLong(false));
     if (fmtHeaderSize !== 52) {
       this._valid = false;
       return;
@@ -181,7 +186,7 @@ export class DsfFile extends File {
     // which is right after "fmt " + 8-byte size. So the C++ reads 52 bytes as fmt payload.
     // However properties::read() only uses offsets 0-35 (36 bytes) from that data.
     if (readProperties) {
-      this._properties = new DsfProperties(this.readBlock(fmtHeaderSize), readStyle);
+      this._properties = new DsfProperties(await this.readBlock(fmtHeaderSize), readStyle);
     } else {
       this._properties = null;
     }
@@ -190,7 +195,7 @@ export class DsfFile extends File {
     if (this._metadataOffset === 0) {
       this._tag = new Id3v2Tag();
     } else {
-      this._tag = Id3v2Tag.readFrom(this._stream, this._metadataOffset);
+      this._tag = await Id3v2Tag.readFrom(this._stream, this._metadataOffset);
     }
   }
 }

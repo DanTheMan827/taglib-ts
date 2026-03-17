@@ -24,9 +24,14 @@ export class ApeProperties extends AudioProperties {
   private _bitsPerSample: number = 0;
   private _sampleFrames: number = 0;
 
-  constructor(file: File, streamLength: offset_t, readStyle: ReadStyle) {
+  private constructor(readStyle: ReadStyle) {
     super(readStyle);
-    this.read(file, streamLength);
+  }
+
+  static async create(file: File, streamLength: offset_t, readStyle: ReadStyle): Promise<ApeProperties> {
+    const p = new ApeProperties(readStyle);
+    await p.read(file, streamLength);
+    return p;
   }
 
   // ---------------------------------------------------------------------------
@@ -69,17 +74,17 @@ export class ApeProperties extends AudioProperties {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(file: File, streamLength: offset_t): void {
-    let offset = file.tell();
-    let vers = this.headerVersion(file.readBlock(6));
+  private async read(file: File, streamLength: offset_t): Promise<void> {
+    let offset = await file.tell();
+    let vers = this.headerVersion(await file.readBlock(6));
 
     // If the descriptor isn't at the current position, search for it
     if (vers < 0) {
       const mac = ByteVector.fromString("MAC ", StringType.Latin1);
-      offset = file.find(mac, offset);
+      offset = await file.find(mac, offset);
       if (offset < 0) return;
-      file.seek(offset);
-      vers = this.headerVersion(file.readBlock(6));
+      await file.seek(offset);
+      vers = this.headerVersion(await file.readBlock(6));
     }
 
     if (vers < 0) return;
@@ -87,9 +92,9 @@ export class ApeProperties extends AudioProperties {
     this._version = vers;
 
     if (this._version >= 3980) {
-      this.analyzeCurrent(file);
+      await this.analyzeCurrent(file);
     } else {
-      this.analyzeOld(file);
+      await this.analyzeOld(file);
     }
 
     if (this._sampleFrames > 0 && this._sampleRate > 0) {
@@ -109,11 +114,11 @@ export class ApeProperties extends AudioProperties {
   /**
    * Parse the current (v3980+) format: 44-byte descriptor + 24-byte header.
    */
-  private analyzeCurrent(file: File): void {
+  private async analyzeCurrent(file: File): Promise<void> {
     // Skip 2 bytes (padding after version in 6-byte read)
-    file.seek(2, Position.Current);
+    await file.seek(2, Position.Current);
 
-    const descriptor = file.readBlock(44);
+    const descriptor = await file.readBlock(44);
     if (descriptor.length < 44) return;
 
     // The descriptor tells us how many bytes the descriptor block occupies.
@@ -121,10 +126,10 @@ export class ApeProperties extends AudioProperties {
     // skip ahead.
     const descriptorBytes = descriptor.toUInt(0, false);
     if (descriptorBytes > 52) {
-      file.seek(descriptorBytes - 52, Position.Current);
+      await file.seek(descriptorBytes - 52, Position.Current);
     }
 
-    const header = file.readBlock(24);
+    const header = await file.readBlock(24);
     if (header.length < 24) return;
 
     this._channels = header.toShort(18, false);
@@ -142,8 +147,8 @@ export class ApeProperties extends AudioProperties {
   /**
    * Parse older (pre-3980) format: 26-byte header + WAV fmt chunk.
    */
-  private analyzeOld(file: File): void {
-    const header = file.readBlock(26);
+  private async analyzeOld(file: File): Promise<void> {
+    const header = await file.readBlock(26);
     if (header.length < 26) return;
 
     const totalFrames = header.toUInt(18, false);
@@ -169,8 +174,8 @@ export class ApeProperties extends AudioProperties {
     this._sampleFrames = (totalFrames - 1) * blocksPerFrame + finalFrameBlocks;
 
     // Read bit depth from the RIFF-fmt chunk (16 bytes after header, then 28-byte fmt)
-    file.seek(16, Position.Current);
-    const fmt = file.readBlock(28);
+    await file.seek(16, Position.Current);
+    const fmt = await file.readBlock(28);
     if (fmt.length < 28) return;
 
     const waveFmt = ByteVector.fromString("WAVEfmt ", StringType.Latin1);

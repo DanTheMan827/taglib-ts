@@ -82,8 +82,8 @@ export function vintSizeLength(firstByte: number, maxSizeLength: number): number
 /**
  * Read an element ID from a stream. Returns [id, bytesRead] or [0, 0] on failure.
  */
-export function readElementId(stream: IOStream): [number, number] {
-  const firstByteVec = stream.readBlock(1);
+export async function readElementId(stream: IOStream): Promise<[number, number]> {
+  const firstByteVec = await stream.readBlock(1);
   if (firstByteVec.length !== 1) return [0, 0];
 
   const firstByte = firstByteVec.get(0);
@@ -94,13 +94,13 @@ export function readElementId(stream: IOStream): [number, number] {
     return [firstByte, 1];
   }
 
-  const rest = stream.readBlock(numBytes - 1);
+  const rest = await stream.readBlock(numBytes - 1);
   if (rest.length !== numBytes - 1) return [0, 0];
 
   // Build the ID as a big-endian unsigned integer
   let id = firstByte;
   for (let i = 0; i < rest.length; i++) {
-    id = (id * 256) + rest.get(i);
+    id = id * 256 + rest.get(i);
   }
   return [id, numBytes];
 }
@@ -110,8 +110,8 @@ export function readElementId(stream: IOStream): [number, number] {
  * Returns [sizeLength, value] or [0, 0] on failure.
  * The VINT marker bit is masked off to get the actual data value.
  */
-export function readVint(stream: IOStream): [number, number] {
-  const firstByteVec = stream.readBlock(1);
+export async function readVint(stream: IOStream): Promise<[number, number]> {
+  const firstByteVec = await stream.readBlock(1);
   if (firstByteVec.length !== 1) return [0, 0];
 
   const firstByte = firstByteVec.get(0);
@@ -123,10 +123,10 @@ export function readVint(stream: IOStream): [number, number] {
   let value = firstByte & mask;
 
   if (numBytes > 1) {
-    const rest = stream.readBlock(numBytes - 1);
+    const rest = await stream.readBlock(numBytes - 1);
     if (rest.length !== numBytes - 1) return [0, 0];
     for (let i = 0; i < rest.length; i++) {
-      value = (value * 256) + rest.get(i);
+      value = value * 256 + rest.get(i);
     }
   }
 
@@ -147,12 +147,12 @@ export interface EbmlElement {
  * Read the next EBML element header from the stream.
  * Returns null on failure.
  */
-export function readElement(stream: IOStream): EbmlElement | null {
-  const offset = stream.tell();
-  const [id, idLen] = readElementId(stream);
+export async function readElement(stream: IOStream): Promise<EbmlElement | null> {
+  const offset = await stream.tell();
+  const [id, idLen] = await readElementId(stream);
   if (!id) return null;
 
-  const [sizeLen, dataSize] = readVint(stream);
+  const [sizeLen, dataSize] = await readVint(stream);
   if (!sizeLen) return null;
 
   return {
@@ -166,19 +166,19 @@ export function readElement(stream: IOStream): EbmlElement | null {
 /**
  * Skip an element's data in the stream.
  */
-export function skipElement(stream: IOStream, element: EbmlElement): void {
-  stream.seek(element.offset + element.headSize + element.dataSize, Position.Beginning);
+export async function skipElement(stream: IOStream, element: EbmlElement): Promise<void> {
+  await stream.seek(element.offset + element.headSize + element.dataSize, Position.Beginning);
 }
 
 /**
  * Find a specific element by ID within a range. Skips unmatched elements.
  */
-export function findElement(stream: IOStream, targetId: number, maxOffset: number): EbmlElement | null {
-  while (stream.tell() < maxOffset) {
-    const element = readElement(stream);
+export async function findElement(stream: IOStream, targetId: number, maxOffset: number): Promise<EbmlElement | null> {
+  while ((await stream.tell()) < maxOffset) {
+    const element = await readElement(stream);
     if (!element) return null;
     if (element.id === targetId) return element;
-    skipElement(stream, element);
+    await skipElement(stream, element);
   }
   return null;
 }
@@ -186,15 +186,15 @@ export function findElement(stream: IOStream, targetId: number, maxOffset: numbe
 /**
  * Read all child elements within a master element's data range.
  */
-export function readChildElements(stream: IOStream, parentDataOffset: number, parentDataSize: number): EbmlElement[] {
+export async function readChildElements(stream: IOStream, parentDataOffset: number, parentDataSize: number): Promise<EbmlElement[]> {
   const endOffset = parentDataOffset + parentDataSize;
   const children: EbmlElement[] = [];
-  stream.seek(parentDataOffset, Position.Beginning);
-  while (stream.tell() < endOffset) {
-    const element = readElement(stream);
+  await stream.seek(parentDataOffset, Position.Beginning);
+  while ((await stream.tell()) < endOffset) {
+    const element = await readElement(stream);
     if (!element) break;
     children.push(element);
-    skipElement(stream, element);
+    await skipElement(stream, element);
   }
   return children;
 }
@@ -202,16 +202,16 @@ export function readChildElements(stream: IOStream, parentDataOffset: number, pa
 /**
  * Read the raw data of an element from the stream.
  */
-export function readElementData(stream: IOStream, element: EbmlElement): ByteVector {
-  stream.seek(element.offset + element.headSize, Position.Beginning);
+export async function readElementData(stream: IOStream, element: EbmlElement): Promise<ByteVector> {
+  await stream.seek(element.offset + element.headSize, Position.Beginning);
   return stream.readBlock(element.dataSize);
 }
 
 /**
  * Read an unsigned integer element value (1-8 bytes, big-endian).
  */
-export function readUintValue(stream: IOStream, element: EbmlElement): number {
-  const data = readElementData(stream, element);
+export async function readUintValue(stream: IOStream, element: EbmlElement): Promise<number> {
+  const data = await readElementData(stream, element);
   if (data.length === 0) return 0;
   let value = 0;
   for (let i = 0; i < data.length; i++) {
@@ -223,8 +223,8 @@ export function readUintValue(stream: IOStream, element: EbmlElement): number {
 /**
  * Read a float element value (4 or 8 bytes, big-endian IEEE 754).
  */
-export function readFloatValue(stream: IOStream, element: EbmlElement): number {
-  const data = readElementData(stream, element);
+export async function readFloatValue(stream: IOStream, element: EbmlElement): Promise<number> {
+  const data = await readElementData(stream, element);
   if (data.length === 4) {
     return data.toFloat32BE(0);
   }
@@ -237,8 +237,8 @@ export function readFloatValue(stream: IOStream, element: EbmlElement): number {
 /**
  * Read a UTF-8 string element value.
  */
-export function readStringValue(stream: IOStream, element: EbmlElement): string {
-  const data = readElementData(stream, element);
+export async function readStringValue(stream: IOStream, element: EbmlElement): Promise<string> {
+  const data = await readElementData(stream, element);
   if (data.length === 0) return "";
   // Trim trailing null bytes
   let len = data.length;

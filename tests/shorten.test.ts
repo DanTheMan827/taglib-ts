@@ -4,9 +4,9 @@ import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream } from "./testHelper.js";
 
 describe("Shorten", () => {
-  it("should read basic audio properties", () => {
+  it("should read basic audio properties", async () => {
     const stream = openTestStream("2sec-silence.shn");
-    const f = new ShortenFile(stream, true, ReadStyle.Average);
+    const f = await ShortenFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
 
     const props = f.audioProperties();
@@ -24,12 +24,12 @@ describe("Shorten", () => {
     expect(props!.sampleFrames).toBe(88200);
   });
 
-  it("should handle tags (empty - read only format)", () => {
+  it("should handle tags (empty - read only format)", async () => {
     // Shorten format has no writable tags; testTags in C++ is empty
     const stream = openTestStream("2sec-silence.shn");
-    const f = new ShortenFile(stream, true, ReadStyle.Average);
+    const f = await ShortenFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     // save() should return false for read-only format
-    expect(f.save()).toBe(false);
+    expect(await f.save()).toBe(false);
   });
 });

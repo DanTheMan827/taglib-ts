@@ -377,7 +377,7 @@ export class FlacFile extends File {
 
     this._id3v2Location = 0;
     this._id3v2OriginalSize = header.completeTagSize;
-    this._id3v2Tag = Id3v2Tag.readFrom(this._stream, 0);
+    this._id3v2Tag = await Id3v2Tag.readFrom(this._stream, 0);
   }
 
   private async findID3v1(): Promise<void> {
@@ -392,7 +392,7 @@ export class FlacFile extends File {
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
   private async scan(): Promise<void> {

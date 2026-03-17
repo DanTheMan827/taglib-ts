@@ -4,13 +4,13 @@ import { ByteVectorStream } from "../src/toolkit/byteVectorStream.js";
 import { ReadStyle } from "../src/toolkit/types.js";
 import { openTestStream, readTestData } from "./testHelper.js";
 
-function openDsfFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): DsfFile {
+async function openDsfFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): Promise<DsfFile> {
   const stream = openTestStream(filename);
-  return new DsfFile(stream, readProperties, readStyle);
+  return await DsfFile.open(stream, readProperties, readStyle);
 }
 
 describe("DSF", () => {
-  it("testBasic", () => {
+  it("testBasic", async () => {
     const f = openDsfFile("empty10ms.dsf");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
@@ -23,21 +23,21 @@ describe("DSF", () => {
     }
   });
 
-  it("testTags", () => {
+  it("testTags", async () => {
     const data = readTestData("empty10ms.dsf");
     const stream = new ByteVectorStream(data);
-    const f = new DsfFile(stream, true, ReadStyle.Average);
+    const f = await DsfFile.open(stream, true, ReadStyle.Average);
 
     const tag = f.tag();
     expect(tag).not.toBeNull();
     if (tag) {
       expect(tag.artist).toBe("");
       tag.artist = "The Artist";
-      f.save();
+      await f.save();
     }
 
     stream.seek(0);
-    const f2 = new DsfFile(stream, true, ReadStyle.Average);
+    const f2 = await DsfFile.open(stream, true, ReadStyle.Average);
     const tag2 = f2.tag();
     expect(tag2).not.toBeNull();
     if (tag2) {

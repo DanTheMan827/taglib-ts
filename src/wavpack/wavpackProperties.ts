@@ -134,9 +134,14 @@ export class WavPackProperties extends AudioProperties {
   private _dsd: boolean = false;
   private _sampleFrames: number = 0;
 
-  constructor(file: File, streamLength: offset_t, readStyle: ReadStyle) {
+  private constructor(readStyle: ReadStyle) {
     super(readStyle);
-    this.read(file, streamLength);
+  }
+
+  static async create(file: File, streamLength: offset_t, readStyle: ReadStyle): Promise<WavPackProperties> {
+    const p = new WavPackProperties(readStyle);
+    await p.read(file, streamLength);
+    return p;
   }
 
   // ---------------------------------------------------------------------------
@@ -187,13 +192,13 @@ export class WavPackProperties extends AudioProperties {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(file: File, streamLength: offset_t): void {
+  private async read(file: File, streamLength: offset_t): Promise<void> {
     const wvpk = ByteVector.fromString("wvpk", StringType.Latin1);
     let offset: offset_t = 0;
 
     while (true) {
-      file.seek(offset);
-      const data = file.readBlock(HeaderSize);
+      await file.seek(offset);
+      const data = await file.readBlock(HeaderSize);
 
       if (data.length < HeaderSize) break;
       if (!data.startsWith(wvpk)) break;
@@ -215,7 +220,7 @@ export class WavPackProperties extends AudioProperties {
       // For non-standard sample rates or DSD audio, parse the block body
       if (!smplRate || (flags & DSD_FLAG)) {
         const adjustedBlockSize = blockSize - 24;
-        const block = file.readBlock(adjustedBlockSize);
+        const block = await file.readBlock(adjustedBlockSize);
 
         if (block.length < adjustedBlockSize) break;
 
@@ -251,7 +256,7 @@ export class WavPackProperties extends AudioProperties {
 
     // 0xFFFFFFFF means the frame count is unknown — seek backward for it
     if (this._sampleFrames === 0xffffffff) {
-      this._sampleFrames = this.seekFinalIndex(file, streamLength);
+      this._sampleFrames = await this.seekFinalIndex(file, streamLength);
     }
 
     if (this._sampleFrames > 0 && this._sampleRate > 0) {
@@ -261,16 +266,16 @@ export class WavPackProperties extends AudioProperties {
     }
   }
 
-  private seekFinalIndex(file: File, streamLength: offset_t): number {
+  private async seekFinalIndex(file: File, streamLength: offset_t): Promise<number> {
     const wvpk = ByteVector.fromString("wvpk", StringType.Latin1);
     let offset = streamLength;
 
     while (offset >= HeaderSize) {
-      offset = file.rfind(wvpk, offset - 4);
+      offset = await file.rfind(wvpk, offset - 4);
       if (offset === -1) return 0;
 
-      file.seek(offset);
-      const data = file.readBlock(HeaderSize);
+      await file.seek(offset);
+      const data = await file.readBlock(HeaderSize);
       if (data.length < HeaderSize) return 0;
 
       const blockSize = data.toUInt(4, false);

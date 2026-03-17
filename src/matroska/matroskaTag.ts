@@ -452,14 +452,14 @@ export class MatroskaTag extends Tag {
   /**
    * Parse Tags element (0x1254C367) from the stream.
    */
-  static parseFromStream(stream: IOStream, tagsElement: EbmlElement): MatroskaTag {
+  static async parseFromStream(stream: IOStream, tagsElement: EbmlElement): Promise<MatroskaTag> {
     const tag = new MatroskaTag();
     const dataOffset = tagsElement.offset + tagsElement.headSize;
-    const tagElements = readChildElements(stream, dataOffset, tagsElement.dataSize);
+    const tagElements = await readChildElements(stream, dataOffset, tagsElement.dataSize);
 
     for (const tagEl of tagElements) {
       if (tagEl.id === EbmlId.Tag) {
-        tag.parseTagElement(stream, tagEl);
+        await tag.parseTagElement(stream, tagEl);
       }
     }
     return tag;
@@ -468,20 +468,20 @@ export class MatroskaTag extends Tag {
   /**
    * Parse Attachments element (0x1941A469) from the stream.
    */
-  parseAttachments(stream: IOStream, attachmentsElement: EbmlElement): void {
+  async parseAttachments(stream: IOStream, attachmentsElement: EbmlElement): Promise<void> {
     const dataOffset = attachmentsElement.offset + attachmentsElement.headSize;
-    const children = readChildElements(stream, dataOffset, attachmentsElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, attachmentsElement.dataSize);
 
     for (const child of children) {
       if (child.id === EbmlId.AttachedFile) {
-        this.parseAttachedFile(stream, child);
+        await this.parseAttachedFile(stream, child);
       }
     }
   }
 
-  private parseTagElement(stream: IOStream, tagElement: EbmlElement): void {
+  private async parseTagElement(stream: IOStream, tagElement: EbmlElement): Promise<void> {
     const dataOffset = tagElement.offset + tagElement.headSize;
-    const children = readChildElements(stream, dataOffset, tagElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, tagElement.dataSize);
 
     let targetTypeValue = TargetTypeValue.None;
     let trackUid = 0;
@@ -492,24 +492,24 @@ export class MatroskaTag extends Tag {
     // First, parse the Targets element to get target info
     for (const child of children) {
       if (child.id === EbmlId.Targets) {
-        const targetChildren = readChildElements(stream,
+        const targetChildren = await readChildElements(stream,
           child.offset + child.headSize, child.dataSize);
         for (const tc of targetChildren) {
           switch (tc.id) {
             case EbmlId.TargetTypeValue:
-              targetTypeValue = readUintValue(stream, tc) as TargetTypeValue;
+              targetTypeValue = (await readUintValue(stream, tc)) as TargetTypeValue;
               break;
             case EbmlId.TagTrackUID:
-              trackUid = readUintValue(stream, tc);
+              trackUid = await readUintValue(stream, tc);
               break;
             case EbmlId.TagEditionUID:
-              editionUid = readUintValue(stream, tc);
+              editionUid = await readUintValue(stream, tc);
               break;
             case EbmlId.TagChapterUID:
-              chapterUid = readUintValue(stream, tc);
+              chapterUid = await readUintValue(stream, tc);
               break;
             case EbmlId.TagAttachmentUID:
-              attachmentUid = readUintValue(stream, tc);
+              attachmentUid = await readUintValue(stream, tc);
               break;
           }
         }
@@ -519,13 +519,13 @@ export class MatroskaTag extends Tag {
     // Then parse SimpleTag elements
     for (const child of children) {
       if (child.id === EbmlId.SimpleTag) {
-        this.parseSimpleTag(stream, child, targetTypeValue,
+        await this.parseSimpleTag(stream, child, targetTypeValue,
           trackUid, editionUid, chapterUid, attachmentUid);
       }
     }
   }
 
-  private parseSimpleTag(
+  private async parseSimpleTag(
     stream: IOStream,
     simpleTagElement: EbmlElement,
     targetTypeValue: TargetTypeValue,
@@ -533,9 +533,9 @@ export class MatroskaTag extends Tag {
     editionUid: number,
     chapterUid: number,
     attachmentUid: number,
-  ): void {
+  ): Promise<void> {
     const dataOffset = simpleTagElement.offset + simpleTagElement.headSize;
-    const children = readChildElements(stream, dataOffset, simpleTagElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, simpleTagElement.dataSize);
 
     let name = "";
     let value = "";
@@ -546,19 +546,19 @@ export class MatroskaTag extends Tag {
     for (const child of children) {
       switch (child.id) {
         case EbmlId.TagName:
-          name = readStringValue(stream, child);
+          name = await readStringValue(stream, child);
           break;
         case EbmlId.TagString:
-          value = readStringValue(stream, child);
+          value = await readStringValue(stream, child);
           break;
         case EbmlId.TagBinary:
-          binaryValue = readElementData(stream, child);
+          binaryValue = await readElementData(stream, child);
           break;
         case EbmlId.TagLanguage:
-          language = readStringValue(stream, child);
+          language = await readStringValue(stream, child);
           break;
         case EbmlId.TagLanguageDefault:
-          defaultLanguageFlag = readUintValue(stream, child) !== 0;
+          defaultLanguageFlag = (await readUintValue(stream, child)) !== 0;
           break;
       }
     }
@@ -579,9 +579,9 @@ export class MatroskaTag extends Tag {
     }
   }
 
-  private parseAttachedFile(stream: IOStream, element: EbmlElement): void {
+  private async parseAttachedFile(stream: IOStream, element: EbmlElement): Promise<void> {
     const dataOffset = element.offset + element.headSize;
-    const children = readChildElements(stream, dataOffset, element.dataSize);
+    const children = await readChildElements(stream, dataOffset, element.dataSize);
 
     let description = "";
     let fileName = "";
@@ -592,19 +592,19 @@ export class MatroskaTag extends Tag {
     for (const child of children) {
       switch (child.id) {
         case EbmlId.AttachedFileDescription:
-          description = readStringValue(stream, child);
+          description = await readStringValue(stream, child);
           break;
         case EbmlId.AttachedFileName:
-          fileName = readStringValue(stream, child);
+          fileName = await readStringValue(stream, child);
           break;
         case EbmlId.AttachedFileMediaType:
-          mediaType = readStringValue(stream, child);
+          mediaType = await readStringValue(stream, child);
           break;
         case EbmlId.AttachedFileData:
-          data = readElementData(stream, child);
+          data = await readElementData(stream, child);
           break;
         case EbmlId.AttachedFileUID:
-          uid = readUintValue(stream, child);
+          uid = await readUintValue(stream, child);
           break;
       }
     }
