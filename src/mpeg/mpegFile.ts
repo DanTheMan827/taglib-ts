@@ -1,13 +1,14 @@
+/** @file MPEG (MP3) file format handler supporting ID3v1, ID3v2, and APE tags with audio property reading. */
+import { ApeFooter, ApeTag } from "../ape/apeTag.js";
 import { ByteVector, StringType } from "../byteVector.js";
-import { File } from "../file.js";
-import { type offset_t, Position, ReadStyle, StripTags } from "../toolkit/types.js";
-import type { IOStream } from "../toolkit/ioStream.js";
-import { Tag } from "../tag.js";
 import { CombinedTag } from "../combinedTag.js";
+import { File } from "../file.js";
+import { Tag } from "../tag.js";
+import type { IOStream } from "../toolkit/ioStream.js";
+import { type offset_t, Position, ReadStyle, StripTags } from "../toolkit/types.js";
 import { ID3v1Tag } from "./id3v1/id3v1Tag.js";
-import { Id3v2Tag } from "./id3v2/id3v2Tag.js";
 import { Id3v2Header } from "./id3v2/id3v2Header.js";
-import { ApeTag, ApeFooter } from "../ape/apeTag.js";
+import { Id3v2Tag } from "./id3v2/id3v2Tag.js";
 import { MpegHeader } from "./mpegHeader.js";
 import { MpegProperties } from "./mpegProperties.js";
 
@@ -15,11 +16,20 @@ import { MpegProperties } from "./mpegProperties.js";
 // Enums
 // =============================================================================
 
+/**
+ * Bit-flag enum identifying which tag types are present in or should be
+ * operated on within an MPEG file.
+ */
 export enum MpegTagTypes {
+  /** No tags. */
   NoTags = 0x0000,
+  /** ID3v1 tag. */
   ID3v1 = 0x0001,
+  /** ID3v2 tag. */
   ID3v2 = 0x0002,
+  /** APE tag. */
   APE = 0x0004,
+  /** All supported tag types (bitwise OR of all members). */
   AllTags = 0xffff,
 }
 
@@ -34,61 +44,107 @@ export enum MpegTagTypes {
  * property reading.
  */
 export class MpegFile extends File {
+  /** The ID3v2 tag, or `null` if not present. */
   private _id3v2Tag: Id3v2Tag | null = null;
+  /** The ID3v1 tag, or `null` if not present. */
   private _id3v1Tag: ID3v1Tag | null = null;
+  /** The APE tag, or `null` if not present. */
   private _apeTag: ApeTag | null = null;
+  /** Priority-ordered combined tag that delegates to all present tag types. */
   private _combinedTag: CombinedTag;
+  /** Cached audio properties, or `null` if not read. */
   private _properties: MpegProperties | null = null;
 
   // Bookkeeping for tag locations / sizes (needed by save / strip)
+  /** Byte offset of the ID3v2 tag within the file, or `-1` if not present. */
   private _id3v2Location: offset_t = -1;
+  /** Original byte size of the ID3v2 tag (used to calculate insertion deltas). */
   private _id3v2OriginalSize: number = 0;
+  /** Byte offset of the ID3v1 tag within the file, or `-1` if not present. */
   private _id3v1Location: offset_t = -1;
+  /** Byte offset of the APE tag within the file, or `-1` if not present. */
   private _apeLocation: offset_t = -1;
+  /** Original byte size of the APE tag (used to calculate insertion deltas). */
   private _apeOriginalSize: number = 0;
 
-  constructor(
+  /**
+   * Private constructor — use the static {@link MpegFile.open} factory method instead.
+   * @param stream - The underlying I/O stream for this file.
+   */
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  /**
+   * Opens an MPEG file from the given stream, parsing tags and optionally audio properties.
+   *
+   * @param stream - The I/O stream to read from.
+   * @param readProperties - Whether to read audio properties (default: `true`).
+   * @param readStyle - The level of detail used when reading properties (default: `ReadStyle.Average`).
+   * @returns A fully initialised `MpegFile` instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    this.read(readProperties, readStyle);
+  ): Promise<MpegFile> {
+    const file = new MpegFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   // ---------------------------------------------------------------------------
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the combined tag that delegates to all present tag types, in
+   * priority order (ID3v2 > APE > ID3v1).
+   *
+   * @returns The combined tag instance.
+   */
   tag(): Tag {
     return this._combinedTag;
   }
 
+  /**
+   * Returns the audio properties for this file, or `null` if they were not read.
+   *
+   * @returns The MPEG audio properties, or `null`.
+   */
   audioProperties(): MpegProperties | null {
     return this._properties;
   }
 
-  save(
+  /**
+   * Saves the specified tag types to the file, optionally stripping tags not
+   * included in the save mask.
+   *
+   * @param tags - Bit-flag indicating which tag types to save (default: {@link MpegTagTypes.AllTags}).
+   * @param stripTags - Whether to strip tag types not present in `tags` (default: {@link StripTags.StripOthers}).
+   * @returns `true` on success, `false` if the file is read-only.
+   */
+  async save(
     tags: MpegTagTypes = MpegTagTypes.AllTags,
     stripTags: StripTags = StripTags.StripOthers,
-  ): boolean {
+  ): Promise<boolean> {
     if (this.readOnly) return false;
 
     // Copy metadata between tag formats so both stay in sync.
     // Skip duplication when the source tag is about to be stripped.
     if ((tags & MpegTagTypes.ID3v2) && this._id3v1Tag &&
-        (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v1))) {
+      (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v1))) {
       Tag.duplicate(this._id3v1Tag, this.id3v2Tag(true)!, false);
     }
     if ((tags & MpegTagTypes.ID3v1) && this._id3v2Tag &&
-        (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v2))) {
+      (stripTags !== StripTags.StripOthers || (tags & MpegTagTypes.ID3v2))) {
       Tag.duplicate(this._id3v2Tag, this.id3v1Tag(true)!, false);
     }
 
     // Strip tags not in the save mask
     if (stripTags === StripTags.StripOthers) {
-      this.strip(~tags & MpegTagTypes.AllTags);
+      await this.strip(~tags & MpegTagTypes.AllTags);
     }
 
     // -- ID3v2 --
@@ -96,13 +152,13 @@ export class MpegFile extends File {
       if (this._id3v2Tag && !this._id3v2Tag.isEmpty) {
         if (this._id3v2Location < 0) this._id3v2Location = 0;
         const data = this._id3v2Tag.render();
-        this.insert(data, this._id3v2Location, this._id3v2OriginalSize);
+        await this.insert(data, this._id3v2Location, this._id3v2OriginalSize);
         const sizeDelta = data.length - this._id3v2OriginalSize;
         if (this._apeLocation >= 0) this._apeLocation += sizeDelta;
         if (this._id3v1Location >= 0) this._id3v1Location += sizeDelta;
         this._id3v2OriginalSize = data.length;
       } else {
-        this.strip(MpegTagTypes.ID3v2);
+        await this.strip(MpegTagTypes.ID3v2);
       }
     }
 
@@ -110,14 +166,14 @@ export class MpegFile extends File {
     if (tags & MpegTagTypes.ID3v1) {
       if (this._id3v1Tag && !this._id3v1Tag.isEmpty) {
         if (this._id3v1Location >= 0) {
-          this.seek(this._id3v1Location);
+          await this.seek(this._id3v1Location);
         } else {
-          this.seek(0, Position.End);
-          this._id3v1Location = this.tell();
+          await this.seek(0, Position.End);
+          this._id3v1Location = await this.tell();
         }
-        this.writeBlock(this._id3v1Tag.render());
+        await this.writeBlock(this._id3v1Tag.render());
       } else {
-        this.strip(MpegTagTypes.ID3v1);
+        await this.strip(MpegTagTypes.ID3v1);
       }
     }
 
@@ -126,15 +182,15 @@ export class MpegFile extends File {
       if (this._apeTag && !this._apeTag.isEmpty) {
         if (this._apeLocation < 0) {
           this._apeLocation =
-            this._id3v1Location >= 0 ? this._id3v1Location : this.fileLength;
+            this._id3v1Location >= 0 ? this._id3v1Location : await this.fileLength();
         }
         const data = this._apeTag.render();
-        this.insert(data, this._apeLocation, this._apeOriginalSize);
+        await this.insert(data, this._apeLocation, this._apeOriginalSize);
         const sizeDelta = data.length - this._apeOriginalSize;
         if (this._id3v1Location >= 0) this._id3v1Location += sizeDelta;
         this._apeOriginalSize = data.length;
       } else {
-        this.strip(MpegTagTypes.APE);
+        await this.strip(MpegTagTypes.APE);
       }
     }
 
@@ -176,33 +232,52 @@ export class MpegFile extends File {
   // Frame scanning
   // ---------------------------------------------------------------------------
 
-  firstFrameOffset(): offset_t {
+  /**
+   * Returns the byte offset of the first valid MPEG audio frame in the file.
+   * Scanning begins after the ID3v2 tag (if present).
+   *
+   * @returns The file offset of the first frame, or `-1` if not found.
+   */
+  async firstFrameOffset(): Promise<offset_t> {
     let position: offset_t = 0;
     if (this._id3v2Tag) {
       position = this._id3v2Location + this._id3v2OriginalSize;
     }
-    return this.nextFrameOffset(position);
+    return await this.nextFrameOffset(position);
   }
 
-  lastFrameOffset(): offset_t {
+  /**
+   * Returns the byte offset of the last valid MPEG audio frame in the file.
+   * Scanning ends before any trailing APE or ID3v1 tag.
+   *
+   * @returns The file offset of the last frame, or `-1` if not found.
+   */
+  async lastFrameOffset(): Promise<offset_t> {
     let position: offset_t;
     if (this._apeTag && this._apeLocation >= 0) {
       position = this._apeLocation - 1;
     } else if (this._id3v1Tag && this._id3v1Location >= 0) {
       position = this._id3v1Location - 1;
     } else {
-      position = this.fileLength;
+      position = await this.fileLength();
     }
-    return this.previousFrameOffset(position);
+    return await this.previousFrameOffset(position);
   }
 
-  nextFrameOffset(position: offset_t): offset_t {
+  /**
+   * Scans forward from `position` and returns the offset of the next valid MPEG frame.
+   *
+   * @param position - The byte offset at which to start scanning.
+   * @returns The file offset of the next valid frame, or `-1` if not found.
+   */
+  async nextFrameOffset(position: offset_t): Promise<offset_t> {
     const bufSize = File.bufferSize();
     let prevByte = -1;
+    const flen = await this.fileLength();
 
-    while (position < this.fileLength) {
-      this.seek(position);
-      const buffer = this.readBlock(bufSize);
+    while (position < flen) {
+      await this.seek(position);
+      const buffer = await this.readBlock(bufSize);
       if (buffer.isEmpty) return -1;
 
       for (let i = 0; i < buffer.length; i++) {
@@ -210,7 +285,7 @@ export class MpegFile extends File {
 
         if (prevByte === 0xff && curByte !== 0xff && (curByte & 0xe0) === 0xe0) {
           const frameOffset = position + i - 1;
-          const header = new MpegHeader(this._stream, frameOffset, true);
+          const header = await MpegHeader.fromStream(this._stream, frameOffset, true);
           if (header.isValid) return frameOffset;
         }
 
@@ -223,7 +298,13 @@ export class MpegFile extends File {
     return -1;
   }
 
-  previousFrameOffset(position: offset_t): offset_t {
+  /**
+   * Scans backward from `position` and returns the offset of the previous valid MPEG frame.
+   *
+   * @param position - The byte offset at which to start scanning (inclusive).
+   * @returns The file offset of the previous valid frame, or `-1` if not found.
+   */
+  async previousFrameOffset(position: offset_t): Promise<offset_t> {
     const bufSize = File.bufferSize();
     let nextByte = -1;
 
@@ -231,17 +312,17 @@ export class MpegFile extends File {
       const readLength = Math.min(position, bufSize);
       position -= readLength;
 
-      this.seek(position);
-      const buffer = this.readBlock(readLength);
+      await this.seek(position);
+      const buffer = await this.readBlock(readLength);
       if (buffer.isEmpty) return -1;
 
       for (let i = buffer.length - 1; i >= 0; i--) {
         const curByte = buffer.get(i);
 
         if (curByte === 0xff && nextByte !== -1 &&
-            nextByte !== 0xff && (nextByte & 0xe0) === 0xe0) {
+          nextByte !== 0xff && (nextByte & 0xe0) === 0xe0) {
           const frameOffset = position + i;
-          const header = new MpegHeader(this._stream, frameOffset, true);
+          const header = await MpegHeader.fromStream(this._stream, frameOffset, true);
           if (header.isValid) return frameOffset;
         }
 
@@ -252,10 +333,15 @@ export class MpegFile extends File {
     return -1;
   }
 
-  strip(tags: MpegTagTypes = MpegTagTypes.AllTags): void {
+  /**
+   * Removes the specified tag types from the file.
+   *
+   * @param tags - Bit-flag indicating which tag types to strip (default: {@link MpegTagTypes.AllTags}).
+   */
+  async strip(tags: MpegTagTypes = MpegTagTypes.AllTags): Promise<void> {
     if ((tags & MpegTagTypes.ID3v2) && this._id3v2Tag) {
       if (this._id3v2Location >= 0 && this._id3v2OriginalSize > 0) {
-        this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
+        await this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
         if (this._apeLocation >= 0) this._apeLocation -= this._id3v2OriginalSize;
         if (this._id3v1Location >= 0) this._id3v1Location -= this._id3v2OriginalSize;
       }
@@ -266,7 +352,7 @@ export class MpegFile extends File {
 
     if ((tags & MpegTagTypes.APE) && this._apeTag) {
       if (this._apeLocation >= 0 && this._apeOriginalSize > 0) {
-        this.removeBlock(this._apeLocation, this._apeOriginalSize);
+        await this.removeBlock(this._apeLocation, this._apeOriginalSize);
         if (this._id3v1Location >= 0) this._id3v1Location -= this._apeOriginalSize;
       }
       this._apeTag = null;
@@ -276,7 +362,7 @@ export class MpegFile extends File {
 
     if ((tags & MpegTagTypes.ID3v1) && this._id3v1Tag) {
       if (this._id3v1Location >= 0) {
-        this.truncate(this._id3v1Location);
+        await this.truncate(this._id3v1Location);
       }
       this._id3v1Tag = null;
       this._id3v1Location = -1;
@@ -289,19 +375,25 @@ export class MpegFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  /**
+   * Reads all tags and optionally audio properties from the stream.
+   *
+   * @param readProperties - Whether to read audio properties.
+   * @param readStyle - The read-style detail level.
+   */
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Find & parse ID3v2
-    this.findID3v2();
+    await this.findID3v2();
 
     // 2. Find & parse ID3v1
-    this.findID3v1();
+    await this.findID3v1();
 
     // 3. Find & parse APE
-    this.findAPE();
+    await this.findAPE();
 
     // 4. Audio properties
     if (readProperties) {
-      this._properties = new MpegProperties(this, readStyle);
+      this._properties = await MpegProperties.create(this, readStyle);
     }
 
     // Make sure that we have our default tag types available.
@@ -312,9 +404,13 @@ export class MpegFile extends File {
     this.refreshCombinedTag();
   }
 
-  private findID3v2(): void {
-    this.seek(0);
-    const headerData = this.readBlock(Id3v2Header.size);
+  /**
+   * Scans the beginning of the file for an ID3v2 tag and populates
+   * `_id3v2Tag`, `_id3v2Location`, and `_id3v2OriginalSize`.
+   */
+  private async findID3v2(): Promise<void> {
+    await this.seek(0);
+    const headerData = await this.readBlock(Id3v2Header.size);
     if (headerData.length < Id3v2Header.size) return;
 
     if (!headerData.startsWith(Id3v2Header.fileIdentifier)) return;
@@ -324,37 +420,46 @@ export class MpegFile extends File {
 
     this._id3v2Location = 0;
     this._id3v2OriginalSize = header.completeTagSize;
-    this._id3v2Tag = Id3v2Tag.readFrom(this._stream, 0);
+    this._id3v2Tag = await Id3v2Tag.readFrom(this._stream, 0);
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  /**
+   * Scans the end of the file for an ID3v1 tag and populates
+   * `_id3v1Tag` and `_id3v1Location`.
+   */
+  private async findID3v1(): Promise<void> {
+    const flen = await this.fileLength();
+    if (flen < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = flen - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
 
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
-  private findAPE(): void {
+  /**
+   * Scans immediately before the ID3v1 tag (or end of file) for an APE tag and
+   * populates `_apeTag`, `_apeLocation`, and `_apeOriginalSize`.
+   */
+  private async findAPE(): Promise<void> {
     // APE tag is located before ID3v1 (or at end of file)
     let searchEnd: offset_t;
     if (this._id3v1Location >= 0) {
       searchEnd = this._id3v1Location;
     } else {
-      searchEnd = this.fileLength;
+      searchEnd = await this.fileLength();
     }
 
     if (searchEnd < ApeFooter.SIZE) return;
 
     const footerOffset = searchEnd - ApeFooter.SIZE;
-    this.seek(footerOffset);
-    const footerData = this.readBlock(ApeFooter.SIZE);
+    await this.seek(footerOffset);
+    const footerData = await this.readBlock(ApeFooter.SIZE);
     if (footerData.length < ApeFooter.SIZE) return;
 
     const magic = ByteVector.fromString("APETAGEX", StringType.Latin1);
@@ -366,9 +471,13 @@ export class MpegFile extends File {
     // The tag data starts tagSize bytes before the footer end
     this._apeLocation = footerOffset + ApeFooter.SIZE - footer.completeTagSize;
     this._apeOriginalSize = footer.completeTagSize;
-    this._apeTag = ApeTag.readFrom(this._stream, footerOffset);
+    this._apeTag = await ApeTag.readFrom(this._stream, footerOffset);
   }
 
+  /**
+   * Rebuilds the `_combinedTag` from the currently present tag objects,
+   * maintaining priority order (ID3v2 > APE > ID3v1).
+   */
   private refreshCombinedTag(): void {
     // Priority: ID3v2 > APE > ID3v1
     this._combinedTag.setTags([this._id3v2Tag, this._apeTag, this._id3v1Tag]);

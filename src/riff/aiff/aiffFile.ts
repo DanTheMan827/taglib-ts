@@ -1,3 +1,5 @@
+/** @file AIFF/AIFC file handler. Reads and writes ID3v2 tags embedded in AIFF/FORM containers. */
+
 import { ByteVector } from "../../byteVector.js";
 import { RiffFile } from "../riffFile.js";
 import { AiffProperties } from "./aiffProperties.js";
@@ -9,49 +11,84 @@ import type { IOStream } from "../../toolkit/ioStream.js";
 /**
  * AIFF / AIFC file handler.
  *
- * AIFF is a big-endian RIFF-like container ("FORM" / "AIFF" or "AIFC"):
- *   "COMM" – common audio properties
- *   "SSND" – sound data
- *   "ID3 " / "id3 " – ID3v2 tag
+ * AIFF is a big-endian RIFF-like container (`"FORM"` / `"AIFF"` or `"AIFC"`):
+ * - `"COMM"` – common audio properties
+ * - `"SSND"` – sound data
+ * - `"ID3 "` / `"id3 "` – ID3v2 tag
  */
 export class AiffFile extends RiffFile {
+  /** Audio properties parsed from the `"COMM"` chunk, or `null` if not yet read. */
   private _properties: AiffProperties | null = null;
+  /** ID3v2 tag read from the `"ID3 "` chunk, or `null` if absent. */
   private _id3v2Tag: Id3v2Tag | null = null;
 
-  constructor(
+  /**
+   * Private constructor — use {@link AiffFile.open} to create instances.
+   * @param stream - The underlying I/O stream for the AIFF file.
+   */
+  private constructor(stream: IOStream) {
+    super(stream, /* bigEndian */ true);
+  }
+
+  /**
+   * Open and parse an AIFF file from the given stream.
+   * @param stream - The I/O stream to read from.
+   * @param readProperties - Whether to parse audio properties. Defaults to `true`.
+   * @param readStyle - Level of detail for audio property parsing.
+   * @returns A fully initialised `AiffFile` instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle?: ReadStyle,
-  ) {
-    super(stream, /* bigEndian */ true);
-    this.read(readProperties, readStyle);
+  ): Promise<AiffFile> {
+    const file = new AiffFile(stream);
+    await file.parseHeader();
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the ID3v2 tag for this file.
+   * @returns The {@link Id3v2Tag}, or `null` if not yet loaded.
+   */
   tag(): Tag | null {
     return this._id3v2Tag;
   }
 
+  /**
+   * Returns the audio properties parsed from the `"COMM"` chunk.
+   * @returns The {@link AiffProperties}, or `null` if `readProperties` was `false` on open.
+   */
   audioProperties(): AiffProperties | null {
     return this._properties;
   }
 
+  /**
+   * The ID3v2 tag embedded in the `"ID3 "` chunk, or `null` if absent.
+   * @returns The {@link Id3v2Tag}, or `null`.
+   */
   get id3v2Tag(): Id3v2Tag | null {
     return this._id3v2Tag;
   }
 
-  save(): boolean {
+  /**
+   * Writes all pending tag changes back to the underlying stream.
+   * @returns `true` on success, `false` if the file is read-only.
+   */
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     if (this._id3v2Tag && !this._id3v2Tag.isEmpty) {
       const rendered = this._id3v2Tag.render();
-      this.setChunkData("ID3 ", rendered);
+      await this.setChunkData("ID3 ", rendered);
     } else {
-      this.removeChunk("ID3 ");
-      this.removeChunk("id3 ");
+      await this.removeChunk("ID3 ");
+      await this.removeChunk("id3 ");
     }
 
     return true;
@@ -61,7 +98,12 @@ export class AiffFile extends RiffFile {
   // Parsing
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle?: ReadStyle): void {
+  /**
+   * Reads all chunks and (optionally) audio properties from the parsed chunk list.
+   * @param readProperties - Whether to parse audio properties.
+   * @param readStyle - Level of detail for audio property parsing.
+   */
+  private async read(readProperties: boolean, readStyle?: ReadStyle): Promise<void> {
     let commData: ByteVector | null = null;
     let streamLength = 0;
 
@@ -69,11 +111,11 @@ export class AiffFile extends RiffFile {
       const name = this.chunkName(i);
 
       if (name === "COMM" && readProperties) {
-        commData = this.chunkData(i);
+        commData = await this.chunkData(i);
       } else if (name === "SSND" && readProperties) {
         streamLength = this.chunkDataSize(i);
       } else if (name === "ID3 " || name === "id3 ") {
-        this._id3v2Tag = Id3v2Tag.readFrom(
+        this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,
           this.chunkOffset(i),
         );

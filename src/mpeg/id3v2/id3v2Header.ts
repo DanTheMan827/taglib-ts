@@ -1,3 +1,4 @@
+/** @file ID3v2 tag header parser and renderer (the mandatory 10-byte header found at the start of every ID3v2 tag). */
 import { ByteVector } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 
@@ -16,12 +17,19 @@ import { SynchData } from "./id3v2SynchData.js";
  *   Bytes 6-9: Tag size as synchsafe integer (excludes header and footer)
  */
 export class Id3v2Header {
+  /** The ID3v2 major version number (2, 3, or 4). */
   private _majorVersion: number = 4;
+  /** The ID3v2 revision number (typically 0). */
   private _revisionNumber: number = 0;
+  /** Whether the tag body has been unsynchronised (whole-tag, v2.3 style). */
   private _unsynchronisation: boolean = false;
+  /** Whether an extended header follows the main header. */
   private _extendedHeader: boolean = false;
+  /** Whether the tag is in an experimental stage. */
   private _experimentalIndicator: boolean = false;
+  /** Whether a footer is appended at the end of the tag (v2.4 only). */
   private _footerPresent: boolean = false;
+  /** Size of the tag body in bytes, encoded as a synchsafe integer (excludes header and footer). */
   private _tagSize: number = 0;
 
   /** Header is always 10 bytes. */
@@ -30,6 +38,7 @@ export class Id3v2Header {
   /** The file identifier "ID3". */
   static readonly fileIdentifier: ByteVector = ByteVector.fromString("ID3");
 
+  /** Creates a new `Id3v2Header` with default values (version 4, no flags, zero size). */
   constructor() {}
 
   /**
@@ -72,38 +81,67 @@ export class Id3v2Header {
     return header;
   }
 
+  /**
+   * Gets the ID3v2 major version number (2, 3, or 4).
+   */
   get majorVersion(): number {
     return this._majorVersion;
   }
 
+  /**
+   * Sets the ID3v2 major version number.
+   * @param v - The major version (2, 3, or 4).
+   */
   set majorVersion(v: number) {
     this._majorVersion = v;
   }
 
+  /**
+   * Gets the ID3v2 revision number (typically 0).
+   */
   get revisionNumber(): number {
     return this._revisionNumber;
   }
 
+  /**
+   * Gets the size of the tag body in bytes (excluding the header and footer).
+   */
   get tagSize(): number {
     return this._tagSize;
   }
 
+  /**
+   * Sets the size of the tag body in bytes.
+   * @param v - The tag body size.
+   */
   set tagSize(v: number) {
     this._tagSize = v;
   }
 
+  /**
+   * Gets whether the tag body has been unsynchronised.
+   */
   get unsynchronisation(): boolean {
     return this._unsynchronisation;
   }
 
+  /**
+   * Gets whether an extended header is present after the main header.
+   */
   get extendedHeader(): boolean {
     return this._extendedHeader;
   }
 
+  /**
+   * Gets whether the experimental indicator flag is set.
+   */
   get experimentalIndicator(): boolean {
     return this._experimentalIndicator;
   }
 
+  /**
+   * Gets whether a footer is present at the end of the tag (v2.4 only).
+   */
   get footerPresent(): boolean {
     return this._footerPresent;
   }

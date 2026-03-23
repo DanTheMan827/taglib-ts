@@ -1,3 +1,4 @@
+/** @file ID3v2 unsynchronized lyrics frame (USLT). Stores free-form lyrics or text transcription. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,
@@ -12,11 +13,19 @@ import {
  * Structure: encoding(1) + language(3) + description(null-terminated) + lyrics.
  */
 export class UnsynchronizedLyricsFrame extends Id3v2Frame {
+  /** Text encoding used for the description and lyrics content. */
   private _encoding: StringType = StringType.UTF8;
+  /** Three-byte ISO-639-2 language code identifying the language of the lyrics. */
   private _language: ByteVector = ByteVector.fromString("XXX", StringType.Latin1);
+  /** Short content description distinguishing multiple USLT frames with the same language. */
   private _description: string = "";
+  /** The full lyrics or text transcription content. */
   private _text: string = "";
 
+  /**
+   * Creates a new unsynchronized lyrics frame.
+   * @param encoding - The text encoding to use for the description and lyrics. Defaults to UTF-8.
+   */
   constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
       ByteVector.fromString("USLT", StringType.Latin1),
@@ -27,18 +36,25 @@ export class UnsynchronizedLyricsFrame extends Id3v2Frame {
 
   // -- Accessors --------------------------------------------------------------
 
+  /** Gets the text encoding used for the description and lyrics content. */
   get encoding(): StringType {
     return this._encoding;
   }
 
+  /** Sets the text encoding used for the description and lyrics content. */
   set encoding(e: StringType) {
     this._encoding = e;
   }
 
+  /** Gets the three-byte ISO-639-2 language code identifying the language of the lyrics. */
   get language(): ByteVector {
     return this._language;
   }
 
+  /**
+   * Sets the three-byte ISO-639-2 language code. The value is truncated or padded with spaces
+   * to exactly three bytes.
+   */
   set language(lang: ByteVector) {
     this._language = lang.mid(0, 3);
     if (this._language.length < 3) {
@@ -46,22 +62,30 @@ export class UnsynchronizedLyricsFrame extends Id3v2Frame {
     }
   }
 
+  /** Gets the short content description for this frame. */
   get description(): string {
     return this._description;
   }
 
+  /** Sets the short content description for this frame. */
   set description(value: string) {
     this._description = value;
   }
 
+  /** Gets the lyrics or text transcription content. */
   get text(): string {
     return this._text;
   }
 
+  /** Sets the lyrics or text transcription content. */
   set text(value: string) {
     this._text = value;
   }
 
+  /**
+   * Returns the lyric text.
+   * @returns The lyrics or text transcription stored in this frame.
+   */
   toString(): string {
     return this._text;
   }
@@ -80,6 +104,12 @@ export class UnsynchronizedLyricsFrame extends Id3v2Frame {
     return frame;
   }
 
+  /**
+   * Finds the first USLT frame in a tag whose description matches the given string.
+   * @param tag - The ID3v2 tag object containing a `frames` array to search.
+   * @param description - The content description to match against.
+   * @returns The first matching {@link UnsynchronizedLyricsFrame}, or `null` if none is found.
+   */
   static findByDescription(
     tag: { frames?: Id3v2Frame[] },
     description: string,
@@ -98,6 +128,11 @@ export class UnsynchronizedLyricsFrame extends Id3v2Frame {
 
   // -- Protected --------------------------------------------------------------
 
+  /**
+   * Parses the binary field data for this USLT frame.
+   * @param data - Raw field bytes starting with the encoding byte.
+   * @param _version - The ID3v2 version (unused).
+   */
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 4) return;
 
@@ -121,6 +156,11 @@ export class UnsynchronizedLyricsFrame extends Id3v2Frame {
     }
   }
 
+  /**
+   * Serialises this frame's fields to binary.
+   * @param _version - The ID3v2 version (unused).
+   * @returns A {@link ByteVector} containing the encoded frame fields.
+   */
   protected renderFields(_version: number): ByteVector {
     const v = new ByteVector();
     v.append(this._encoding);

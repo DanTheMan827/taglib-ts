@@ -1,12 +1,11 @@
 import stylistic from "@stylistic/eslint-plugin";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from '@typescript-eslint/parser';
-import tsdocPlugin from 'eslint-plugin-tsdoc';
 import path from "path";
 
 export default [
   {
-    files: ["**/*.ts", "**/*.tsx"],
+    files: ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"],
 
     // Flat config language options
     languageOptions: {
@@ -22,7 +21,6 @@ export default [
     plugins: {
       "@stylistic": stylistic,
       "@typescript-eslint": tseslint,
-      "tsdoc": tsdocPlugin,
     },
     // Rules
     rules: {
@@ -64,12 +62,6 @@ export default [
         { checksVoidReturn: true, checksConditionals: true },
       ],
       "@typescript-eslint/return-await": ["error", "always"],
-      "@typescript-eslint/require-await": "error",
-
-      // ------------------------------
-      // TSDoc rules
-      // ------------------------------
-      "tsdoc/syntax": "warn"
     },
 
     // Ignore build outputs and JS files

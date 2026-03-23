@@ -1,3 +1,4 @@
+/** @file MP4/M4A/AAC/ALAC file format handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { ReadStyle } from "../toolkit/types.js";
@@ -17,15 +18,20 @@ export class Mp4File extends File {
   private _tag: Mp4Tag | null = null;
   private _properties: Mp4Properties | null = null;
 
-  constructor(
+  private constructor(stream: IOStream) {
+    super(stream);
+  }
+
+  static async open(
     stream: IOStream,
     readProperties = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<Mp4File> {
+    const file = new Mp4File(stream);
+    if (file.isOpen) {
+      await file.read(readProperties, readStyle);
     }
+    return file;
   }
 
   // -- File interface --
@@ -38,10 +44,10 @@ export class Mp4File extends File {
     return this._properties;
   }
 
-  save(): boolean {
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this.isValid) return false;
-    return this._tag?.save() ?? false;
+    return (await this._tag?.save()) ?? false;
   }
 
   // -- Convenience --
@@ -50,9 +56,9 @@ export class Mp4File extends File {
     return this._atoms?.find("moov", "udta", "meta", "ilst") != null;
   }
 
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const header = stream.readBlock(8);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const header = await stream.readBlock(8);
     return header.containsAt(
       ByteVector.fromString("ftyp", StringType.Latin1),
       4,
@@ -87,10 +93,10 @@ export class Mp4File extends File {
 
   // -- Internal --
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     if (!this.isValid) return;
 
-    this._atoms = new Mp4Atoms(this._stream);
+    this._atoms = await Mp4Atoms.create(this._stream);
     if (!this._atoms.checkRootLevelAtoms()) {
       this._valid = false;
       return;
@@ -101,10 +107,10 @@ export class Mp4File extends File {
       return;
     }
 
-    this._tag = new Mp4Tag(this._stream, this._atoms);
+    this._tag = await Mp4Tag.create(this._stream, this._atoms);
 
     if (readProperties) {
-      this._properties = new Mp4Properties(this._stream, this._atoms, readStyle);
+      this._properties = await Mp4Properties.create(this._stream, this._atoms, readStyle);
     }
   }
 }

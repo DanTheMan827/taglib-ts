@@ -1,3 +1,4 @@
+/** @file Audio properties implementation for MPEG (MP3) and ADTS (AAC) files, including VBR (Xing/VBRI) support. */
 import { AudioProperties } from "../audioProperties.js";
 import { ReadStyle } from "../toolkit/types.js";
 import { MpegHeader, MpegVersion, ChannelMode } from "./mpegHeader.js";
@@ -11,54 +12,101 @@ import type { MpegFile } from "./mpegFile.js";
  * channel layout. Handles both CBR and VBR (Xing / VBRI) streams.
  */
 export class MpegProperties extends AudioProperties {
+  /** Duration of the audio stream in milliseconds. */
   private _lengthInMs: number = 0;
+  /** Average bitrate in kbps. */
   private _bitrate: number = 0;
+  /** Sample rate in Hz. */
   private _sampleRate: number = 0;
+  /** Number of audio channels. */
   private _channels: number = 0;
+  /** MPEG version of the first audio frame. */
   private _version: MpegVersion = MpegVersion.Version1;
+  /** MPEG layer number (1, 2, or 3); 0 for ADTS. */
   private _layer: number = 0;
+  /** Whether CRC protection is enabled. */
   private _protectionEnabled: boolean = false;
+  /** Whether the audio is flagged as copyrighted. */
   private _isCopyrighted: boolean = false;
+  /** Whether the audio is flagged as an original recording. */
   private _isOriginal: boolean = false;
+  /** Whether the stream is an ADTS (AAC) stream. */
   private _isADTS: boolean = false;
+  /** Channel mode of the first audio frame. */
   private _channelMode: ChannelMode = ChannelMode.Stereo;
 
-  constructor(file: MpegFile, readStyle: ReadStyle = ReadStyle.Average) {
+  /**
+   * Private constructor — use the static {@link MpegProperties.create} factory method.
+   * @param readStyle - The read-style detail level passed to the base class.
+   */
+  private constructor(readStyle: ReadStyle) {
     super(readStyle);
-    this.read(file);
+  }
+
+  /**
+   * Creates an `MpegProperties` instance by reading the audio stream from `file`.
+   *
+   * @param file - The MPEG file whose audio properties should be determined.
+   * @param readStyle - The level of detail to use when scanning the stream (default: `ReadStyle.Average`).
+   * @returns A fully populated `MpegProperties` instance.
+   */
+  static async create(
+    file: MpegFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<MpegProperties> {
+    const props = new MpegProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
   // AudioProperties interface
   // ---------------------------------------------------------------------------
 
+  /** Gets the duration of the audio stream in milliseconds. */
   get lengthInMilliseconds(): number { return this._lengthInMs; }
+  /** Gets the average audio bitrate in kbps. */
   override get bitrate(): number { return this._bitrate; }
+  /** Gets the audio sample rate in Hz. */
   override get sampleRate(): number { return this._sampleRate; }
+  /** Gets the number of audio channels. */
   get channels(): number { return this._channels; }
 
   // ---------------------------------------------------------------------------
   // MPEG-specific
   // ---------------------------------------------------------------------------
 
+  /** Gets the MPEG version of the first audio frame. */
   get version(): MpegVersion { return this._version; }
+  /** Gets the MPEG layer number (1, 2, or 3); 0 for ADTS streams. */
   get layer(): number { return this._layer; }
+  /** Gets whether CRC protection is enabled. */
   get protectionEnabled(): boolean { return this._protectionEnabled; }
+  /** Gets whether the audio is flagged as copyrighted. */
   get isCopyrighted(): boolean { return this._isCopyrighted; }
+  /** Gets whether the audio is flagged as an original recording. */
   get isOriginal(): boolean { return this._isOriginal; }
+  /** Gets whether the stream is an ADTS (AAC) stream. */
   get isADTS(): boolean { return this._isADTS; }
+  /** Gets the channel mode of the first audio frame. */
   get channelMode(): ChannelMode { return this._channelMode; }
 
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: MpegFile): void {
+  /**
+   * Populates all property fields by scanning the audio frames in `file`.
+   * Handles VBR (Xing/VBRI), ADTS, and CBR streams.
+   *
+   * @param file - The MPEG file to read audio data from.
+   */
+  private async read(file: MpegFile): Promise<void> {
     // 1. Find first valid frame
-    const firstOffset = file.firstFrameOffset();
+    const firstOffset = await file.firstFrameOffset();
     if (firstOffset < 0) return;
 
-    const firstHeader = new MpegHeader(file["_stream"], firstOffset, false);
+    const firstHeader = await MpegHeader.fromStream(file["_stream"], firstOffset, false);
     if (!firstHeader.isValid) return;
 
     // Copy header properties
@@ -73,8 +121,8 @@ export class MpegProperties extends AudioProperties {
     this._isADTS = firstHeader.isADTS;
 
     // 2. Try Xing/VBRI VBR header from first frame data
-    file.seek(firstOffset);
-    const firstFrameData = file.readBlock(firstHeader.frameLength);
+    await file.seek(firstOffset);
+    const firstFrameData = await file.readBlock(firstHeader.frameLength);
     const xingHeader = new XingHeader(firstFrameData);
 
     if (xingHeader.isValid) {
@@ -98,7 +146,7 @@ export class MpegProperties extends AudioProperties {
         this._lengthInMs = 0;
         return;
       }
-      this.readADTS(file, firstOffset, firstHeader);
+      await this.readADTS(file, firstOffset, firstHeader);
       return;
     }
 
@@ -109,19 +157,22 @@ export class MpegProperties extends AudioProperties {
 
     // 5. Calculate duration from stream extent
     if (this._bitrate > 0) {
-      this.computeLength(file, firstOffset, firstHeader);
+      await this.computeLength(file, firstOffset, firstHeader);
     }
   }
 
   /**
-   * Scan ADTS frames to compute average bitrate, then derive duration
-   * from the audio stream extent.
+   * Scans ADTS frames to compute an average bitrate, then derives the stream duration.
+   *
+   * @param file - The MPEG file being analysed.
+   * @param firstOffset - Byte offset of the first ADTS frame.
+   * @param firstHeader - The parsed header of the first ADTS frame.
    */
-  private readADTS(
+  private async readADTS(
     file: MpegFile,
     firstOffset: number,
     firstHeader: MpegHeader,
-  ): void {
+  ): Promise<void> {
     let offset = firstOffset;
     let frameLen = firstHeader.frameLength;
     let totalFrameSize = 0;
@@ -131,11 +182,11 @@ export class MpegProperties extends AudioProperties {
 
 
     while (true) {
-      const nextOffset = file.nextFrameOffset(offset + frameLen);
+      const nextOffset = await file.nextFrameOffset(offset + frameLen);
       if (nextOffset <= offset) break;
 
       offset = nextOffset;
-      const header = new MpegHeader(file["_stream"], offset, false);
+      const header = await MpegHeader.fromStream(file["_stream"], offset, false);
       if (!header.isValid) break;
       frameLen = header.frameLength;
 
@@ -165,22 +216,27 @@ export class MpegProperties extends AudioProperties {
     }
 
     if (this._bitrate > 0) {
-      this.computeLength(file, firstOffset, firstHeader);
+      await this.computeLength(file, firstOffset, firstHeader);
     }
   }
 
   /**
-   * Compute duration from the byte extent between first and last frames.
+   * Calculates the stream duration from the byte extents between the first and
+   * last valid frames using the already-computed bitrate.
+   *
+   * @param file - The MPEG file being analysed.
+   * @param firstOffset - Byte offset of the first valid frame.
+   * @param _firstHeader - The first frame header (reserved for future use).
    */
-  private computeLength(
+  private async computeLength(
     file: MpegFile,
     firstOffset: number,
     _firstHeader: MpegHeader,
-  ): void {
-    const lastOffset = file.lastFrameOffset();
+  ): Promise<void> {
+    const lastOffset = await file.lastFrameOffset();
     if (lastOffset < 0) return;
 
-    const lastHeader = new MpegHeader(file["_stream"], lastOffset, false);
+    const lastHeader = await MpegHeader.fromStream(file["_stream"], lastOffset, false);
     if (!lastHeader.isValid) return;
 
     const streamLength = lastOffset - firstOffset + lastHeader.frameLength;

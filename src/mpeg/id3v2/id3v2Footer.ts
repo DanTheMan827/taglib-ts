@@ -1,3 +1,4 @@
+/** @file ID3v2 footer class used by ID3v2.4 tags to allow reverse scanning. */
 import { ByteVector } from "../../byteVector.js";
 import { Id3v2Header } from "./id3v2Header.js";
 
@@ -15,6 +16,7 @@ export class Id3v2Footer {
   /** The footer file identifier "3DI". */
   static readonly fileIdentifier: ByteVector = ByteVector.fromString("3DI");
 
+  /** Creates a new, empty footer instance. */
   constructor() {}
 
   /**

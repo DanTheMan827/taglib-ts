@@ -1,3 +1,4 @@
+/** @file Synchsafe integer encoding and decoding utilities for ID3v2 tags. */
 import { ByteVector } from "../../byteVector.js";
 
 /**

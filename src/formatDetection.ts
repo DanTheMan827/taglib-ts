@@ -1,12 +1,26 @@
+/**
+ * @file Format detection utilities for mapping file extensions and magic bytes
+ * to taglib-ts format keys. This module has no imports of format-specific
+ * classes to enable tree-shaking and code splitting.
+ */
+
 import { ByteVector, StringType } from "./byteVector.js";
 import { IOStream } from "./toolkit/ioStream.js";
 import { Position } from "./toolkit/types.js";
 
+/**
+ * Determine the audio format from a filename extension.
+ *
+ * @param name A filename or path whose extension is used for detection
+ *             (e.g. `"track.mp3"` or `"/music/song.flac"`).
+ * @returns A format key string (e.g. `"mpeg"`, `"flac"`), or `null` when the
+ *          extension is not recognised.
+ */
 export function detectByExtension(name: string): string | null {
   const ext = name.split(".").pop()?.toUpperCase() ?? "";
   switch (ext) {
     case "MP3": case "MP2": case "AAC": return "mpeg";
-    case "OGG": case "OGA": return "ogg";  // need content check to determine sub-format
+    case "OGG": case "OGA": return "ogg";
     case "OPUS": return "ogg-opus";
     case "SPX": return "ogg-speex";
     case "FLAC": return "flac";
@@ -30,132 +44,147 @@ export function detectByExtension(name: string): string | null {
   }
 }
 
-export function detectByContent(stream: IOStream): string | null {
-  stream.seek(0, Position.Beginning);
-  const header = stream.readBlock(36);
+/**
+ * Determine the audio format by inspecting magic bytes in the stream.
+ *
+ * Reads up to the first 36 bytes (and occasionally seeks further for formats
+ * such as S3M and MOD). MPEG is matched last because its frame-sync bytes
+ * (`0xff 0xe*`) are prone to false positives.
+ *
+ * @param stream The audio data stream, seeked to any position on entry.
+ * @returns A format key string, or `null` when the format cannot be identified.
+ */
+export async function detectByContent(stream: IOStream): Promise<string | null> {
+  await stream.seek(0, Position.Beginning);
+  const header = await stream.readBlock(36);
 
   if (header.length < 4) return null;
 
-  // ASF: starts with Header Object GUID (16 bytes)
   if (header.length >= 16) {
     const asfGuid = ByteVector.fromByteArray(new Uint8Array([
-      0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11,
-      0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C,
+      0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11,
+      0xa6, 0xd9, 0x00, 0xaa, 0x00, 0x62, 0xce, 0x6c,
     ]));
     if (header.containsAt(asfGuid, 0)) return "asf";
   }
 
-  // FLAC: "fLaC"
   if (header.containsAt(ByteVector.fromString("fLaC", StringType.Latin1), 0)) return "flac";
 
-  // OGG: "OggS" - need to check sub-format
   if (header.containsAt(ByteVector.fromString("OggS", StringType.Latin1), 0)) {
-    stream.seek(0, Position.Beginning);
-    const buf = stream.readBlock(128);
+    await stream.seek(0, Position.Beginning);
+    const buf = await stream.readBlock(128);
     const opusId = ByteVector.fromString("OpusHead", StringType.Latin1);
     const speexId = ByteVector.fromString("Speex   ", StringType.Latin1);
-    const flacId = ByteVector.fromByteArray(new Uint8Array([0x7F, 0x46, 0x4C, 0x41, 0x43])); // \x7FFLAC
-    const vorbisId = ByteVector.fromByteArray(new Uint8Array([0x01, 0x76, 0x6F, 0x72, 0x62, 0x69, 0x73])); // \x01vorbis
+    const flacId = ByteVector.fromByteArray(new Uint8Array([0x7f, 0x46, 0x4c, 0x41, 0x43]));
+    const vorbisId = ByteVector.fromByteArray(new Uint8Array([0x01, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73]));
 
     if (buf.find(opusId) >= 0) return "ogg-opus";
     if (buf.find(speexId) >= 0) return "ogg-speex";
     if (buf.find(flacId) >= 0) return "ogg-flac";
     if (buf.find(vorbisId) >= 0) return "ogg-vorbis";
-    return "ogg-vorbis"; // default
+    return "ogg-vorbis";
   }
 
-  // MP4: "ftyp" at offset 4
   if (header.length >= 8 && header.mid(4, 4).toString(StringType.Latin1) === "ftyp") return "mp4";
 
-  // RIFF/WAV: "RIFF....WAVE"
-  if (header.length >= 12 && header.mid(0, 4).toString(StringType.Latin1) === "RIFF" && header.mid(8, 4).toString(StringType.Latin1) === "WAVE") return "wav";
+  if (
+    header.length >= 12 &&
+    header.mid(0, 4).toString(StringType.Latin1) === "RIFF" &&
+    header.mid(8, 4).toString(StringType.Latin1) === "WAVE"
+  )
+    return "wav";
 
-  // AIFF: "FORM....AIFF" or "FORM....AIFC"
   if (header.length >= 12 && header.mid(0, 4).toString(StringType.Latin1) === "FORM") {
     const fmt = header.mid(8, 4).toString(StringType.Latin1);
     if (fmt === "AIFF" || fmt === "AIFC") return "aiff";
   }
 
-  // Matroska/WebM: EBML header ID 0x1A45DFA3
-  if (header.length >= 4 &&
-      header.get(0) === 0x1A && header.get(1) === 0x45 &&
-      header.get(2) === 0xDF && header.get(3) === 0xA3) return "matroska";
+  if (
+    header.length >= 4 &&
+    header.get(0) === 0x1a &&
+    header.get(1) === 0x45 &&
+    header.get(2) === 0xdf &&
+    header.get(3) === 0xa3
+  )
+    return "matroska";
 
-  // MPC: "MPCK" (SV8) or "MP+" (SV7)
-  if (header.containsAt(ByteVector.fromString("MPCK", StringType.Latin1), 0) ||
-      header.containsAt(ByteVector.fromString("MP+", StringType.Latin1), 0)) return "mpc";
+  if (
+    header.containsAt(ByteVector.fromString("MPCK", StringType.Latin1), 0) ||
+    header.containsAt(ByteVector.fromString("MP+", StringType.Latin1), 0)
+  )
+    return "mpc";
 
-  // WavPack: "wvpk"
   if (header.containsAt(ByteVector.fromString("wvpk", StringType.Latin1), 0)) return "wavpack";
 
-  // APE (Monkey's Audio): "MAC "
   if (header.containsAt(ByteVector.fromString("MAC ", StringType.Latin1), 0)) return "ape-file";
 
-  // TrueAudio: "TTA"
   if (header.length >= 4 && header.mid(0, 3).toString(StringType.Latin1) === "TTA") return "trueaudio";
 
-  // DSF: "DSD "
   if (header.containsAt(ByteVector.fromString("DSD ", StringType.Latin1), 0)) return "dsf";
 
-  // DSDIFF: "FRM8" at 0 and "DSD " at 12
-  if (header.length >= 16 &&
-      header.containsAt(ByteVector.fromString("FRM8", StringType.Latin1), 0) &&
-      header.containsAt(ByteVector.fromString("DSD ", StringType.Latin1), 12)) return "dsdiff";
+  if (
+    header.length >= 16 &&
+    header.containsAt(ByteVector.fromString("FRM8", StringType.Latin1), 0) &&
+    header.containsAt(ByteVector.fromString("DSD ", StringType.Latin1), 12)
+  )
+    return "dsdiff";
 
-  // ID3v2 followed by unknown - could be MPEG, TrueAudio, or others
   if (header.length >= 3 && header.mid(0, 3).toString(StringType.Latin1) === "ID3") {
-    // Try to peek past the ID3v2 header to identify the actual format
     if (header.length >= 10) {
-      const id3Size = ((header.get(6) & 0x7f) << 21) | ((header.get(7) & 0x7f) << 14) |
-                      ((header.get(8) & 0x7f) << 7) | (header.get(9) & 0x7f);
+      const id3Size =
+        ((header.get(6) & 0x7f) << 21) |
+        ((header.get(7) & 0x7f) << 14) |
+        ((header.get(8) & 0x7f) << 7) |
+        (header.get(9) & 0x7f);
       const id3TotalSize = 10 + id3Size;
-      stream.seek(id3TotalSize, Position.Beginning);
-      const afterId3 = stream.readBlock(4);
+      await stream.seek(id3TotalSize, Position.Beginning);
+      const afterId3 = await stream.readBlock(4);
       if (afterId3.length >= 3 && afterId3.mid(0, 3).toString(StringType.Latin1) === "TTA") return "trueaudio";
       if (afterId3.length >= 4 && afterId3.mid(0, 4).toString(StringType.Latin1) === "MAC ") return "ape-file";
     }
-    return "mpeg"; // default for ID3v2 prefix
+    return "mpeg";
   }
 
-  // XM: "Extended Module: " at offset 0
   if (header.length >= 17 && header.mid(0, 17).toString(StringType.Latin1) === "Extended Module: ") return "xm";
 
-  // IT: "IMPM" at offset 0
   if (header.containsAt(ByteVector.fromString("IMPM", StringType.Latin1), 0)) return "it";
 
-  // Shorten: magic 0x616A6B67 ("ajkg") at offset 0
   if (header.containsAt(ByteVector.fromString("ajkg", StringType.Latin1), 0)) return "shorten";
 
-  // S3M: "SCRM" at offset 44
-  if (stream.length() >= 48) {
-    stream.seek(44, Position.Beginning);
-    const s3mMagic = stream.readBlock(4);
+  if ((await stream.length()) >= 48) {
+    await stream.seek(44, Position.Beginning);
+    const s3mMagic = await stream.readBlock(4);
     if (s3mMagic.length >= 4 && s3mMagic.toString(StringType.Latin1) === "SCRM") return "s3m";
   }
 
-  // MOD: known tag at offset 1080
-  if (stream.length() >= 1084) {
-    stream.seek(1080, Position.Beginning);
-    const modTag = stream.readBlock(4);
+  if ((await stream.length()) >= 1084) {
+    await stream.seek(1080, Position.Beginning);
+    const modTag = await stream.readBlock(4);
     if (modTag.length >= 4) {
       const id = modTag.toString(StringType.Latin1);
       if (isKnownModTag(id)) return "mod";
     }
   }
 
-  // MPEG frame sync (MUST BE LAST - can false-positive on other formats)
-  if (header.length >= 2 && header.get(0) === 0xFF && (header.get(1) & 0xE0) === 0xE0) return "mpeg";
+  if (header.length >= 2 && header.get(0) === 0xff && (header.get(1) & 0xe0) === 0xe0) return "mpeg";
 
   return null;
 }
 
-/** OGG sub-format detection for extension-based "ogg" */
-export function detectOggSubFormat(stream: IOStream): string {
-  stream.seek(0, Position.Beginning);
-  const buf = stream.readBlock(128);
+/**
+ * Detect the Ogg sub-format (Vorbis, Opus, Speex, or FLAC) by scanning the
+ * first 128 bytes of a stream already identified as Ogg.
+ *
+ * @param stream The Ogg audio data stream.
+ * @returns One of `"ogg-opus"`, `"ogg-speex"`, `"ogg-flac"`, or `"ogg-vorbis"`
+ *          (the last is used as a fallback when none of the others match).
+ */
+export async function detectOggSubFormat(stream: IOStream): Promise<string> {
+  await stream.seek(0, Position.Beginning);
+  const buf = await stream.readBlock(128);
   const opusId = ByteVector.fromString("OpusHead", StringType.Latin1);
   const speexId = ByteVector.fromString("Speex   ", StringType.Latin1);
-  const flacId = ByteVector.fromByteArray(new Uint8Array([0x7F, 0x46, 0x4C, 0x41, 0x43]));
+  const flacId = ByteVector.fromByteArray(new Uint8Array([0x7f, 0x46, 0x4c, 0x41, 0x43]));
 
   if (buf.find(opusId) >= 0) return "ogg-opus";
   if (buf.find(speexId) >= 0) return "ogg-speex";
@@ -163,6 +192,13 @@ export function detectOggSubFormat(stream: IOStream): string {
   return "ogg-vorbis";
 }
 
+/**
+ * Check whether a 4-character MOD tag is one of the recognised MOD format
+ * identifiers.
+ *
+ * @param id The 4-byte string read from offset 1080 of the file.
+ * @returns `true` if the tag is a known MOD identifier.
+ */
 function isKnownModTag(id: string): boolean {
   if (id === "M.K." || id === "M!K!" || id === "M&K!" || id === "N.T.") return true;
   if (id === "CD81" || id === "OKTA") return true;
@@ -182,6 +218,11 @@ function isKnownModTag(id: string): boolean {
   return false;
 }
 
+/**
+ * Return the full list of file extensions supported by taglib-ts.
+ *
+ * @returns An array of lowercase extension strings without a leading dot.
+ */
 export function defaultFileExtensions(): string[] {
   return [
     "mp3", "mp2", "aac", "ogg", "oga", "opus", "spx", "flac",

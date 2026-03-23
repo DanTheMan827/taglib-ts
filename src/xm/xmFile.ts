@@ -1,3 +1,5 @@
+/** @file Extended Module (XM) tracker file format handler. Reads and writes title, tracker name, instrument names, and sample names. */
+
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";
@@ -7,7 +9,11 @@ import { ModTag } from "../mod/modTag.js";
 import { XmProperties } from "./xmProperties.js";
 
 /**
- * Helper: read a Latin1 string, trimming at the first NUL and replacing 0xFF with space.
+ * Reads a Latin-1 string from `data`, replacing `0xFF` bytes with spaces and
+ * truncating at the first NUL character.
+ * @param data - The source `ByteVector` to read from.
+ * @param maxLen - Maximum number of bytes to consider.
+ * @returns The decoded and sanitised string.
  */
 function readString(data: ByteVector, maxLen: number): string {
   let raw = data.mid(0, maxLen).toString(StringType.Latin1);
@@ -19,32 +25,57 @@ function readString(data: ByteVector, maxLen: number): string {
 /**
  * Extended Module (XM) file format handler.
  *
- * Magic "Extended Module: " at offset 0. Title at offset 17 (20 bytes).
- * Tracker name at offset 38 (20 bytes). Instrument and sample names form the comment.
+ * The 17-byte magic "Extended Module: " appears at offset 0. The module title
+ * occupies bytes 17–36, and the tracker name bytes 38–57. Instrument and
+ * sample names are collected and stored as a newline-delimited tag comment.
  */
 export class XmFile extends File {
+  /** The tag holding the module title, comment (instrument/sample names), and tracker name. */
   private _tag: ModTag;
+  /** Parsed audio properties, or `null` if not yet read or not requested. */
   private _properties: XmProperties | null = null;
 
-  constructor(
+  /**
+   * Private constructor — use {@link XmFile.open} to create instances.
+   * @param stream - The underlying I/O stream for this XM file.
+   */
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._tag = new ModTag();
+  }
+
+  /**
+   * Opens and parses an XM file from the given stream.
+   * @param stream - Readable (and optionally writable) I/O stream.
+   * @param readProperties - When `true` (default), parse audio properties.
+   * @param readStyle - Controls parsing accuracy vs. speed trade-off.
+   * @returns A fully initialised `XmFile` instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._tag = new ModTag();
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<XmFile> {
+    const f = new XmFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
   // Static
   // ---------------------------------------------------------------------------
 
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const header = stream.readBlock(17);
+  /**
+   * Quick-check whether `stream` looks like a valid XM file.
+   * Reads the 17-byte magic "Extended Module: " at offset 0.
+   * @param stream - The I/O stream to test.
+   * @returns `true` if the stream appears to be a valid XM file.
+   */
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const header = await stream.readBlock(17);
     if (header.length < 17) return false;
     const magic = header.toString(StringType.Latin1);
     return magic === "Extended Module: ";
@@ -54,34 +85,47 @@ export class XmFile extends File {
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the tag for this XM file.
+   * @returns The {@link ModTag} containing title, comment, and tracker name.
+   */
   tag(): Tag {
     return this._tag;
   }
 
+  /**
+   * Returns the audio properties parsed from the XM header.
+   * @returns The {@link XmProperties}, or `null` if `readProperties` was `false` on open.
+   */
   audioProperties(): XmProperties | null {
     return this._properties;
   }
 
-  save(): boolean {
+  /**
+   * Writes pending tag changes (title, tracker name, instrument names, and
+   * sample names) back to the file.
+   * @returns `true` on success, `false` if the file is read-only.
+   */
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     // Write title
-    this.seek(17);
-    this.writeBlock(padString(this._tag.title, 20));
+    await this.seek(17);
+    await this.writeBlock(padString(this._tag.title, 20));
 
     // Write tracker name
-    this.seek(38);
-    this.writeBlock(padString(this._tag.trackerName, 20));
+    await this.seek(38);
+    await this.writeBlock(padString(this._tag.trackerName, 20));
 
     // Read header size to navigate patterns and instruments
-    this.seek(60);
-    const headerSizeData = this.readBlock(4);
+    await this.seek(60);
+    const headerSizeData = await this.readBlock(4);
     if (headerSizeData.length < 4) return false;
     const headerSize = headerSizeData.toUInt(0, false); // little-endian
 
-    this.seek(70);
-    const patternCountData = this.readBlock(2);
-    const instrumentCountData = this.readBlock(2);
+    await this.seek(70);
+    const patternCountData = await this.readBlock(2);
+    const instrumentCountData = await this.readBlock(2);
     if (patternCountData.length < 2 || instrumentCountData.length < 2) return false;
     const patternCount = patternCountData.toUShort(0, false);
     const instrumentCount = instrumentCountData.toUShort(0, false);
@@ -90,14 +134,14 @@ export class XmFile extends File {
 
     // Skip patterns
     for (let i = 0; i < patternCount; i++) {
-      this.seek(pos);
-      const phlData = this.readBlock(4);
+      await this.seek(pos);
+      const phlData = await this.readBlock(4);
       if (phlData.length < 4) return false;
       const patternHeaderLength = phlData.toUInt(0, false);
       if (patternHeaderLength < 4) return false;
 
-      this.seek(pos + 7);
-      const dsData = this.readBlock(2);
+      await this.seek(pos + 7);
+      const dsData = await this.readBlock(2);
       if (dsData.length < 2) return false;
       const dataSize = dsData.toUShort(0, false);
 
@@ -108,34 +152,34 @@ export class XmFile extends File {
     let sampleNameIndex = instrumentCount;
 
     for (let i = 0; i < instrumentCount; i++) {
-      this.seek(pos);
-      const ihsData = this.readBlock(4);
+      await this.seek(pos);
+      const ihsData = await this.readBlock(4);
       if (ihsData.length < 4) return false;
       const instrumentHeaderSize = ihsData.toUInt(0, false);
       if (instrumentHeaderSize < 4) return false;
 
       // Write instrument name
-      this.seek(pos + 4);
+      await this.seek(pos + 4);
       const nameLen = Math.min(22, instrumentHeaderSize - 4);
       if (i < lines.length) {
-        this.writeBlock(padString(lines[i], nameLen));
+        await this.writeBlock(padString(lines[i], nameLen));
       } else {
-        this.writeBlock(padString("", nameLen));
+        await this.writeBlock(padString("", nameLen));
       }
 
       let sampleCount = 0;
       if (instrumentHeaderSize >= 29) {
-        this.seek(pos + 27);
-        const scData = this.readBlock(2);
+        await this.seek(pos + 27);
+        const scData = await this.readBlock(2);
         if (scData.length < 2) return false;
         sampleCount = scData.toUShort(0, false);
       }
 
       let sampleHeaderSize = 0;
       if (sampleCount > 0) {
-        this.seek(pos + 29);
+        await this.seek(pos + 29);
         if (instrumentHeaderSize < 33) return false;
-        const shsData = this.readBlock(4);
+        const shsData = await this.readBlock(4);
         if (shsData.length < 4) return false;
         sampleHeaderSize = shsData.toUInt(0, false);
       }
@@ -144,17 +188,17 @@ export class XmFile extends File {
 
       for (let j = 0; j < sampleCount; j++) {
         if (sampleHeaderSize > 4) {
-          this.seek(pos);
-          const slData = this.readBlock(4);
+          await this.seek(pos);
+          const slData = await this.readBlock(4);
           if (slData.length < 4) return false;
 
           if (sampleHeaderSize > 18) {
-            this.seek(pos + 18);
+            await this.seek(pos + 18);
             const sz = Math.min(sampleHeaderSize - 18, 22);
             if (sampleNameIndex < lines.length) {
-              this.writeBlock(padString(lines[sampleNameIndex++], sz));
+              await this.writeBlock(padString(lines[sampleNameIndex++], sz));
             } else {
-              this.writeBlock(padString("", sz));
+              await this.writeBlock(padString("", sz));
               sampleNameIndex++;
             }
           }
@@ -170,9 +214,14 @@ export class XmFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
-    this.seek(0);
-    const magicData = this.readBlock(17);
+  /**
+   * Reads metadata and (optionally) audio properties from the XM stream.
+   * @param readProperties - Whether to parse audio properties.
+   * @param readStyle - Level of detail for audio property parsing.
+   */
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
+    await this.seek(0);
+    const magicData = await this.readBlock(17);
     if (magicData.length < 17) { this._valid = false; return; }
 
     const magic = magicData.toString(StringType.Latin1);
@@ -183,35 +232,35 @@ export class XmFile extends File {
     }
 
     // Title (20 bytes)
-    const titleData = this.readBlock(20);
+    const titleData = await this.readBlock(20);
     if (titleData.length < 20) { this._valid = false; return; }
     this._tag.title = readString(titleData, 20);
 
     // Escape byte (0x1A normally, 0x00 for stripped)
-    const escapeData = this.readBlock(1);
+    const escapeData = await this.readBlock(1);
     if (escapeData.length < 1) { this._valid = false; return; }
     const escape = escapeData.get(0);
     if (escape !== 0x1a && escape !== 0x00) { this._valid = false; return; }
 
     // Tracker name (20 bytes)
-    const trackerNameData = this.readBlock(20);
+    const trackerNameData = await this.readBlock(20);
     if (trackerNameData.length < 20) { this._valid = false; return; }
     this._tag.trackerName = readString(trackerNameData, 20);
 
     // Version (2 bytes LE)
-    const versionData = this.readBlock(2);
+    const versionData = await this.readBlock(2);
     if (versionData.length < 2) { this._valid = false; return; }
     const version = versionData.toUShort(0, false);
 
     // Header size (4 bytes LE)
-    const headerSizeData = this.readBlock(4);
+    const headerSizeData = await this.readBlock(4);
     if (headerSizeData.length < 4) { this._valid = false; return; }
     const headerSize = headerSizeData.toUInt(0, false);
     if (headerSize < 4) { this._valid = false; return; }
 
     // Read structured header fields (up to headerSize - 4 bytes)
     const remainingSize = headerSize - 4;
-    const headerFieldsData = this.readBlock(Math.min(remainingSize, 16));
+    const headerFieldsData = await this.readBlock(Math.min(remainingSize, 16));
     if (headerFieldsData.length < Math.min(remainingSize, 16)) {
       this._valid = false; return;
     }
@@ -252,18 +301,18 @@ export class XmFile extends File {
     }
 
     // Seek past the full header
-    this.seek(60 + headerSize);
+    await this.seek(60 + headerSize);
 
     // Read patterns
     for (let i = 0; i < patternCount; i++) {
-      const phlData = this.readBlock(4);
+      const phlData = await this.readBlock(4);
       if (phlData.length < 4) { this._valid = false; return; }
       const patternHeaderLength = phlData.toUInt(0, false);
       if (patternHeaderLength < 4) { this._valid = false; return; }
 
       // Read packing type (1), row count (2), data size (2) - max 5 bytes
       const toRead = Math.min(patternHeaderLength - 4, 5);
-      const patData = this.readBlock(toRead);
+      const patData = await this.readBlock(toRead);
       if (patData.length < toRead) { this._valid = false; return; }
 
       let dataSize = 0;
@@ -274,7 +323,7 @@ export class XmFile extends File {
       // Skip remaining header + data
       const skipAmount = (patternHeaderLength - 4 - patData.length) + dataSize;
       if (skipAmount > 0) {
-        this.seek(skipAmount, Position.Current);
+        await this.seek(skipAmount, Position.Current);
       }
     }
 
@@ -284,14 +333,14 @@ export class XmFile extends File {
     let sumSampleCount = 0;
 
     for (let i = 0; i < instrumentCount; i++) {
-      const ihsData = this.readBlock(4);
+      const ihsData = await this.readBlock(4);
       if (ihsData.length < 4) { this._valid = false; return; }
       const instrumentHeaderSize = ihsData.toUInt(0, false);
       if (instrumentHeaderSize < 4) { this._valid = false; return; }
 
       // Read instrument name (22 bytes), instrument type (1), sample count (2)
       const toRead = Math.min(instrumentHeaderSize - 4, 25);
-      const instrData = this.readBlock(toRead);
+      const instrData = await this.readBlock(toRead);
       if (instrData.length < toRead) { this._valid = false; return; }
 
       const instrumentName = readString(instrData, Math.min(22, instrData.length));
@@ -308,19 +357,19 @@ export class XmFile extends File {
         sumSampleCount += sampleCount;
         // Read sample header size
         if (instrumentHeaderSize < inCnt + 4) { this._valid = false; return; }
-        const shsData = this.readBlock(4);
+        const shsData = await this.readBlock(4);
         if (shsData.length < 4) { this._valid = false; return; }
         const sampleHeaderSize = shsData.toUInt(0, false);
 
         // Skip rest of instrument header
         const remaining = instrumentHeaderSize - inCnt - 4;
         if (remaining > 0) {
-          this.seek(remaining, Position.Current);
+          await this.seek(remaining, Position.Current);
         }
 
         for (let j = 0; j < sampleCount; j++) {
           const smpToRead = Math.min(sampleHeaderSize, 40);
-          const smpData = this.readBlock(smpToRead);
+          const smpData = await this.readBlock(smpToRead);
           if (smpData.length < smpToRead) { this._valid = false; return; }
 
           let sampleLength = 0;
@@ -336,7 +385,7 @@ export class XmFile extends File {
           // Skip rest of sample header
           const smpRemaining = sampleHeaderSize - smpData.length;
           if (smpRemaining > 0) {
-            this.seek(smpRemaining, Position.Current);
+            await this.seek(smpRemaining, Position.Current);
           }
 
           dataOffset += sampleLength;
@@ -348,7 +397,7 @@ export class XmFile extends File {
 
       instrumentNames.push(instrumentName);
       if (dataOffset > 0) {
-        this.seek(dataOffset, Position.Current);
+        await this.seek(dataOffset, Position.Current);
       }
     }
 
@@ -380,6 +429,12 @@ export class XmFile extends File {
 // Helpers
 // =============================================================================
 
+/**
+ * Encodes a string into a fixed-length Latin-1 `ByteVector`, padding with NUL bytes.
+ * @param s - The source string to encode.
+ * @param len - The exact byte length of the output vector.
+ * @returns A `ByteVector` of exactly `len` bytes.
+ */
 function padString(s: string, len: number): ByteVector {
   const arr = new Uint8Array(len);
   for (let i = 0; i < len; i++) {

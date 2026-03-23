@@ -1,7 +1,5 @@
 /**
- * @module simpleApi
- *
- * Simple high-level API for reading and writing audio file tags.
+ * @file Simple high-level API for reading and writing audio file tags.
  *
  * Provides two convenience functions — {@link readTags} and {@link writeTags} —
  * that accept `File`, `Blob`, or `Uint8Array` inputs and return/accept plain
@@ -218,7 +216,7 @@ export async function writeTags(
   if (tags.year !== undefined) tag.year = tags.year;
   if (tags.track !== undefined) tag.track = tags.track;
 
-  const saved = ref.save();
+  const saved = await ref.save();
   if (!saved) return null;
 
   // Extract the (possibly modified) bytes from the underlying stream
@@ -232,23 +230,31 @@ export async function writeTags(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Open an {@link AudioInput} as a {@link FileRef}, handling all supported
+ * input types.
+ *
+ * @param input          The audio data to open.
+ * @param readProperties Whether to parse audio properties.
+ * @returns A `FileRef`, or `null` if the input cannot be opened.
+ */
 async function openFileRef(
   input: AudioInput,
   readProperties: boolean,
 ): Promise<FileRef | null> {
   try {
     if (input instanceof Uint8Array) {
-      return FileRef.fromByteArray(input, "", readProperties);
+      return await FileRef.fromByteArray(input, "", readProperties);
     }
     if (typeof File !== "undefined" && input instanceof File) {
-      return FileRef.fromBlob(input, input.name, readProperties);
+      return await FileRef.fromBlob(input, input.name, readProperties);
     }
     if (input instanceof Blob) {
-      return FileRef.fromBlob(input, undefined, readProperties);
+      return await FileRef.fromBlob(input, undefined, readProperties);
     }
     // { data, filename }
     const typed = input as { data: Uint8Array; filename: string };
-    return FileRef.fromByteArray(typed.data, typed.filename, readProperties);
+    return await FileRef.fromByteArray(typed.data, typed.filename, readProperties);
   } catch {
     return null;
   }

@@ -15,7 +15,7 @@ jobs:
     name: Build C TagLib validators
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -45,7 +45,7 @@ jobs:
           cmake --build validator/build -j$(nproc)
 
       - name: Upload validator binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: c-validators
           path: |
@@ -58,14 +58,15 @@ jobs:
     needs: build-c-validators
     strategy:
       matrix:
-        - node-version: 'lts/*'
-        - node-version: 'latest'
-        - node-version: 'latest'
-          artifacts: 'yes'
+        include:
+          - node-version: 'lts/*'
+          - node-version: 'latest'
+          - node-version: 'latest'
+            artifacts: 'yes'
     name: Node ${{ matrix.node-version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
@@ -74,7 +75,7 @@ jobs:
           cache: 'npm'
 
       - name: Download C validator binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: c-validators
           path: validator/build
@@ -128,7 +129,7 @@ jobs:
 
     steps:
       - name: Checkout (with submodules)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 

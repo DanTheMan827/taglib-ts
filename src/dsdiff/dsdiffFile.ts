@@ -1,3 +1,4 @@
+/** @file DSDIFF (DSD Interchange File Format) file handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";
@@ -12,15 +13,28 @@ import { DsdiffDiinTag } from "./dsdiffDiinTag.js";
 // Types
 // =============================================================================
 
+/**
+ * Describes a single chunk in a DSDIFF file using 64-bit sizes.
+ * Offsets and sizes are in bytes relative to the start of the file.
+ */
 interface Chunk64 {
+  /** Four-character chunk identifier (e.g. `"PROP"`, `"DSD "`). */
   name: ByteVector;
+  /** File offset of the first byte of the chunk *payload* (after the 12-byte header). */
   offset: number;
+  /** Payload size in bytes (not including the 12-byte header). */
   size: number;
+  /** 1 if a zero-padding byte follows the payload to reach an even boundary, otherwise 0. */
   padding: number;
 }
 
+/**
+ * Identifies the two supported container chunks that can hold child chunks.
+ */
 enum ChildChunkKind {
+  /** The "PROP" (Sound Property) container chunk. */
   PROP = 0,
+  /** The "DIIN" (DSD Interchange Information) container chunk. */
   DIIN = 1,
 }
 
@@ -37,31 +51,59 @@ enum ChildChunkKind {
  * title/artist fields.
  */
 export class DsdiffFile extends File {
+  /** The ID3v2 tag, if present. */
   private _id3v2Tag: Id3v2Tag | null = null;
+  /** The DIIN tag, if present. */
   private _diinTag: DsdiffDiinTag | null = null;
+  /** Combined tag that delegates to the available sub-tags. */
   private _combinedTag: CombinedTag;
+  /** Parsed audio properties. */
   private _properties: DsdiffProperties | null = null;
 
   // Container-level metadata
+  /** Total file size as recorded in the FRM8 header (bytes, excluding the 12-byte FRM8 header). */
   private _size: number = 0;
+  /** All root-level chunks discovered during parsing. */
   private _chunks: Chunk64[] = [];
+  /** Child chunks for the PROP and DIIN container chunks (indexed by {@link ChildChunkKind}). */
   private _childChunks: [Chunk64[], Chunk64[]] = [[], []];
+  /** Index into `_chunks` for the PROP and DIIN root chunks, or -1 if absent. */
   private _childChunkIndex: [number, number] = [-1, -1];
+  /** Whether the ID3v2 tag lives inside the PROP chunk rather than at the root level. */
   private _isID3InPropChunk: boolean = false;
+  /** Whether an ID3v2 tag was found in the file. */
   private _hasID3v2: boolean = false;
+  /** Whether a DIIN chunk was found in the file. */
   private _hasDiin: boolean = false;
+  /** Four-character chunk ID used for the ID3v2 tag (either `"ID3 "` or `"id3 "`). */
   private _id3v2TagChunkID: string = "ID3 ";
 
-  constructor(
+  /**
+   * Private constructor — use {@link DsdiffFile.open} to create instances.
+   * @param stream The underlying I/O stream.
+   */
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  /**
+   * Opens a DSDIFF file and parses its metadata.
+   * @param stream The I/O stream to read from.
+   * @param readProperties Whether to parse audio properties (default `true`).
+   * @param readStyle Accuracy / speed trade-off for property reading.
+   * @returns A fully initialised {@link DsdiffFile} instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<DsdiffFile> {
+    const f = new DsdiffFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -72,9 +114,9 @@ export class DsdiffFile extends File {
    * Quick-check whether `stream` looks like a valid DSDIFF file.
    * Requires "FRM8" at offset 0 and "DSD " at offset 12.
    */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const id = stream.readBlock(16);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const id = await stream.readBlock(16);
     if (id.length < 16) return false;
 
     const frm8 = ByteVector.fromString("FRM8", StringType.Latin1);
@@ -86,28 +128,40 @@ export class DsdiffFile extends File {
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the combined tag (ID3v2 with DIIN fallback) for this file.
+   * @returns The active {@link CombinedTag}.
+   */
   tag(): Tag {
     return this._combinedTag;
   }
 
+  /**
+   * Returns the parsed audio properties, or `null` if properties were not read.
+   * @returns The {@link DsdiffProperties} or `null`.
+   */
   audioProperties(): DsdiffProperties | null {
     return this._properties;
   }
 
-  save(): boolean {
+  /**
+   * Writes all pending tag changes back to the underlying stream.
+   * @returns `true` on success, `false` if the file is read-only.
+   */
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
 
     // Save ID3v2 tag
     if (this._id3v2Tag) {
       if (!this._id3v2Tag.isEmpty) {
         if (this._isID3InPropChunk) {
-          this.setChildChunkData(
+          await this.setChildChunkData(
             this._id3v2TagChunkID,
             this._id3v2Tag.render(),
             ChildChunkKind.PROP,
           );
         } else {
-          this.setRootChunkData(
+          await this.setRootChunkData(
             this._id3v2TagChunkID,
             this._id3v2Tag.render(),
           );
@@ -115,13 +169,13 @@ export class DsdiffFile extends File {
         this._hasID3v2 = true;
       } else {
         if (this._isID3InPropChunk) {
-          this.setChildChunkData(
+          await this.setChildChunkData(
             this._id3v2TagChunkID,
             new ByteVector(),
             ChildChunkKind.PROP,
           );
         } else {
-          this.setRootChunkData(this._id3v2TagChunkID, new ByteVector());
+          await this.setRootChunkData(this._id3v2TagChunkID, new ByteVector());
         }
         this._hasID3v2 = false;
       }
@@ -137,9 +191,9 @@ export class DsdiffFile extends File {
         titleData.append(
           ByteVector.fromString(this._diinTag.title, StringType.Latin1),
         );
-        this.setChildChunkData("DITI", titleData, ChildChunkKind.DIIN);
+        await this.setChildChunkData("DITI", titleData, ChildChunkKind.DIIN);
       } else {
-        this.setChildChunkData("DITI", new ByteVector(), ChildChunkKind.DIIN);
+        await this.setChildChunkData("DITI", new ByteVector(), ChildChunkKind.DIIN);
       }
 
       if (this._diinTag.artist !== "") {
@@ -150,9 +204,9 @@ export class DsdiffFile extends File {
         artistData.append(
           ByteVector.fromString(this._diinTag.artist, StringType.Latin1),
         );
-        this.setChildChunkData("DIAR", artistData, ChildChunkKind.DIIN);
+        await this.setChildChunkData("DIAR", artistData, ChildChunkKind.DIIN);
       } else {
-        this.setChildChunkData("DIAR", new ByteVector(), ChildChunkKind.DIIN);
+        await this.setChildChunkData("DIAR", new ByteVector(), ChildChunkKind.DIIN);
       }
     }
 
@@ -182,10 +236,12 @@ export class DsdiffFile extends File {
     return this._diinTag;
   }
 
+  /** Whether the file contains an ID3v2 tag. */
   get hasID3v2Tag(): boolean {
     return this._hasID3v2;
   }
 
+  /** Whether the file contains a DIIN chunk. */
   get hasDIINTag(): boolean {
     return this._hasDiin;
   }
@@ -194,26 +250,31 @@ export class DsdiffFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  /**
+   * Reads and parses the DSDIFF file structure from the stream.
+   * @param readProperties Whether to parse audio properties.
+   * @param readStyle Accuracy / speed trade-off hint.
+   */
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     const bigEndian = true;
 
     // Read FRM8 container header
-    this.seek(0);
-    this.readBlock(4); // "FRM8"
-    this._size = Number(this.readBlock(8).toLongLong(bigEndian));
-    this.readBlock(4); // "DSD "
+    await this.seek(0);
+    await this.readBlock(4); // "FRM8"
+    this._size = Number((await this.readBlock(8)).toLongLong(bigEndian));
+    await this.readBlock(4); // "DSD "
 
     // Walk all root-level chunks
-    while (this.tell() + 12 <= this.fileLength) {
-      const chunkName = this.readBlock(4);
-      const chunkSize = Number(this.readBlock(8).toLongLong(bigEndian));
+    while ((await this.tell()) + 12 <= (await this.fileLength())) {
+      const chunkName = await this.readBlock(4);
+      const chunkSize = Number((await this.readBlock(8)).toLongLong(bigEndian));
 
       if (!this.isValidChunkID(chunkName)) {
         this._valid = false;
         break;
       }
 
-      if (this.tell() + chunkSize > this.fileLength) {
+      if ((await this.tell()) + chunkSize > (await this.fileLength())) {
         this._valid = false;
         break;
       }
@@ -221,18 +282,18 @@ export class DsdiffFile extends File {
       const chunk: Chunk64 = {
         name: chunkName,
         size: chunkSize,
-        offset: this.tell(),
+        offset: (await this.tell()),
         padding: 0,
       };
 
-      this.seek(chunk.size, Position.Current);
+      await this.seek(chunk.size, Position.Current);
 
       // Check padding byte
-      const posNotPadded = this.tell();
+      const posNotPadded = (await this.tell());
       if ((posNotPadded & 0x01) !== 0) {
-        const iByte = this.readBlock(1);
+        const iByte = await this.readBlock(1);
         if (iByte.length !== 1 || iByte.get(0) !== 0) {
-          this.seek(posNotPadded);
+          await this.seek(posNotPadded);
         } else {
           chunk.padding = 1;
         }
@@ -257,13 +318,13 @@ export class DsdiffFile extends File {
       } else if (chunkNameStr === "DST ") {
         // DST compressed: parse DST Frame Information
         const dstChunkEnd = this._chunks[i].offset + this._chunks[i].size;
-        this.seek(this._chunks[i].offset);
+        await this.seek(this._chunks[i].offset);
         audioDataSizeInBytes = BigInt(this._chunks[i].size);
 
-        while (this.tell() + 12 <= dstChunkEnd) {
-          const dstChunkName = this.readBlock(4);
+        while ((await this.tell()) + 12 <= dstChunkEnd) {
+          const dstChunkName = await this.readBlock(4);
           const dstChunkSize = Number(
-            this.readBlock(8).toLongLong(bigEndian),
+            (await this.readBlock(8)).toLongLong(bigEndian),
           );
 
           if (!this.isValidChunkID(dstChunkName)) {
@@ -273,30 +334,30 @@ export class DsdiffFile extends File {
 
           const frte = ByteVector.fromString("FRTE", StringType.Latin1);
           if (dstChunkName.startsWith(frte)) {
-            dstNumFrames = this.readBlock(4).toUInt(0, 4, bigEndian);
-            dstFrameRate = this.readBlock(2).toUShort(bigEndian);
+            dstNumFrames = (await this.readBlock(4)).toUInt(0, 4, bigEndian);
+            dstFrameRate = (await this.readBlock(2)).toUShort(bigEndian);
             break;
           }
 
-          this.seek(dstChunkSize, Position.Current);
-          const uPos = this.tell();
+          await this.seek(dstChunkSize, Position.Current);
+          const uPos = (await this.tell());
           if ((uPos & 0x01) !== 0) {
-            const pad = this.readBlock(1);
+            const pad = await this.readBlock(1);
             if (pad.length !== 1 || pad.get(0) !== 0) {
-              this.seek(uPos);
+              await this.seek(uPos);
             }
           }
         }
       } else if (chunkNameStr === "PROP") {
         this._childChunkIndex[ChildChunkKind.PROP] = i;
-        this.parsePROPChunk(i, bigEndian);
+        await this.parsePROPChunk(i, bigEndian);
       } else if (chunkNameStr === "DIIN") {
         this._childChunkIndex[ChildChunkKind.DIIN] = i;
         this._hasDiin = true;
-        this.parseDIINChunk(i, bigEndian);
+        await this.parseDIINChunk(i, bigEndian);
       } else if (chunkNameStr === "ID3 " || chunkNameStr === "id3 ") {
         this._id3v2TagChunkID = chunkNameStr;
-        this._id3v2Tag = Id3v2Tag.readFrom(
+        this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,
           this._chunks[i].offset,
         );
@@ -317,15 +378,15 @@ export class DsdiffFile extends File {
       if (propName === "ID3 " || propName === "id3 ") {
         if (this._hasID3v2) continue; // Root-level ID3v2 takes precedence
         this._id3v2TagChunkID = propName;
-        this._id3v2Tag = Id3v2Tag.readFrom(this._stream, propChunk.offset);
+        this._id3v2Tag = await Id3v2Tag.readFrom(this._stream, propChunk.offset);
         this._isID3InPropChunk = true;
         this._hasID3v2 = true;
       } else if (propName === "FS  ") {
-        this.seek(propChunk.offset);
-        sampleRate = this.readBlock(4).toUInt(0, 4, bigEndian);
+        await this.seek(propChunk.offset);
+        sampleRate = (await this.readBlock(4)).toUInt(0, 4, bigEndian);
       } else if (propName === "CHNL") {
-        this.seek(propChunk.offset);
-        channels = this.readBlock(2).toShort(0, bigEndian);
+        await this.seek(propChunk.offset);
+        channels = (await this.readBlock(2)).toShort(0, bigEndian);
       }
     }
 
@@ -339,17 +400,17 @@ export class DsdiffFile extends File {
       for (const diinChunk of this._childChunks[ChildChunkKind.DIIN]) {
         const diinName = diinChunk.name.toString(StringType.Latin1);
         if (diinName === "DITI") {
-          this.seek(diinChunk.offset);
-          const titleStrLength = this.readBlock(4).toUInt(0, 4, bigEndian);
+          await this.seek(diinChunk.offset);
+          const titleStrLength = (await this.readBlock(4)).toUInt(0, 4, bigEndian);
           if (titleStrLength <= diinChunk.size) {
-            const titleStr = this.readBlock(titleStrLength);
+            const titleStr = await this.readBlock(titleStrLength);
             this._diinTag.title = titleStr.toString(StringType.Latin1);
           }
         } else if (diinName === "DIAR") {
-          this.seek(diinChunk.offset);
-          const artistStrLength = this.readBlock(4).toUInt(0, 4, bigEndian);
+          await this.seek(diinChunk.offset);
+          const artistStrLength = (await this.readBlock(4)).toUInt(0, 4, bigEndian);
           if (artistStrLength <= diinChunk.size) {
-            const artistStr = this.readBlock(artistStrLength);
+            const artistStr = await this.readBlock(artistStrLength);
             this._diinTag.artist = artistStr.toString(StringType.Latin1);
           }
         }
@@ -399,16 +460,21 @@ export class DsdiffFile extends File {
     this.refreshCombinedTag();
   }
 
-  private parsePROPChunk(rootIdx: number, bigEndian: boolean): void {
+  /**
+   * Parses the child chunks of the PROP (Sound Property) container chunk.
+   * @param rootIdx Index of the PROP chunk in `_chunks`.
+   * @param bigEndian Whether integers are big-endian (always `true` for DSDIFF).
+   */
+  private async parsePROPChunk(rootIdx: number, bigEndian: boolean): Promise<void> {
     const propChunkEnd =
       this._chunks[rootIdx].offset + this._chunks[rootIdx].size;
     // Skip "SND " marker at beginning of PROP chunk
-    this.seek(this._chunks[rootIdx].offset + 4);
+    await this.seek(this._chunks[rootIdx].offset + 4);
 
-    while (this.tell() + 12 <= propChunkEnd) {
-      const propChunkName = this.readBlock(4);
+    while ((await this.tell()) + 12 <= propChunkEnd) {
+      const propChunkName = await this.readBlock(4);
       const propChunkSize = Number(
-        this.readBlock(8).toLongLong(bigEndian),
+        (await this.readBlock(8)).toLongLong(bigEndian),
       );
 
       if (!this.isValidChunkID(propChunkName)) {
@@ -416,7 +482,7 @@ export class DsdiffFile extends File {
         break;
       }
 
-      if (this.tell() + propChunkSize > propChunkEnd) {
+      if ((await this.tell()) + propChunkSize > propChunkEnd) {
         this._valid = false;
         break;
       }
@@ -424,17 +490,17 @@ export class DsdiffFile extends File {
       const chunk: Chunk64 = {
         name: propChunkName,
         size: propChunkSize,
-        offset: this.tell(),
+        offset: (await this.tell()),
         padding: 0,
       };
 
-      this.seek(chunk.size, Position.Current);
+      await this.seek(chunk.size, Position.Current);
 
-      const uPos = this.tell();
+      const uPos = (await this.tell());
       if ((uPos & 0x01) !== 0) {
-        const pad = this.readBlock(1);
+        const pad = await this.readBlock(1);
         if (pad.length !== 1 || pad.get(0) !== 0) {
-          this.seek(uPos);
+          await this.seek(uPos);
         } else {
           chunk.padding = 1;
         }
@@ -444,15 +510,20 @@ export class DsdiffFile extends File {
     }
   }
 
-  private parseDIINChunk(rootIdx: number, bigEndian: boolean): void {
+  /**
+   * Parses the child chunks of the DIIN (DSD Interchange Information) container chunk.
+   * @param rootIdx Index of the DIIN chunk in `_chunks`.
+   * @param bigEndian Whether integers are big-endian (always `true` for DSDIFF).
+   */
+  private async parseDIINChunk(rootIdx: number, bigEndian: boolean): Promise<void> {
     const diinChunkEnd =
       this._chunks[rootIdx].offset + this._chunks[rootIdx].size;
-    this.seek(this._chunks[rootIdx].offset);
+    await this.seek(this._chunks[rootIdx].offset);
 
-    while (this.tell() + 12 <= diinChunkEnd) {
-      const diinChunkName = this.readBlock(4);
+    while ((await this.tell()) + 12 <= diinChunkEnd) {
+      const diinChunkName = await this.readBlock(4);
       const diinChunkSize = Number(
-        this.readBlock(8).toLongLong(bigEndian),
+        (await this.readBlock(8)).toLongLong(bigEndian),
       );
 
       if (!this.isValidChunkID(diinChunkName)) {
@@ -460,7 +531,7 @@ export class DsdiffFile extends File {
         break;
       }
 
-      if (this.tell() + diinChunkSize > diinChunkEnd) {
+      if ((await this.tell()) + diinChunkSize > diinChunkEnd) {
         this._valid = false;
         break;
       }
@@ -468,17 +539,17 @@ export class DsdiffFile extends File {
       const chunk: Chunk64 = {
         name: diinChunkName,
         size: diinChunkSize,
-        offset: this.tell(),
+        offset: (await this.tell()),
         padding: 0,
       };
 
-      this.seek(chunk.size, Position.Current);
+      await this.seek(chunk.size, Position.Current);
 
-      const uPos = this.tell();
+      const uPos = (await this.tell());
       if ((uPos & 0x01) !== 0) {
-        const pad = this.readBlock(1);
+        const pad = await this.readBlock(1);
         if (pad.length !== 1 || pad.get(0) !== 0) {
-          this.seek(uPos);
+          await this.seek(uPos);
         } else {
           chunk.padding = 1;
         }
@@ -492,54 +563,69 @@ export class DsdiffFile extends File {
   // Private – chunk manipulation (save helpers)
   // ---------------------------------------------------------------------------
 
-  private setRootChunkData(name: string, data: ByteVector): void {
+  /**
+   * Writes data to a root-level chunk, creating or removing it as needed.
+   * @param name Four-character chunk name.
+   * @param data Payload to write; an empty vector removes the chunk.
+   */
+  private async setRootChunkData(name: string, data: ByteVector): Promise<void> {
     const nameVec = ByteVector.fromString(name, StringType.Latin1);
     const idx = this.findChunkIndex(this._chunks, nameVec);
 
     if (data.isEmpty) {
-      if (idx >= 0) this.removeRootChunk(idx);
+      if (idx >= 0) await this.removeRootChunk(idx);
       return;
     }
 
     if (idx >= 0) {
-      this.updateRootChunk(idx, data);
+      await this.updateRootChunk(idx, data);
     } else {
-      this.appendRootChunk(nameVec, data);
+      await this.appendRootChunk(nameVec, data);
     }
   }
 
-  private setChildChunkData(
+  /**
+   * Writes data to a child chunk inside a container chunk, creating or removing it as needed.
+   * @param name Four-character chunk name.
+   * @param data Payload to write; an empty vector removes the chunk.
+   * @param kind Which container chunk (PROP or DIIN) to operate on.
+   */
+  private async setChildChunkData(
     name: string,
     data: ByteVector,
     kind: ChildChunkKind,
-  ): void {
+  ): Promise<void> {
     const nameVec = ByteVector.fromString(name, StringType.Latin1);
     const childChunks = this._childChunks[kind];
     const idx = this.findChunkIndex(childChunks, nameVec);
 
     if (data.isEmpty) {
-      if (idx >= 0) this.removeChildChunk(idx, kind);
+      if (idx >= 0) await this.removeChildChunk(idx, kind);
       return;
     }
 
     if (idx >= 0) {
-      this.updateChildChunk(idx, data, kind);
+      await this.updateChildChunk(idx, data, kind);
     } else {
-      this.appendChildChunk(nameVec, data, kind);
+      await this.appendChildChunk(nameVec, data, kind);
     }
   }
 
-  private removeRootChunk(i: number): void {
+  /**
+   * Removes a root-level chunk by index, updating the file and chunk list.
+   * @param i Index into `_chunks` of the chunk to remove.
+   */
+  private async removeRootChunk(i: number): Promise<void> {
     const chunkTotalSize =
       this._chunks[i].size + this._chunks[i].padding + 12;
 
     this._size -= chunkTotalSize;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
     );
-    this.removeBlock(this._chunks[i].offset - 12, chunkTotalSize);
+    await this.removeBlock(this._chunks[i].offset - 12, chunkTotalSize);
 
     this._chunks.splice(i, 1);
     for (let k = 0; k < 2; k++) {
@@ -550,17 +636,22 @@ export class DsdiffFile extends File {
     this.updateRootChunkOffsets(i);
   }
 
-  private updateRootChunk(i: number, data: ByteVector): void {
+  /**
+   * Replaces the payload of a root-level chunk in place.
+   * @param i Index into `_chunks` of the chunk to update.
+   * @param data New payload to write.
+   */
+  private async updateRootChunk(i: number, data: ByteVector): Promise<void> {
     const oldTotal = this._chunks[i].size + this._chunks[i].padding;
     const newTotal = (data.length + 1) & ~1;
     this._size += newTotal - oldTotal;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
     );
 
-    this.writeChunk(
+    await this.writeChunk(
       this._chunks[i].name,
       data,
       this._chunks[i].offset - 12,
@@ -572,7 +663,12 @@ export class DsdiffFile extends File {
     this.updateRootChunkOffsets(i + 1);
   }
 
-  private appendRootChunk(name: ByteVector, data: ByteVector): void {
+  /**
+   * Appends a new root-level chunk at the end of the file.
+   * @param name Four-character chunk identifier.
+   * @param data Payload to write.
+   */
+  private async appendRootChunk(name: ByteVector, data: ByteVector): Promise<void> {
     if (this._chunks.length === 0) return;
 
     const last = this._chunks[this._chunks.length - 1];
@@ -580,14 +676,14 @@ export class DsdiffFile extends File {
 
     const paddingBefore = offset & 1 ? 1 : 0;
     this._size += paddingBefore + ((data.length + 1) & ~1) + 12;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
     );
 
-    const existingLen = this.fileLength;
-    this.writeChunk(
+    const existingLen = (await this.fileLength());
+    await this.writeChunk(
       name,
       data,
       offset,
@@ -603,13 +699,18 @@ export class DsdiffFile extends File {
     });
   }
 
-  private removeChildChunk(i: number, kind: ChildChunkKind): void {
+  /**
+   * Removes a child chunk from a container chunk by index.
+   * @param i Index of the child chunk within the container's child list.
+   * @param kind Which container chunk (PROP or DIIN) to operate on.
+   */
+  private async removeChildChunk(i: number, kind: ChildChunkKind): Promise<void> {
     const childChunks = this._childChunks[kind];
     const removedSize = childChunks[i].size + childChunks[i].padding + 12;
 
     // Update global size
     this._size -= removedSize;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
@@ -618,13 +719,13 @@ export class DsdiffFile extends File {
     // Update parent chunk size
     const parentIdx = this._childChunkIndex[kind];
     this._chunks[parentIdx].size -= removedSize;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
     );
 
-    this.removeBlock(childChunks[i].offset - 12, removedSize);
+    await this.removeBlock(childChunks[i].offset - 12, removedSize);
 
     if (i + 1 < childChunks.length) {
       childChunks[i + 1].offset = childChunks[i].offset;
@@ -641,11 +742,17 @@ export class DsdiffFile extends File {
     this.updateRootChunkOffsets(parentIdx + 1);
   }
 
-  private updateChildChunk(
+  /**
+   * Replaces the payload of a child chunk inside a container chunk.
+   * @param i Index of the child chunk within the container's child list.
+   * @param data New payload to write.
+   * @param kind Which container chunk (PROP or DIIN) to operate on.
+   */
+  private async updateChildChunk(
     i: number,
     data: ByteVector,
     kind: ChildChunkKind,
-  ): void {
+  ): Promise<void> {
     const childChunks = this._childChunks[kind];
     const oldTotal = childChunks[i].size + childChunks[i].padding;
     const newTotal = (data.length + 1) & ~1;
@@ -653,7 +760,7 @@ export class DsdiffFile extends File {
 
     // Update global size
     this._size += delta;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
@@ -662,13 +769,13 @@ export class DsdiffFile extends File {
     // Update parent chunk size
     const parentIdx = this._childChunkIndex[kind];
     this._chunks[parentIdx].size += delta;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
     );
 
-    this.writeChunk(
+    await this.writeChunk(
       childChunks[i].name,
       data,
       childChunks[i].offset - 12,
@@ -690,11 +797,17 @@ export class DsdiffFile extends File {
     this.updateRootChunkOffsets(parentIdx + 1);
   }
 
-  private appendChildChunk(
+  /**
+   * Appends a new child chunk inside a container chunk.
+   * @param name Four-character chunk identifier.
+   * @param data Payload to write.
+   * @param kind Which container chunk (PROP or DIIN) to append into.
+   */
+  private async appendChildChunk(
     name: ByteVector,
     data: ByteVector,
     kind: ChildChunkKind,
-  ): void {
+  ): Promise<void> {
     const childChunks = this._childChunks[kind];
     let offset = 0;
 
@@ -705,7 +818,7 @@ export class DsdiffFile extends File {
       let parentIdx = this._childChunkIndex[ChildChunkKind.DIIN];
       if (parentIdx < 0) {
         // Create the DIIN root chunk
-        this.setRootChunkData("DIIN", new ByteVector());
+        await this.setRootChunkData("DIIN", new ByteVector());
         const lastIdx = this._chunks.length - 1;
         if (
           lastIdx >= 0 &&
@@ -726,7 +839,7 @@ export class DsdiffFile extends File {
 
     const paddingBefore = offset & 1 ? 1 : 0;
     this._size += paddingBefore + ((data.length + 1) & ~1) + 12;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._size), true),
       4,
       8,
@@ -736,7 +849,7 @@ export class DsdiffFile extends File {
     const parentIdx = this._childChunkIndex[kind];
     this._chunks[parentIdx].size +=
       paddingBefore + ((data.length + 1) & ~1) + 12;
-    this.insert(
+    await this.insert(
       ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
@@ -745,9 +858,9 @@ export class DsdiffFile extends File {
     const nextRootOffset =
       parentIdx + 1 < this._chunks.length
         ? this._chunks[parentIdx + 1].offset - 12
-        : this.fileLength;
+        : (await this.fileLength());
 
-    this.writeChunk(
+    await this.writeChunk(
       name,
       data,
       offset,
@@ -769,13 +882,21 @@ export class DsdiffFile extends File {
   // Private – helpers
   // ---------------------------------------------------------------------------
 
-  private writeChunk(
+  /**
+   * Writes a DSDIFF chunk (header + payload + optional padding) to the stream.
+   * @param name Four-character chunk identifier.
+   * @param data Chunk payload.
+   * @param offset File offset at which to write the chunk.
+   * @param replace Number of bytes at `offset` to overwrite.
+   * @param leadingPadding Optional number of zero-padding bytes to prepend.
+   */
+  private async writeChunk(
     name: ByteVector,
     data: ByteVector,
     offset: number,
     replace: number,
     leadingPadding: number = 0,
-  ): void {
+  ): Promise<void> {
     const combined = new ByteVector();
     if (leadingPadding) {
       combined.append(ByteVector.fromSize(leadingPadding, 0));
@@ -786,9 +907,14 @@ export class DsdiffFile extends File {
     if (data.length & 0x01) {
       combined.append(ByteVector.fromSize(1, 0));
     }
-    this.insert(combined, offset, replace);
+    await this.insert(combined, offset, replace);
   }
 
+  /**
+   * Recalculates the file offsets of root chunks starting at `startIdx`.
+   * Must be called after any insertion or removal that shifts data.
+   * @param startIdx First index in `_chunks` whose offset needs updating.
+   */
   private updateRootChunkOffsets(startIdx: number): void {
     for (let i = startIdx; i < this._chunks.length; i++) {
       this._chunks[i].offset =
@@ -799,6 +925,12 @@ export class DsdiffFile extends File {
     }
   }
 
+  /**
+   * Searches a chunk list for a chunk with the given name.
+   * @param chunks The list of chunks to search.
+   * @param name The four-character chunk identifier to look for.
+   * @returns The index of the matching chunk, or -1 if not found.
+   */
   private findChunkIndex(chunks: Chunk64[], name: ByteVector): number {
     for (let i = 0; i < chunks.length; i++) {
       if (chunks[i].name.equals(name)) return i;
@@ -806,6 +938,11 @@ export class DsdiffFile extends File {
     return -1;
   }
 
+  /**
+   * Returns `true` if `name` is a valid four-character printable ASCII chunk identifier.
+   * @param name The byte vector to validate.
+   * @returns `true` if the name consists of exactly four printable ASCII bytes.
+   */
   private isValidChunkID(name: ByteVector): boolean {
     if (name.length !== 4) return false;
     for (let i = 0; i < 4; i++) {
@@ -815,6 +952,7 @@ export class DsdiffFile extends File {
     return true;
   }
 
+  /** Rebuilds `_combinedTag` from the current set of sub-tags (ID3v2 and DIIN). */
   private refreshCombinedTag(): void {
     // Priority: ID3v2 > DIIN
     this._combinedTag.setTags([this._id3v2Tag, this._diinTag]);

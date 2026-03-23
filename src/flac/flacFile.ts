@@ -1,3 +1,4 @@
+/** @file FLAC file format handler with support for XiphComment, ID3v2, ID3v1, and picture blocks. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { type offset_t, Position, ReadStyle } from "../toolkit/types.js";
@@ -21,6 +22,9 @@ const LAST_BLOCK_FLAG = 0x80;
 const MIN_PADDING_LENGTH = 4096;
 const MAX_PADDING_LENGTH = 1024 * 1024;
 
+/**
+ * FLAC metadata block type codes as defined by the FLAC specification.
+ */
 const enum BlockType {
   StreamInfo = 0,
   Padding = 1,
@@ -33,7 +37,9 @@ const enum BlockType {
 
 /** Internal representation of a metadata block. */
 interface MetadataBlock {
+  /** {@link BlockType} code identifying the block type. */
   code: number;
+  /** Raw block payload (excluding the 4-byte block header). */
   data: ByteVector;
 }
 
@@ -51,45 +57,85 @@ interface MetadataBlock {
  *   [ID3v2] + "fLaC" + metadata blocks + audio frames + [ID3v1]
  */
 export class FlacFile extends File {
+  /** The Vorbis Comment (XiphComment) tag, populated from the VorbisComment metadata block. */
   private _xiphComment: XiphComment | null = null;
+  /** The ID3v2 tag, present if one was found before the "fLaC" magic. */
   private _id3v2Tag: Id3v2Tag | null = null;
+  /** The ID3v1 tag, present if one was found at the end of the file. */
   private _id3v1Tag: ID3v1Tag | null = null;
+  /** Combined tag that delegates to the available sub-tags (priority: XiphComment > ID3v2 > ID3v1). */
   private _combinedTag: CombinedTag;
+  /** Parsed audio properties from the STREAMINFO block. */
   private _properties: FlacProperties | null = null;
 
+  /** Embedded FLAC picture blocks. */
   private _pictures: FlacPicture[] = [];
+  /** All parsed metadata blocks (excluding Picture and Padding). */
   private _blocks: MetadataBlock[] = [];
 
   // Bookkeeping for tag / block locations
+  /** File offset of the ID3v2 tag, or -1 if not present. */
   private _id3v2Location: offset_t = -1;
+  /** Original byte size of the ID3v2 tag (used when rewriting). */
   private _id3v2OriginalSize: number = 0;
+  /** File offset of the ID3v1 tag, or -1 if not present. */
   private _id3v1Location: offset_t = -1;
+  /** File offset of the "fLaC" magic (i.e., start of FLAC metadata blocks). */
   private _flacStart: offset_t = 0;
+  /** File offset of the first audio frame (immediately after the last metadata block). */
   private _streamStart: offset_t = 0;
 
-  constructor(
+  /**
+   * Private constructor — use {@link FlacFile.open} to create instances.
+   * @param stream The underlying I/O stream.
+   */
+  private constructor(stream: IOStream) {
+    super(stream);
+    this._combinedTag = new CombinedTag([]);
+  }
+
+  /**
+   * Opens a FLAC file and parses its metadata.
+   * @param stream The I/O stream to read from.
+   * @param readProperties Whether to parse audio properties (default `true`).
+   * @param readStyle Accuracy / speed trade-off for property reading.
+   * @returns A fully initialised {@link FlacFile} instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    this._combinedTag = new CombinedTag([]);
-    this.read(readProperties, readStyle);
+  ): Promise<FlacFile> {
+    const file = new FlacFile(stream);
+    await file.read(readProperties, readStyle);
+    return file;
   }
 
   // ---------------------------------------------------------------------------
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the combined tag (XiphComment > ID3v2 > ID3v1) for this file.
+   * @returns The active {@link CombinedTag}.
+   */
   tag(): Tag {
     return this._combinedTag;
   }
 
+  /**
+   * Returns the parsed audio properties, or `null` if properties were not read.
+   * @returns The {@link FlacProperties} or `null`.
+   */
   audioProperties(): FlacProperties | null {
     return this._properties;
   }
 
-  save(): boolean {
+  /**
+   * Writes all pending tag and picture changes back to the underlying stream.
+   * @returns `true` on success, `false` if the file is read-only or invalid.
+   */
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this.isValid) return false;
 
@@ -153,7 +199,7 @@ export class FlacFile extends File {
     if (paddingLength <= 0) {
       paddingLength = MIN_PADDING_LENGTH;
     } else {
-      let threshold = Math.floor(this.fileLength / 100);
+      let threshold = Math.floor((await this.fileLength()) / 100);
       threshold = Math.max(threshold, MIN_PADDING_LENGTH);
       threshold = Math.min(threshold, MAX_PADDING_LENGTH);
       if (paddingLength > threshold) {
@@ -179,7 +225,7 @@ export class FlacFile extends File {
     const data = new ByteVector(dataArr);
 
     // Write metadata blocks (replace old region after "fLaC")
-    this.insert(data, this._flacStart, originalLength);
+    await this.insert(data, this._flacStart, originalLength);
 
     const sizeDelta = data.length - originalLength;
     this._streamStart += sizeDelta;
@@ -193,7 +239,7 @@ export class FlacFile extends File {
       if (this._id3v2Location < 0) this._id3v2Location = 0;
 
       const id3v2Data = this._id3v2Tag.render();
-      this.insert(id3v2Data, this._id3v2Location, this._id3v2OriginalSize);
+      await this.insert(id3v2Data, this._id3v2Location, this._id3v2OriginalSize);
 
       const id3v2Delta = id3v2Data.length - this._id3v2OriginalSize;
       this._flacStart += id3v2Delta;
@@ -201,7 +247,7 @@ export class FlacFile extends File {
       if (this._id3v1Location >= 0) this._id3v1Location += id3v2Delta;
       this._id3v2OriginalSize = id3v2Data.length;
     } else if (this._id3v2Location >= 0) {
-      this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
+      await this.removeBlock(this._id3v2Location, this._id3v2OriginalSize);
       this._flacStart -= this._id3v2OriginalSize;
       this._streamStart -= this._id3v2OriginalSize;
       if (this._id3v1Location >= 0) this._id3v1Location -= this._id3v2OriginalSize;
@@ -215,14 +261,14 @@ export class FlacFile extends File {
 
     if (this._id3v1Tag && !this._id3v1Tag.isEmpty) {
       if (this._id3v1Location >= 0) {
-        this.seek(this._id3v1Location);
+        await this.seek(this._id3v1Location);
       } else {
-        this.seek(0, Position.End);
-        this._id3v1Location = this.tell();
+        await this.seek(0, Position.End);
+        this._id3v1Location = await this.tell();
       }
-      this.writeBlock(this._id3v1Tag.render());
+      await this.writeBlock(this._id3v1Tag.render());
     } else if (this._id3v1Location >= 0) {
-      this.truncate(this._id3v1Location);
+      await this.truncate(this._id3v1Location);
       this._id3v1Location = -1;
     }
 
@@ -233,14 +279,17 @@ export class FlacFile extends File {
   // Tag accessors
   // ---------------------------------------------------------------------------
 
+  /** The XiphComment (Vorbis Comment) tag, or `null` if not present. */
   get xiphComment(): XiphComment | null {
     return this._xiphComment;
   }
 
+  /** The ID3v2 tag, or `null` if not present. */
   get id3v2Tag(): Id3v2Tag | null {
     return this._id3v2Tag;
   }
 
+  /** The ID3v1 tag, or `null` if not present. */
   get id3v1Tag(): ID3v1Tag | null {
     return this._id3v1Tag;
   }
@@ -249,14 +298,23 @@ export class FlacFile extends File {
   // Picture management
   // ---------------------------------------------------------------------------
 
+  /** Returns a shallow copy of the embedded picture list. */
   get pictureList(): FlacPicture[] {
     return this._pictures.slice();
   }
 
+  /**
+   * Adds a picture to the embedded picture list.
+   * @param picture The {@link FlacPicture} to append.
+   */
   addPicture(picture: FlacPicture): void {
     this._pictures.push(picture);
   }
 
+  /**
+   * Removes the specified picture from the embedded picture list.
+   * @param picture The {@link FlacPicture} instance to remove.
+   */
   removePicture(picture: FlacPicture): void {
     const idx = this._pictures.indexOf(picture);
     if (idx >= 0) {
@@ -264,6 +322,7 @@ export class FlacFile extends File {
     }
   }
 
+  /** Removes all embedded pictures from the file. */
   removePictures(): void {
     this._pictures = [];
   }
@@ -272,6 +331,11 @@ export class FlacFile extends File {
   // Complex properties — FLAC picture block support
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the list of complex property keys supported by this file.
+   * Includes `"PICTURE"` if any embedded pictures are present.
+   * @returns An array of supported complex property key strings.
+   */
   override complexPropertyKeys(): string[] {
     const keys = super.complexPropertyKeys();
     if (this._pictures.length > 0 && !keys.includes("PICTURE")) {
@@ -280,6 +344,12 @@ export class FlacFile extends File {
     return keys;
   }
 
+  /**
+   * Returns the complex properties for the given key.
+   * For the `"PICTURE"` key, each picture block is represented as a `VariantMap`.
+   * @param key The complex property key (case-insensitive).
+   * @returns An array of variant maps, one per picture (or delegated to the base class).
+   */
   override complexProperties(key: string): VariantMap[] {
     if (key.toUpperCase() === "PICTURE") {
       const result: VariantMap[] = [];
@@ -300,6 +370,14 @@ export class FlacFile extends File {
     return super.complexProperties(key);
   }
 
+  /**
+   * Sets the complex properties for the given key.
+   * For the `"PICTURE"` key, replaces all embedded pictures with those derived
+   * from the provided variant maps.
+   * @param key The complex property key (case-insensitive).
+   * @param value An array of variant maps describing the new property values.
+   * @returns `true` if the key was handled, `false` if delegated to the base class.
+   */
   override setComplexProperties(key: string, value: VariantMap[]): boolean {
     if (key.toUpperCase() === "PICTURE") {
       this._pictures = [];
@@ -332,15 +410,21 @@ export class FlacFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  /**
+   * Orchestrates the full parse of a FLAC file: finds ID3 tags, scans FLAC
+   * metadata blocks, and reads audio properties.
+   * @param readProperties Whether to parse audio properties.
+   * @param readStyle Accuracy / speed trade-off hint.
+   */
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // 1. Look for an ID3v2 tag at the start
-    this.findID3v2();
+    await this.findID3v2();
 
     // 2. Look for an ID3v1 tag at the end
-    this.findID3v1();
+    await this.findID3v1();
 
     // 3. Scan FLAC metadata blocks
-    this.scan();
+    await this.scan();
 
     if (!this.isValid) return;
 
@@ -354,15 +438,19 @@ export class FlacFile extends File {
       if (this._id3v1Location >= 0) {
         streamLength = this._id3v1Location - this._streamStart;
       } else {
-        streamLength = this.fileLength - this._streamStart;
+        streamLength = (await this.fileLength()) - this._streamStart;
       }
       this._properties = new FlacProperties(infoData, streamLength, readStyle);
     }
   }
 
-  private findID3v2(): void {
-    this.seek(0);
-    const headerData = this.readBlock(Id3v2Header.size);
+  /**
+   * Looks for an ID3v2 tag at the beginning of the file and populates
+   * `_id3v2Tag`, `_id3v2Location`, and `_id3v2OriginalSize` if found.
+   */
+  private async findID3v2(): Promise<void> {
+    await this.seek(0);
+    const headerData = await this.readBlock(Id3v2Header.size);
     if (headerData.length < Id3v2Header.size) return;
 
     if (!headerData.startsWith(Id3v2Header.fileIdentifier)) return;
@@ -372,33 +460,42 @@ export class FlacFile extends File {
 
     this._id3v2Location = 0;
     this._id3v2OriginalSize = header.completeTagSize;
-    this._id3v2Tag = Id3v2Tag.readFrom(this._stream, 0);
+    this._id3v2Tag = await Id3v2Tag.readFrom(this._stream, 0);
   }
 
-  private findID3v1(): void {
-    if (this.fileLength < 128) return;
+  /**
+   * Looks for an ID3v1 tag at the end of the file and populates
+   * `_id3v1Tag` and `_id3v1Location` if found.
+   */
+  private async findID3v1(): Promise<void> {
+    const fileLen = await this.fileLength();
+    if (fileLen < 128) return;
 
-    const tagOffset = this.fileLength - 128;
-    this.seek(tagOffset);
-    const data = this.readBlock(3);
+    const tagOffset = fileLen - 128;
+    await this.seek(tagOffset);
+    const data = await this.readBlock(3);
     if (data.length < 3) return;
 
     if (!data.startsWith(ID3v1Tag.fileIdentifier())) return;
 
     this._id3v1Location = tagOffset;
-    this._id3v1Tag = ID3v1Tag.readFrom(this._stream, tagOffset);
+    this._id3v1Tag = await ID3v1Tag.readFrom(this._stream, tagOffset);
   }
 
-  private scan(): void {
+  /**
+   * Scans all FLAC metadata blocks, populating `_blocks`, `_pictures`,
+   * `_xiphComment`, `_flacStart`, and `_streamStart`.
+   */
+  private async scan(): Promise<void> {
     // Locate "fLaC" magic after any ID3v2 tag
     let nextBlockOffset: offset_t;
     if (this._id3v2Location >= 0) {
-      nextBlockOffset = this.find(
+      nextBlockOffset = await this.find(
         FLAC_MAGIC,
         this._id3v2Location + this._id3v2OriginalSize,
       );
     } else {
-      nextBlockOffset = this.find(FLAC_MAGIC);
+      nextBlockOffset = await this.find(FLAC_MAGIC);
     }
 
     if (nextBlockOffset < 0) {
@@ -412,8 +509,8 @@ export class FlacFile extends File {
     let xiphCommentData: ByteVector | null = null;
 
     while (true) {
-      this.seek(nextBlockOffset);
-      const header = this.readBlock(4);
+      await this.seek(nextBlockOffset);
+      const header = await this.readBlock(4);
       if (header.length < 4) {
         this._valid = false;
         return;
@@ -438,7 +535,7 @@ export class FlacFile extends File {
         return;
       }
 
-      const data = this.readBlock(blockLength);
+      const data = await this.readBlock(blockLength);
       if (data.length !== blockLength) {
         this._valid = false;
         return;
@@ -475,6 +572,7 @@ export class FlacFile extends File {
     }
   }
 
+  /** Rebuilds `_combinedTag` from the current set of sub-tags (XiphComment > ID3v2 > ID3v1). */
   private refreshCombinedTag(): void {
     // Priority: XiphComment > ID3v2 > ID3v1
     this._combinedTag.setTags([this._xiphComment, this._id3v2Tag, this._id3v1Tag]);

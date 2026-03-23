@@ -1,3 +1,4 @@
+/** @file ID3v2 frame header and abstract base class for all ID3v2 frame types. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 
@@ -9,22 +10,43 @@ import { SynchData } from "./id3v2SynchData.js";
  * - v2.4: 4-byte frame ID + 4-byte size (synchsafe) + 2-byte flags
  */
 export class Id3v2FrameHeader {
+  /** The four-byte (or three-byte for v2.2) frame identifier. */
   private _frameId: ByteVector;
+  /** The size of the frame's payload in bytes, as decoded from the header. */
   private _frameSize: number = 0;
+  /** The ID3v2 major version this header was parsed from or will be rendered for. */
   private _version: number = 4;
 
   // Status flags
+  /** Whether the frame should be discarded when the tag is altered. */
   private _tagAlterPreservation: boolean = false;
+  /** Whether the frame should be discarded when the file (but not the tag) is altered. */
   private _fileAlterPreservation: boolean = false;
+  /** Whether the frame contents are read-only. */
   private _readOnly: boolean = false;
 
   // Format flags
+  /** Whether the frame data is zlib-compressed. */
   private _compression: boolean = false;
+  /** Whether the frame data is encrypted. */
   private _encryption: boolean = false;
+  /** Whether the frame belongs to a group identified by a group byte. */
   private _groupIdentity: boolean = false;
+  /** Whether a data-length indicator (4 bytes) precedes the frame payload. */
   private _dataLengthIndicator: boolean = false;
+  /** Whether the frame payload has had unsynchronisation applied (v2.4 per-frame). */
   private _unsynchronisation: boolean = false;
 
+  /**
+   * Construct an `Id3v2FrameHeader`.
+   *
+   * - If both `data` and `version` are provided, the header is parsed from `data`.
+   * - If only `data` is provided, it is used directly as the frame ID.
+   * - If neither is provided, an empty header is created.
+   *
+   * @param data - Raw header bytes to parse, or a frame ID `ByteVector`.
+   * @param version - ID3v2 major version (2, 3, or 4).
+   */
   constructor(data?: ByteVector, version?: number) {
     this._frameId = new ByteVector();
     if (data !== undefined && version !== undefined) {
@@ -36,6 +58,12 @@ export class Id3v2FrameHeader {
     }
   }
 
+  /**
+   * Parse the raw header bytes for the given version, populating all fields.
+   *
+   * @param data - The raw frame header bytes (at least 6 or 10 bytes).
+   * @param version - ID3v2 major version (2, 3, or 4).
+   */
   private _parseHeader(data: ByteVector, version: number): void {
     if (version < 3) {
       // v2.2: 3-byte ID + 3-byte size
@@ -58,6 +86,12 @@ export class Id3v2FrameHeader {
     }
   }
 
+  /**
+   * Parse the two status/format flag bytes for the given version.
+   *
+   * @param flagsData - The 2-byte flags data (bytes 8-9 of the frame header).
+   * @param version - ID3v2 major version (3 or 4); other values are ignored.
+   */
   private _parseFlags(flagsData: ByteVector, version: number): void {
     const byte0 = flagsData.get(0);
     const byte1 = flagsData.get(1);
@@ -83,100 +117,159 @@ export class Id3v2FrameHeader {
 
   // -- Frame ID ---------------------------------------------------------------
 
+  /** Gets the frame identifier as a `ByteVector`. */
   get frameId(): ByteVector {
     return this._frameId;
   }
 
+  /**
+   * Sets the frame identifier.
+   * @param id - The new frame ID (copied by value).
+   */
   set frameId(id: ByteVector) {
     this._frameId = ByteVector.fromByteVector(id);
   }
 
   // -- Size -------------------------------------------------------------------
 
+  /** Gets the payload size of the frame in bytes. */
   get frameSize(): number {
     return this._frameSize;
   }
 
+  /**
+   * Sets the payload size of the frame in bytes.
+   * @param size - The new payload size.
+   */
   set frameSize(size: number) {
     this._frameSize = size;
   }
 
   // -- Version ----------------------------------------------------------------
 
+  /** Gets the ID3v2 major version associated with this header. */
   get version(): number {
     return this._version;
   }
 
+  /**
+   * Sets the ID3v2 major version associated with this header.
+   * @param v - The major version number (2, 3, or 4).
+   */
   set version(v: number) {
     this._version = v;
   }
 
   // -- Status flags -----------------------------------------------------------
 
+  /** Gets whether the frame should be discarded when the tag is altered. */
   get tagAlterPreservation(): boolean {
     return this._tagAlterPreservation;
   }
 
+  /**
+   * Sets the tag-alter-preservation flag.
+   * @param v - `true` if the frame should be discarded on tag alteration.
+   */
   set tagAlterPreservation(v: boolean) {
     this._tagAlterPreservation = v;
   }
 
+  /** Gets whether the frame should be discarded when the file is altered. */
   get fileAlterPreservation(): boolean {
     return this._fileAlterPreservation;
   }
 
+  /**
+   * Sets the file-alter-preservation flag.
+   * @param v - `true` if the frame should be discarded on file alteration.
+   */
   set fileAlterPreservation(v: boolean) {
     this._fileAlterPreservation = v;
   }
 
+  /** Gets whether the frame contents are read-only. */
   get readOnly(): boolean {
     return this._readOnly;
   }
 
   // -- Format flags -----------------------------------------------------------
 
+  /** Gets whether the frame data is zlib-compressed. */
   get compression(): boolean {
     return this._compression;
   }
 
+  /**
+   * Sets the compression flag.
+   * @param v - `true` if the frame data is compressed.
+   */
   set compression(v: boolean) {
     this._compression = v;
   }
 
+  /** Gets whether the frame data is encrypted. */
   get encryption(): boolean {
     return this._encryption;
   }
 
+  /**
+   * Sets the encryption flag.
+   * @param v - `true` if the frame data is encrypted.
+   */
   set encryption(v: boolean) {
     this._encryption = v;
   }
 
+  /** Gets whether the frame belongs to a group identified by a group byte. */
   get groupIdentity(): boolean {
     return this._groupIdentity;
   }
 
+  /**
+   * Sets the group identity flag.
+   * @param v - `true` if a group-identity byte is present in the frame.
+   */
   set groupIdentity(v: boolean) {
     this._groupIdentity = v;
   }
 
+  /** Gets whether a 4-byte data-length indicator precedes the payload. */
   get dataLengthIndicator(): boolean {
     return this._dataLengthIndicator;
   }
 
+  /**
+   * Sets the data-length-indicator flag.
+   * @param v - `true` if a data-length indicator is present.
+   */
   set dataLengthIndicator(v: boolean) {
     this._dataLengthIndicator = v;
   }
 
+  /** Gets whether per-frame unsynchronisation has been applied (v2.4 only). */
   get unsynchronisation(): boolean {
     return this._unsynchronisation;
   }
 
+  /**
+   * Sets the unsynchronisation flag.
+   * @param v - `true` if the frame payload has been unsynchronised.
+   */
   set unsynchronisation(v: boolean) {
     this._unsynchronisation = v;
   }
 
   // -- Render -----------------------------------------------------------------
 
+  /**
+   * Render the header to its binary representation.
+   *
+   * For v2.2 this produces 6 bytes; for v2.3/v2.4 it produces 10 bytes
+   * (frame ID + size + two flag bytes).
+   *
+   * @returns The serialised header as a `ByteVector`.
+   */
   render(): ByteVector {
     const v = new ByteVector();
 
@@ -202,6 +295,10 @@ export class Id3v2FrameHeader {
     return v;
   }
 
+  /**
+   * Build the two flag bytes for the current version.
+   * @returns A 2-byte `ByteVector` representing the status and format flags.
+   */
   private _renderFlags(): ByteVector {
     let byte0 = 0;
     let byte1 = 0;
@@ -242,21 +339,35 @@ export class Id3v2FrameHeader {
 // Abstract base class for all ID3v2 frames.
 // =============================================================================
 
+/**
+ * Abstract base class for all ID3v2 frame types.
+ *
+ * Subclasses must implement {@link parseFields} and {@link renderFields} to
+ * handle the frame-specific payload.  The common frame header is managed here.
+ */
 export abstract class Id3v2Frame {
+  /** The parsed frame header, containing the frame ID, size, and flags. */
   protected _header: Id3v2FrameHeader;
 
+  /**
+   * Constructs the base frame with an optional pre-built header.
+   * @param header - An existing `Id3v2FrameHeader`; a new empty one is used when omitted.
+   */
   protected constructor(header?: Id3v2FrameHeader) {
     this._header = header ?? new Id3v2FrameHeader();
   }
 
+  /** Gets the frame identifier from the header. */
   get frameId(): ByteVector {
     return this._header.frameId;
   }
 
+  /** Gets the payload size in bytes from the header. */
   get size(): number {
     return this._header.frameSize;
   }
 
+  /** Gets the frame's header object. */
   get header(): Id3v2FrameHeader {
     return this._header;
   }
@@ -320,7 +431,9 @@ export abstract class Id3v2Frame {
 // Encoding helpers shared by many frame types.
 // =============================================================================
 
+/** Single-byte null terminator used for Latin-1 and UTF-8 encoded strings. */
 const NULL_BYTE = ByteVector.fromSize(1, 0x00);
+/** Two-byte null terminator used for UTF-16 encoded strings. */
 const NULL_DOUBLE = ByteVector.fromSize(2, 0x00);
 
 /** Return the null terminator for the given encoding. */

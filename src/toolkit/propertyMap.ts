@@ -1,19 +1,31 @@
 /**
+ * @file Case-insensitive key-value container for audio metadata properties.
+ */
+
+/**
  * A case-insensitive key-value container for audio metadata properties.
- * Keys are normalised to uppercase (e.g. "TITLE", "ARTIST").
+ * Keys are normalised to uppercase (e.g. `"TITLE"`, `"ARTIST"`).
+ *
+ * Mirrors the TagLib `PropertyMap` API. Each key maps to an ordered list of
+ * string values, allowing multi-valued tags such as multiple artists.
  */
 export class PropertyMap {
+  /** Internal storage — keys are always stored in uppercase. */
   private _map: Map<string, string[]> = new Map();
+
+  /** Keys from the original tag that this map does not know how to represent. */
   private _unsupported: string[] = [];
 
   // ---------------------------------------------------------------------------
   // Core accessors
   // ---------------------------------------------------------------------------
 
+  /** Converts `key` to its canonical uppercase form used for storage. */
   private static normalizeKey(key: string): string {
     return key.toUpperCase();
   }
 
+  /** The number of distinct keys in the map. */
   get size(): number {
     return this._map.size;
   }
@@ -94,10 +106,19 @@ export class PropertyMap {
   // Unsupported data tracking
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns a copy of the list of keys that could not be mapped to a
+   * standard property name.
+   */
   unsupportedData(): string[] {
     return [...this._unsupported];
   }
 
+  /**
+   * Records `key` as an unsupported tag field that this map cannot represent.
+   *
+   * @param key - The raw tag key to mark as unsupported.
+   */
   addUnsupportedData(key: string): void {
     this._unsupported.push(key);
   }
@@ -106,6 +127,7 @@ export class PropertyMap {
   // Debug
   // ---------------------------------------------------------------------------
 
+  /** Returns a human-readable representation of the map and unsupported keys. */
   toString(): string {
     const parts: string[] = [];
     for (const [key, values] of this._map) {

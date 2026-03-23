@@ -1,3 +1,4 @@
+/** @file Factory for creating typed ID3v2 frame instances from raw tag data, with version conversion support. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "./id3v2Frame.js";
 import { Id3v2Header } from "./id3v2Header.js";
@@ -19,6 +20,7 @@ import { OwnershipFrame } from "./frames/ownershipFrame.js";
 import { PodcastFrame } from "./frames/podcastFrame.js";
 import { UnknownFrame } from "./frames/unknownFrame.js";
 
+/** Mapping from ID3v2.2 three-character frame IDs to their ID3v2.4 four-character equivalents. */
 // ID3v2.2 (3-char) → ID3v2.4 (4-char) frame ID conversion table
 const frameConversion2to4 = new Map<string, string>([
   ["BUF", "RBUF"],
@@ -94,6 +96,7 @@ const frameConversion2to4 = new Map<string, string>([
   ["GP1", "GRP1"],
 ]);
 
+/** Mapping from ID3v2.3 four-character frame IDs to their ID3v2.4 equivalents. */
 // ID3v2.3 → ID3v2.4 conversion table
 const frameConversion3to4 = new Map<string, string>([
   ["TORY", "TDOR"],
@@ -105,8 +108,13 @@ const frameConversion3to4 = new Map<string, string>([
  * Factory that creates appropriate ID3v2 frame types from raw data.
  */
 export class Id3v2FrameFactory {
+  /** Singleton instance of the factory. */
   private static _instance: Id3v2FrameFactory | null = null;
 
+  /**
+   * Returns the singleton `Id3v2FrameFactory` instance, creating it on first access.
+   * @returns The shared factory instance.
+   */
   static get instance(): Id3v2FrameFactory {
     if (!Id3v2FrameFactory._instance) {
       Id3v2FrameFactory._instance = new Id3v2FrameFactory();
@@ -166,7 +174,7 @@ export class Id3v2FrameFactory {
     // Check for padding (frame ID is all zeros or invalid)
     const frameIdStr = frameHeader.frameId.toString(StringType.Latin1);
     if (frameIdStr === "\0\0\0\0" || frameIdStr === "\0\0\0" ||
-        frameIdStr.trim() === "") {
+      frameIdStr.trim() === "") {
       return { frame: null, size: 0 };
     }
 
@@ -189,7 +197,6 @@ export class Id3v2FrameFactory {
     const frameData = data.mid(offset, totalFrameSize);
     const frameId = frameHeader.frameId.toString(StringType.Latin1);
 
-    // eslint-disable-next-line no-useless-assignment
     let frame: Id3v2Frame | null = null;
 
     try {
@@ -201,6 +208,16 @@ export class Id3v2FrameFactory {
     return { frame, size: totalFrameSize };
   }
 
+  /**
+   * Instantiate the correct `Id3v2Frame` subclass for the given frame ID.
+   *
+   * @param frameId - The four-character (v2.4-normalised) frame ID string.
+   * @param frameData - The raw bytes covering the complete frame (header + payload).
+   * @param frameHeader - The already-parsed frame header.
+   * @param version - The ID3v2 major version the data was encoded with.
+   * @param _tagHeader - The enclosing tag header (reserved for future use).
+   * @returns The instantiated frame object.
+   */
   private _createFrameForId(
     frameId: string,
     frameData: ByteVector,
@@ -213,7 +230,7 @@ export class Id3v2FrameFactory {
 
     // Text identification frames (T*** except TXXX), plus Apple text frames
     if ((frameId.startsWith("T") && frameId !== "TXXX") ||
-        appleTextFrames.includes(frameId)) {
+      appleTextFrames.includes(frameId)) {
       return TextIdentificationFrame.fromData(frameData, frameHeader, version);
     }
 

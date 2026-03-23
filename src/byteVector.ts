@@ -1,3 +1,5 @@
+/** @file Binary data container used throughout taglib-ts for reading and writing byte sequences. */
+
 /**
  * String encoding types matching TagLib's String::Type enum.
  */
@@ -20,6 +22,12 @@ const textDecoderUtf8 = new TextDecoder("utf-8");
 export class ByteVector {
   private _data: Uint8Array;
 
+  /**
+   * Construct a ByteVector, optionally from an existing Uint8Array.
+   * @param data - Source bytes. If omitted, creates an empty vector.
+   * @param copy - When `true` (default) the data is copied; when `false` the
+   *   array is used directly (the caller must not mutate it afterwards).
+   */
   constructor(data?: Uint8Array, copy: boolean = true) {
     if (!data) {
       this._data = new Uint8Array(0);
@@ -32,6 +40,12 @@ export class ByteVector {
   // Static factory methods
   // ---------------------------------------------------------------------------
 
+  /**
+   * Create a ByteVector from a raw `Uint8Array`.
+   * @param data - Source byte array.
+   * @param copy - Whether to copy the data (default `true`).
+   * @returns A new ByteVector wrapping the given bytes.
+   */
   static fromByteArray(data: Uint8Array, copy: boolean = true): ByteVector {
     return new ByteVector(data, copy);
   }

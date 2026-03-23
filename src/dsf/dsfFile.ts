@@ -1,3 +1,4 @@
+/** @file DSF (DSD Stream File) format handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";
@@ -20,21 +21,41 @@ import { DsfProperties } from "./dsfProperties.js";
  * Only an ID3v2 tag is supported (no ID3v1, no APE).
  */
 export class DsfFile extends File {
+  /** The ID3v2 tag, or `null` if not yet loaded. */
   private _tag: Id3v2Tag | null = null;
+  /** Parsed audio properties from the "fmt " chunk. */
   private _properties: DsfProperties | null = null;
 
+  /** Total file size in bytes as recorded in the DSD chunk header. */
   private _fileSize: number = 0;
+  /** File offset of the ID3v2 metadata chunk, or 0 if absent. */
   private _metadataOffset: number = 0;
 
-  constructor(
+  /**
+   * Private constructor — use {@link DsfFile.open} to create instances.
+   * @param stream The underlying I/O stream.
+   */
+  private constructor(stream: IOStream) {
+    super(stream);
+  }
+
+  /**
+   * Opens a DSF file and parses its metadata.
+   * @param stream The I/O stream to read from.
+   * @param readProperties Whether to parse audio properties (default `true`).
+   * @param readStyle Accuracy / speed trade-off for property reading.
+   * @returns A fully initialised {@link DsfFile} instance.
+   */
+  static async open(
     stream: IOStream,
     readProperties: boolean = true,
     readStyle: ReadStyle = ReadStyle.Average,
-  ) {
-    super(stream);
-    if (this.isOpen) {
-      this.read(readProperties, readStyle);
+  ): Promise<DsfFile> {
+    const f = new DsfFile(stream);
+    if (f.isOpen) {
+      await f.read(readProperties, readStyle);
     }
+    return f;
   }
 
   // ---------------------------------------------------------------------------
@@ -42,9 +63,9 @@ export class DsfFile extends File {
   // ---------------------------------------------------------------------------
 
   /** Quick-check whether `stream` looks like a valid DSF file. */
-  static isSupported(stream: IOStream): boolean {
-    stream.seek(0);
-    const id = stream.readBlock(4);
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const id = await stream.readBlock(4);
     if (id.length < 4) return false;
 
     const dsd = ByteVector.fromString("DSD ", StringType.Latin1);
@@ -55,15 +76,27 @@ export class DsfFile extends File {
   // File interface
   // ---------------------------------------------------------------------------
 
+  /**
+   * Returns the ID3v2 tag for this file, or `null` if none exists.
+   * @returns The {@link Id3v2Tag} or `null`.
+   */
   tag(): Tag | null {
     return this._tag;
   }
 
+  /**
+   * Returns the parsed audio properties, or `null` if properties were not read.
+   * @returns The {@link DsfProperties} or `null`.
+   */
   audioProperties(): DsfProperties | null {
     return this._properties;
   }
 
-  save(): boolean {
+  /**
+   * Writes all pending tag changes back to the underlying stream.
+   * @returns `true` on success, `false` if the file is read-only or has no tag.
+   */
+  async save(): Promise<boolean> {
     if (this.readOnly) return false;
     if (!this._tag) return false;
 
@@ -74,7 +107,7 @@ export class DsfFile extends File {
 
       // Update file size in DSD chunk header
       if (this._fileSize !== newFileSize) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newFileSize), false),
           12,
           8,
@@ -84,12 +117,12 @@ export class DsfFile extends File {
 
       // Clear metadata offset (no tag)
       if (this._metadataOffset) {
-        this.insert(ByteVector.fromLongLong(0n, false), 20, 8);
+        await this.insert(ByteVector.fromLongLong(0n, false), 20, 8);
         this._metadataOffset = 0;
       }
 
       // Truncate file to remove old tag
-      this.truncate(newFileSize);
+      await this.truncate(newFileSize);
     } else {
       const tagData = this._tag.render();
 
@@ -101,7 +134,7 @@ export class DsfFile extends File {
 
       // Update file size
       if (this._fileSize !== newFileSize) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newFileSize), false),
           12,
           8,
@@ -111,7 +144,7 @@ export class DsfFile extends File {
 
       // Update metadata offset
       if (this._metadataOffset !== newMetadataOffset) {
-        this.insert(
+        await this.insert(
           ByteVector.fromLongLong(BigInt(newMetadataOffset), false),
           20,
           8,
@@ -120,7 +153,7 @@ export class DsfFile extends File {
       }
 
       // Write the tag
-      this.insert(tagData, newMetadataOffset, oldTagSize);
+      await this.insert(tagData, newMetadataOffset, oldTagSize);
     }
 
     return true;
@@ -130,44 +163,50 @@ export class DsfFile extends File {
   // Private – reading
   // ---------------------------------------------------------------------------
 
-  private read(readProperties: boolean, readStyle: ReadStyle): void {
+  /**
+   * Reads and validates the DSF chunk structure from the stream, then populates
+   * audio properties and the ID3v2 tag.
+   * @param readProperties Whether to parse the "fmt " chunk as audio properties.
+   * @param readStyle Accuracy / speed trade-off hint.
+   */
+  private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     // DSD chunk
-    this.seek(0);
-    const chunkName = this.readBlock(4);
+    await this.seek(0);
+    const chunkName = await this.readBlock(4);
     const dsd = ByteVector.fromString("DSD ", StringType.Latin1);
     if (!chunkName.startsWith(dsd)) {
       this._valid = false;
       return;
     }
 
-    const dsdHeaderSizeData = this.readBlock(8);
+    const dsdHeaderSizeData = await this.readBlock(8);
     const dsdHeaderSize = Number(dsdHeaderSizeData.toLongLong(false));
     if (dsdHeaderSize !== 28) {
       this._valid = false;
       return;
     }
 
-    this._fileSize = Number(this.readBlock(8).toLongLong(false));
-    if (this._fileSize > this.fileLength) {
+    this._fileSize = Number((await this.readBlock(8)).toLongLong(false));
+    if (this._fileSize > (await this.fileLength())) {
       this._valid = false;
       return;
     }
 
-    this._metadataOffset = Number(this.readBlock(8).toLongLong(false));
+    this._metadataOffset = Number((await this.readBlock(8)).toLongLong(false));
     if (this._metadataOffset > this._fileSize) {
       this._valid = false;
       return;
     }
 
     // fmt chunk
-    const fmtName = this.readBlock(4);
+    const fmtName = await this.readBlock(4);
     const fmt = ByteVector.fromString("fmt ", StringType.Latin1);
     if (!fmtName.startsWith(fmt)) {
       this._valid = false;
       return;
     }
 
-    const fmtHeaderSize = Number(this.readBlock(8).toLongLong(false));
+    const fmtHeaderSize = Number((await this.readBlock(8)).toLongLong(false));
     if (fmtHeaderSize !== 52) {
       this._valid = false;
       return;
@@ -181,7 +220,7 @@ export class DsfFile extends File {
     // which is right after "fmt " + 8-byte size. So the C++ reads 52 bytes as fmt payload.
     // However properties::read() only uses offsets 0-35 (36 bytes) from that data.
     if (readProperties) {
-      this._properties = new DsfProperties(this.readBlock(fmtHeaderSize), readStyle);
+      this._properties = new DsfProperties(await this.readBlock(fmtHeaderSize), readStyle);
     } else {
       this._properties = null;
     }
@@ -190,7 +229,7 @@ export class DsfFile extends File {
     if (this._metadataOffset === 0) {
       this._tag = new Id3v2Tag();
     } else {
-      this._tag = Id3v2Tag.readFrom(this._stream, this._metadataOffset);
+      this._tag = await Id3v2Tag.readFrom(this._stream, this._metadataOffset);
     }
   }
 }

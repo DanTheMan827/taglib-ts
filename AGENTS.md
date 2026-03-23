@@ -43,7 +43,7 @@ src/                    ← TypeScript source (one subdirectory per format famil
   formatDetection.ts    ← Extension/content-based format detection (no imports)
   simpleApi.ts          ← High-level readTags()/writeTags() API
   index.ts              ← Public API barrel exports
-tests/                  ← vitest test files
+src/tests/              ← vitest test files
   data/                 ← Binary test fixtures (audio files)
   testHelper.ts         ← Shared test utilities
   *.test.ts             ← Test suites

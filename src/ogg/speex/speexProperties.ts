@@ -1,8 +1,11 @@
+/** @file Audio properties for the Ogg Speex format, parsed from the Speex identification header (packet 0). */
+
 import { AudioProperties } from "../../audioProperties.js";
 import { ByteVector, StringType } from "../../byteVector.js";
 import { ReadStyle } from "../../toolkit/types.js";
 import type { OggFile } from "../oggFile.js";
 
+/** The 8-byte Speex identification header magic "Speex   " (with three trailing spaces). */
 const SPEEX_HEADER = ByteVector.fromString("Speex   ", StringType.Latin1);
 
 /**
@@ -16,32 +19,58 @@ const SPEEX_HEADER = ByteVector.fromString("Speex   ", StringType.Latin1);
  *   frameSize(4 LE) + vbr(4 LE) + framesPerPacket(4 LE)
  */
 export class SpeexProperties extends AudioProperties {
+  /** Stream duration in milliseconds, computed from first and last granule positions. */
   private _lengthInMs: number = 0;
+  /** Average bitrate in kilobits per second, or header bitrate as a fallback. */
   private _bitrate: number = 0;
+  /** Sample rate in Hz as declared in the Speex identification header. */
   private _sampleRate: number = 0;
+  /** Number of audio channels as declared in the Speex identification header. */
   private _channels: number = 0;
 
-  constructor(file: OggFile, readStyle: ReadStyle = ReadStyle.Average) {
+  /**
+   * Constructs a SpeexProperties instance with the given read style.
+   * @param readStyle - Level of detail for property parsing.
+   */
+  constructor(readStyle: ReadStyle = ReadStyle.Average) {
     super(readStyle);
-    this.read(file);
+  }
+
+  /**
+   * Asynchronously parse and return audio properties from the given Ogg Speex file.
+   * @param file - The {@link OggFile} to read properties from.
+   * @param readStyle - Level of detail for property parsing.
+   * @returns A populated {@link SpeexProperties} instance.
+   */
+  static async create(
+    file: OggFile,
+    readStyle: ReadStyle = ReadStyle.Average,
+  ): Promise<SpeexProperties> {
+    const props = new SpeexProperties(readStyle);
+    await props.read(file);
+    return props;
   }
 
   // ---------------------------------------------------------------------------
   // AudioProperties interface
   // ---------------------------------------------------------------------------
 
+  /** Stream duration in milliseconds, computed from first and last granule positions. */
   get lengthInMilliseconds(): number {
     return this._lengthInMs;
   }
 
+  /** Average bitrate in kilobits per second, or the header bitrate as a fallback. */
   override get bitrate(): number {
     return this._bitrate;
   }
 
+  /** Sample rate in Hz as declared in the Speex identification header. */
   override get sampleRate(): number {
     return this._sampleRate;
   }
 
+  /** Number of audio channels as declared in the Speex identification header. */
   get channels(): number {
     return this._channels;
   }
@@ -50,8 +79,12 @@ export class SpeexProperties extends AudioProperties {
   // Private
   // ---------------------------------------------------------------------------
 
-  private read(file: OggFile): void {
-    const data = file.packet(0);
+  /**
+   * Reads and populates audio properties from the Speex identification header (packet 0).
+   * @param file - The {@link OggFile} to read from.
+   */
+  private async read(file: OggFile): Promise<void> {
+    const data = await file.packet(0);
 
     // Minimum Speex header: 8 + 20 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4 = 68 bytes
     if (data.length < 68) {
@@ -72,8 +105,8 @@ export class SpeexProperties extends AudioProperties {
 
     // Compute duration from granule positions
     if (this._sampleRate > 0) {
-      const first = file.firstPageHeader();
-      const last = file.lastPageHeader();
+      const first = await file.firstPageHeader();
+      const last = await file.lastPageHeader();
 
       if (first && last) {
         const totalSamples = last.granulePosition - first.granulePosition;
@@ -82,7 +115,7 @@ export class SpeexProperties extends AudioProperties {
             Number(totalSamples) * 1000.0 / this._sampleRate;
           this._lengthInMs = Math.round(durationMs);
 
-          const streamLength = file.fileLength;
+          const streamLength = await file.fileLength();
           if (this._lengthInMs > 0) {
             this._bitrate = Math.round(
               (streamLength * 8.0) / durationMs,

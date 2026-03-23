@@ -1,3 +1,4 @@
+/** @file ID3v2 extended header parser (optional header section in ID3v2.3/2.4 tags). */
 import { ByteVector } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 
@@ -11,8 +12,10 @@ import { SynchData } from "./id3v2SynchData.js";
  * which also handles buggy software that writes normal big-endian integers.
  */
 export class Id3v2ExtendedHeader {
+  /** Total size of the extended header in bytes, as decoded from the stream. */
   private _size: number = 0;
 
+  /** Creates a new, empty extended header instance. */
   constructor() {}
 
   /**

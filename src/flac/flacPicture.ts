@@ -1,4 +1,54 @@
+/** @file FLAC picture metadata block — parsing and rendering. */
 import { ByteVector, StringType } from "../byteVector.js";
+
+/**
+ * FLAC picture type codes (matching FLAC__STREAM_METADATA_PICTURE_TYPE_*).
+ * @enum
+ */
+export enum FlacPictureType {
+  /** Other */
+  other = 0,
+  /** 32x32 pixels "file icon" (PNG only) */
+  fileIconStandard = 1,
+  /** General file icon */
+  fileIcon = 2,
+  /** Cover (front) */
+  frontCover = 3,
+  /** Cover (back) */
+  backCover = 4,
+  /** Leaflet page */
+  leafletPage = 5,
+  /** Media (e.g. label side of CD) */
+  media = 6,
+  /** Lead artist / lead performer / soloist */
+  leadArtist = 7,
+  /** Artist / performer */
+  artist = 8,
+  /** Conductor */
+  conductor = 9,
+  /** Band / Orchestra */
+  band = 10,
+  /** Composer */
+  composer = 11,
+  /** Lyricist / text writer */
+  lyricist = 12,
+  /** Recording location */
+  recordingLocation = 13,
+  /** During recording */
+  duringRecording = 14,
+  /** During performance */
+  duringPerformance = 15,
+  /** Movie / video screen capture */
+  videoScreenCapture = 16,
+  /** A bright coloured fish */
+  fish = 17,
+  /** Illustration */
+  illustration = 18,
+  /** Band / artist logotype */
+  bandLogotype = 19,
+  /** Publisher / studio logotype */
+  publisherLogotype = 20,
+}
 
 /**
  * FLAC picture metadata block. All integer fields are big-endian.
@@ -10,17 +60,27 @@ import { ByteVector, StringType } from "../byteVector.js";
  *   dataLength(4) + data
  */
 export class FlacPicture {
-  pictureType: number = 0;
+  /** Picture type code as defined by the ID3v2 APIC frame (e.g. 3 = cover art). */
+  pictureType: FlacPictureType = FlacPictureType.other;
+  /** MIME type string (e.g. `"image/jpeg"`). */
   mimeType: string = "";
+  /** UTF-8 description of the picture. */
   description: string = "";
+  /** Image width in pixels. */
   width: number = 0;
+  /** Image height in pixels. */
   height: number = 0;
+  /** Colour depth (bits per pixel). */
   colorDepth: number = 0;
+  /** Number of colours for indexed images, or 0 for non-indexed formats. */
   numColors: number = 0;
+  /** Raw binary image data. */
   data: ByteVector = new ByteVector();
 
   /**
    * Parse a FLAC picture block from raw bytes.
+   * @param data The raw picture block payload (big-endian integers).
+   * @returns A {@link FlacPicture} populated from the data, or a default instance if the data is too short.
    */
   static parse(data: ByteVector): FlacPicture {
     const pic = new FlacPicture();
@@ -69,6 +129,7 @@ export class FlacPicture {
 
   /**
    * Render the picture block back to bytes (big-endian).
+   * @returns A {@link ByteVector} containing the serialised picture block payload.
    */
   render(): ByteVector {
     const mimeBytes = ByteVector.fromString(this.mimeType, StringType.UTF8);
