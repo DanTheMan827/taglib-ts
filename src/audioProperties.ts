@@ -20,7 +20,7 @@ export abstract class AudioProperties {
 
   /** Duration rounded to the nearest second. */
   get lengthInSeconds(): number {
-    return Math.round(this.lengthInMilliseconds / 1000);
+    return Math.trunc(this.lengthInMilliseconds / 1000);
   }
 
   /** Exact duration in milliseconds. */

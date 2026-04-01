@@ -78,18 +78,21 @@ export class AiffFile extends RiffFile {
 
   /**
    * Writes all pending tag changes back to the underlying stream.
+   * Matches C++ behavior: always removes all existing ID3 chunks first,
+   * then re-appends a fresh `"ID3 "` chunk if the tag is non-empty.
    * @param version - Optional ID3v2 version to save as.
    * @returns `true` on success, `false` if the file is read-only.
    */
   async save(version?: number): Promise<boolean> {
     if (this.readOnly) return false;
 
+    // Remove all existing ID3 tag chunks (both case variants) before re-writing.
+    await this.removeChunk("ID3 ");
+    await this.removeChunk("id3 ");
+
     if (this._id3v2Tag && !this._id3v2Tag.isEmpty) {
       const rendered = this._id3v2Tag.render(version);
       await this.setChunkData("ID3 ", rendered);
-    } else {
-      await this.removeChunk("ID3 ");
-      await this.removeChunk("id3 ");
     }
 
     return true;
@@ -114,8 +117,8 @@ export class AiffFile extends RiffFile {
       if (name === "COMM" && readProperties) {
         commData = await this.chunkData(i);
       } else if (name === "SSND" && readProperties) {
-        streamLength = this.chunkDataSize(i);
-      } else if (name === "ID3 " || name === "id3 ") {
+        streamLength = this.chunkDataSize(i) + this.chunkPadding(i);
+      } else if ((name === "ID3 " || name === "id3 ") && !this._id3v2Tag) {
         this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,
           this.chunkOffset(i),

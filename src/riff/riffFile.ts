@@ -210,6 +210,33 @@ export abstract class RiffFile extends File {
     }
   }
 
+  /**
+   * Remove ALL chunks matching `name` from both the file and the in-memory chunk list.
+   * Matches C++ `RIFF::File::removeChunk(const ByteVector &name)` which removes all occurrences.
+   * @param name - Four-character chunk identifier to remove.
+   */
+  async removeAllChunks(name: string): Promise<void> {
+    if (this.readOnly) return;
+
+    // Iterate in reverse so that removing a chunk doesn't shift the indices of chunks still to process.
+    for (let i = this._chunks.length - 1; i >= 0; i--) {
+      if (this._chunks[i].name === name) {
+        const totalRemove = 8 + this._chunks[i].size + this._chunks[i].padding;
+        const chunkHeaderOffset = this._chunks[i].offset - 8;
+
+        await this.removeBlock(chunkHeaderOffset, totalRemove);
+
+        // Shift subsequent chunk offsets (those that were after this chunk in file)
+        for (let j = i + 1; j < this._chunks.length; j++) {
+          this._chunks[j].offset -= totalRemove;
+        }
+
+        this._chunks.splice(i, 1);
+        await this.updateFileSize();
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Internal parsing
   // ---------------------------------------------------------------------------

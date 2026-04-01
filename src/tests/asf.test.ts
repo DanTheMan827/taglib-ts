@@ -24,9 +24,9 @@ describe("ASF", () => {
     const f = await openAsfFile("silence-1.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
-    expect(props!.lengthInSeconds).toBe(4);
-    expect(props!.lengthInMilliseconds).toBe(3713);
-    expect(props!.bitrate).toBe(65);
+    expect(props!.lengthInSeconds).toBe(3);
+    expect(props!.lengthInMilliseconds).toBe(3712);
+    expect(props!.bitrate).toBe(64);
     expect(props!.channels).toBe(2);
     expect(props!.sampleRate).toBe(48000);
     expect(props!.bitsPerSample).toBe(16);
@@ -39,9 +39,9 @@ describe("ASF", () => {
     const f = await openAsfFile("lossless.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
-    expect(props!.lengthInSeconds).toBe(4);
-    expect(props!.lengthInMilliseconds).toBe(3550);
-    expect(props!.bitrate).toBe(1153);
+    expect(props!.lengthInSeconds).toBe(3);
+    expect(props!.lengthInMilliseconds).toBe(3549);
+    expect(props!.bitrate).toBe(1152);
     expect(props!.channels).toBe(2);
     expect(props!.sampleRate).toBe(44100);
     expect(props!.bitsPerSample).toBe(16);
