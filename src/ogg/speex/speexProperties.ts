@@ -115,7 +115,13 @@ export class SpeexProperties extends AudioProperties {
             Number(totalSamples) * 1000.0 / this._sampleRate;
           this._lengthInMs = Math.round(durationMs);
 
-          const streamLength = await file.fileLength();
+          // Compute average bitrate, excluding the two Speex header packets
+          // (identification, comment).
+          // See https://www.speex.org/docs/manual/speex-manual/node8.html
+          const p0 = await file.packet(0);
+          const p1 = await file.packet(1);
+          const streamLength =
+            (await file.fileLength()) - p0.length - p1.length;
           if (this._lengthInMs > 0) {
             this._bitrate = Math.round(
               (streamLength * 8.0) / durationMs,

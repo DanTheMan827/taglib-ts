@@ -27,6 +27,23 @@ describe("OGG Vorbis", () => {
     }
   });
 
+  it("should report correct audio properties for test.ogg", async () => {
+    const stream = openTestStream("test.ogg");
+    const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    if (props) {
+      // Values verified against C++ TagLib and mediainfo:
+      // The file has 162496 samples at 44100 Hz ≈ 3685 ms.
+      // Bitrate excludes the three Vorbis header packets per the spec.
+      expect(props.sampleRate).toBe(44100);
+      expect(props.channels).toBe(2);
+      expect(props.lengthInMilliseconds).toBe(3685);
+      expect(props.bitrate).toBe(1);
+    }
+  });
+
   it("should read lowercase fields ogg", async () => {
     const stream = openTestStream("lowercase-fields.ogg");
     const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
@@ -75,6 +92,23 @@ describe("OGG Opus", () => {
       expect(props.channels).toBeGreaterThan(0);
     }
   });
+
+  it("should report correct audio properties for correctness_gain_silent_output.opus", async () => {
+    const stream = openTestStream("correctness_gain_silent_output.opus");
+    const f = await OggOpusFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    if (props) {
+      // Values verified against C++ TagLib and mediainfo:
+      // 371369 playable samples (371489 granules − 120 preSkip) at 48000 Hz ≈ 7737 ms.
+      // Bitrate excludes the two mandatory Opus header packets per RFC 7845.
+      expect(props.sampleRate).toBe(48000);
+      expect(props.channels).toBe(1);
+      expect(props.lengthInMilliseconds).toBe(7737);
+      expect(props.bitrate).toBe(36);
+    }
+  });
 });
 
 describe("OGG Speex", () => {
@@ -84,5 +118,22 @@ describe("OGG Speex", () => {
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
+  });
+
+  it("should report correct audio properties for empty.spx", async () => {
+    const stream = openTestStream("empty.spx");
+    const f = await OggSpeexFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    if (props) {
+      // Values verified against C++ TagLib:
+      // 162496 samples at 44100 Hz ≈ 3685 ms.
+      // Bitrate excludes the two Speex header packets per the Speex spec.
+      expect(props.sampleRate).toBe(44100);
+      expect(props.channels).toBe(2);
+      expect(props.lengthInMilliseconds).toBe(3685);
+      expect(props.bitrate).toBe(53);
+    }
   });
 });

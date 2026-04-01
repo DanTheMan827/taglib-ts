@@ -112,7 +112,10 @@ export class OpusProperties extends AudioProperties {
 
     this._opusVersion = data.get(8);
     this._channels = data.get(9);
-    // preSkip at offset 10 (2 bytes LE) — used for duration calculation
+    // preSkip at offset 10 (2 bytes LE) — must be subtracted from the last
+    // page's granule position to get the true playable sample count.
+    // See https://tools.ietf.org/html/rfc7845 §4.1
+    const preSkip = data.toUShort(10, false);
     this._inputSampleRate = data.toUInt(12, false);
 
     // Compute duration from granule positions (Opus uses 48 kHz granule clock)
@@ -120,12 +123,23 @@ export class OpusProperties extends AudioProperties {
     const last = await file.lastPageHeader();
 
     if (first && last) {
-      const totalSamples = last.granulePosition - first.granulePosition;
+      // Subtract preSkip from the granule count: the last page's granule
+      // position includes codec warm-up samples that are not played back.
+      // If preSkip is somehow larger than the total granules the result is
+      // negative; the `> 0n` guard handles that case safely.
+      const totalSamples =
+        last.granulePosition - first.granulePosition - BigInt(preSkip);
       if (totalSamples > 0n) {
         const durationMs = Number(totalSamples) * 1000.0 / 48000;
         this._lengthInMs = Math.round(durationMs);
 
-        const streamLength = await file.fileLength();
+        // Compute average bitrate, excluding the two mandatory Opus header
+        // packets (OpusHead, OpusTags).
+        // See https://tools.ietf.org/html/rfc7845 §3 "Packet Organization"
+        const p0 = await file.packet(0);
+        const p1 = await file.packet(1);
+        const streamLength =
+          (await file.fileLength()) - p0.length - p1.length;
         if (this._lengthInMs > 0) {
           this._bitrate = Math.round(
             (streamLength * 8.0) / durationMs,

@@ -108,6 +108,24 @@ describe("AIFF", () => {
     }
   });
 
+  it("should report correct audio properties for empty.aiff", async () => {
+    const stream = openTestStream("empty.aiff");
+    const f = await AiffFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    if (props) {
+      // Values verified against C++ TagLib:
+      // 2941 sample frames at 44100 Hz, SSND data 5882 bytes (with padding).
+      // Exact (unrounded) duration used for bitrate to match C++ reference.
+      expect(props.sampleRate).toBe(44100);
+      expect(props.channels).toBe(1);
+      expect(props.bitsPerSample).toBe(16);
+      expect(props.lengthInMilliseconds).toBe(67);
+      expect(props.bitrate).toBe(706);
+    }
+  });
+
   it("should read noise aif file", async () => {
     const stream = openTestStream("noise.aif");
     const f = await AiffFile.open(stream, true, ReadStyle.Average);

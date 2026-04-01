@@ -113,7 +113,7 @@ export class AiffFile extends RiffFile {
       if (name === "COMM" && readProperties) {
         commData = await this.chunkData(i);
       } else if (name === "SSND" && readProperties) {
-        streamLength = this.chunkDataSize(i);
+        streamLength = this.chunkDataSize(i) + this.chunkPadding(i);
       } else if (name === "ID3 " || name === "id3 ") {
         this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,

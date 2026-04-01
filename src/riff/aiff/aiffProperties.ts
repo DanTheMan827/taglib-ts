@@ -83,13 +83,13 @@ export class AiffProperties extends AudioProperties {
 
   /**
    * Average bitrate of the stream in kilobits per second.
-   * @returns Bitrate in kbps, or `0` if duration is zero.
+   * Uses the exact (unrounded) duration to match the C++ TagLib reference.
+   * @returns Bitrate in kbps, or `0` if sample rate or frame count is zero.
    */
   override get bitrate(): number {
-    if (this.lengthInMilliseconds > 0) {
-      return Math.round(
-        (this._streamLength * 8) / this.lengthInMilliseconds,
-      );
+    if (this._sampleRate > 0 && this._sampleFrames > 0) {
+      const durationMs = (this._sampleFrames * 1000.0) / this._sampleRate;
+      return Math.round((this._streamLength * 8) / durationMs);
     }
     return 0;
   }

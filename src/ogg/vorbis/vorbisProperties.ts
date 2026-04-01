@@ -151,8 +151,14 @@ export class VorbisProperties extends AudioProperties {
             Number(totalSamples) * 1000.0 / this._sampleRate;
           this._lengthInMs = Math.round(durationMs);
 
-          // Compute average bitrate from stream length
-          const streamLength = await file.fileLength();
+          // Compute average bitrate from stream length, excluding the three
+          // Vorbis header packets (identification, comment, setup).
+          // See https://xiph.org/vorbis/doc/Vorbis_I_spec.html §1.3.1
+          const p0 = await file.packet(0);
+          const p1 = await file.packet(1);
+          const p2 = await file.packet(2);
+          const streamLength =
+            (await file.fileLength()) - p0.length - p1.length - p2.length;
           if (this._lengthInMs > 0) {
             this._bitrate = Math.round(
               (streamLength * 8.0) / durationMs,
