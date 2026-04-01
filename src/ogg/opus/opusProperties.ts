@@ -28,6 +28,8 @@ export class OpusProperties extends AudioProperties {
   private _opusVersion: number = 0;
   /** Original input sample rate before Opus encoding, in Hz. */
   private _inputSampleRate: number = 0;
+  /** Output gain in signed Q7.8 fixed-point format (divide by 256.0 to get dB). */
+  private _outputGain: number = 0;
 
   /**
    * Constructs an OpusProperties instance with the given read style.
@@ -90,6 +92,14 @@ export class OpusProperties extends AudioProperties {
     return this._inputSampleRate;
   }
 
+  /**
+   * Output gain in signed Q7.8 fixed-point format.
+   * Divide by 256.0 to convert to dB.
+   */
+  get outputGain(): number {
+    return this._outputGain;
+  }
+
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
@@ -114,6 +124,8 @@ export class OpusProperties extends AudioProperties {
     this._channels = data.get(9);
     // preSkip at offset 10 (2 bytes LE) — used for duration calculation
     this._inputSampleRate = data.toUInt(12, false);
+    // outputGain at offset 16 (2 bytes signed LE)
+    this._outputGain = data.toShort(16, false);
 
     // Compute duration from granule positions (Opus uses 48 kHz granule clock)
     const first = await file.firstPageHeader();
