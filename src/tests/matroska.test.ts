@@ -21,7 +21,7 @@ async function openMatroskaFile(
 describe("Matroska", () => {
   describe("Properties", () => {
     it("should read MKA properties", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testPropertiesMka
       const f = await openMatroskaFile("no-tags.mka");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -38,7 +38,7 @@ describe("Matroska", () => {
     });
 
     it("should read MKV properties", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testPropertiesMkv
       const f = await openMatroskaFile("tags-before-cues.mkv");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -55,7 +55,7 @@ describe("Matroska", () => {
     });
 
     it("should read WebM properties", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testPropertiesWebm
       const f = await openMatroskaFile("no-tags.webm");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -72,7 +72,7 @@ describe("Matroska", () => {
     });
 
     it("should not read properties when readProperties=false", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testPropertiesWebm
       const f = await openMatroskaFile("no-tags.webm", false);
       expect(f.isValid).toBe(true);
       expect(f.audioProperties()).toBeNull();
@@ -99,7 +99,7 @@ describe("Matroska", () => {
     });
 
     it("should support PropertyMap interface", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testPropertyInterface
       const f = await openMatroskaFile("tags-before-cues.mkv");
       // The file should be readable and produce a PropertyMap
       const props = f.properties();
@@ -109,7 +109,7 @@ describe("Matroska", () => {
 
   describe("Save and re-read", () => {
     it("should save and re-read tags for MKA (no existing tags)", async () => {
-      // TypeScript-only test
+      // C++: test_matroska.cpp – TestMatroska::testSimpleTagsAndAttachments
       const f = await openMatroskaFile("no-tags.mka");
       expect(f.isValid).toBe(true);
 

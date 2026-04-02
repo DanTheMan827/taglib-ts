@@ -12,7 +12,7 @@ async function openMpcFile(filename: string, readProperties = true, readStyle = 
 describe("MPC", () => {
   describe("properties", () => {
     it("should read SV8 properties", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testPropertiesSV8
       const f = await openMpcFile("sv8_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -28,7 +28,7 @@ describe("MPC", () => {
     });
 
     it("should read SV7 properties", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testPropertiesSV7
       const f = await openMpcFile("click.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -48,7 +48,7 @@ describe("MPC", () => {
     });
 
     it("should read SV5 properties", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testPropertiesSV5
       const f = await openMpcFile("sv5_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -64,7 +64,7 @@ describe("MPC", () => {
     });
 
     it("should read SV4 properties", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testPropertiesSV4
       const f = await openMpcFile("sv4_header.mpc");
       expect(f.isValid).toBe(true);
       const props = f.audioProperties();
@@ -82,25 +82,25 @@ describe("MPC", () => {
 
   describe("fuzzed files", () => {
     it("should handle zerodiv.mpc without crashing", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testFuzzedFile1
       const f = await openMpcFile("zerodiv.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle infloop.mpc without crashing", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testFuzzedFile2
       const f = await openMpcFile("infloop.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle segfault.mpc without crashing", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testFuzzedFile3
       const f = await openMpcFile("segfault.mpc");
       expect(f.isValid).toBe(true);
     });
 
     it("should handle segfault2.mpc without crashing", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testFuzzedFile4
       const f = await openMpcFile("segfault2.mpc");
       expect(f.isValid).toBe(true);
     });
@@ -108,7 +108,7 @@ describe("MPC", () => {
 
   describe("strip and properties", () => {
     it("should strip tags in-memory and reflect in properties", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testStripAndProperties
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
       const f = await MpcFile.open(stream, true, ReadStyle.Average);
@@ -137,7 +137,7 @@ describe("MPC", () => {
     });
 
     it("should persist tag removal after save", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testStripAndProperties
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
@@ -171,7 +171,7 @@ describe("MPC", () => {
 
   describe("repeated save", () => {
     it("should handle multiple saves correctly", async () => {
-      // TypeScript-only test
+      // C++: test_mpc.cpp – TestMPC::testRepeatedSave
       const data = readTestDataBV("click.mpc");
       const stream = new ByteVectorStream(data);
 
