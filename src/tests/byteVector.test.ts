@@ -4,7 +4,7 @@ import { ByteVector, StringType } from "../byteVector.js";
 describe("ByteVector", () => {
   describe("constructors and factories", () => {
     it("should create empty ByteVector", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testByteVector
       const bv = new ByteVector();
       expect(bv.length).toBe(0);
       expect(bv.isEmpty).toBe(true);
@@ -104,21 +104,21 @@ describe("ByteVector", () => {
 
   describe("search", () => {
     it("should find pattern", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFind1
       const bv = ByteVector.fromString("abcdef", StringType.Latin1);
       const pattern = ByteVector.fromString("cd", StringType.Latin1);
       expect(bv.find(pattern)).toBe(2);
     });
 
     it("should find with offset", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFind1
       const bv = ByteVector.fromString("abcabc", StringType.Latin1);
       const pattern = ByteVector.fromString("bc", StringType.Latin1);
       expect(bv.find(pattern, 2)).toBe(4);
     });
 
     it("should return -1 for not found", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFind1
       const bv = ByteVector.fromString("abcdef", StringType.Latin1);
       const pattern = ByteVector.fromString("xyz", StringType.Latin1);
       expect(bv.find(pattern)).toBe(-1);
@@ -132,14 +132,14 @@ describe("ByteVector", () => {
     });
 
     it("should rfind pattern", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testRfind2
       const bv = ByteVector.fromString("abcabc", StringType.Latin1);
       const pattern = ByteVector.fromString("bc", StringType.Latin1);
       expect(bv.rfind(pattern)).toBe(4);
     });
 
     it("should containsAt correctly", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testByteVector
       const bv = ByteVector.fromString("abcdef", StringType.Latin1);
       const pattern = ByteVector.fromString("cd", StringType.Latin1);
       expect(bv.containsAt(pattern, 2)).toBe(true);
@@ -163,7 +163,7 @@ describe("ByteVector", () => {
 
   describe("manipulation", () => {
     it("should append ByteVector", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testAppend1
       const bv1 = ByteVector.fromString("abc", StringType.Latin1);
       const bv2 = ByteVector.fromString("def", StringType.Latin1);
       bv1.append(bv2);
@@ -172,7 +172,7 @@ describe("ByteVector", () => {
     });
 
     it("should append single byte", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testAppend1
       const bv = ByteVector.fromString("abc", StringType.Latin1);
       bv.append(0x64); // 'd'
       expect(bv.length).toBe(4);
@@ -180,7 +180,7 @@ describe("ByteVector", () => {
     });
 
     it("should clear", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testByteVector
       const bv = ByteVector.fromString("abcdef", StringType.Latin1);
       bv.clear();
       expect(bv.length).toBe(0);
@@ -188,7 +188,7 @@ describe("ByteVector", () => {
     });
 
     it("should resize larger", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testResize
       const bv = ByteVector.fromString("abc", StringType.Latin1);
       bv.resize(5, 0);
       expect(bv.length).toBe(5);
@@ -198,7 +198,7 @@ describe("ByteVector", () => {
     });
 
     it("should resize smaller", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testResize
       const bv = ByteVector.fromString("abcdef", StringType.Latin1);
       bv.resize(3);
       expect(bv.length).toBe(3);
@@ -208,7 +208,7 @@ describe("ByteVector", () => {
 
   describe("integer conversions", () => {
     it("should convert to/from UInt big-endian", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const bv = ByteVector.fromUInt(0x01020304, true);
       expect(bv.length).toBe(4);
       expect(bv.get(0)).toBe(0x01);
@@ -219,7 +219,7 @@ describe("ByteVector", () => {
     });
 
     it("should convert to/from UInt little-endian", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const bv = ByteVector.fromUInt(0x01020304, false);
       expect(bv.get(0)).toBe(0x04);
       expect(bv.get(1)).toBe(0x03);
@@ -229,14 +229,14 @@ describe("ByteVector", () => {
     });
 
     it("should convert to/from Short", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const bv = ByteVector.fromShort(-1, true);
       expect(bv.length).toBe(2);
       expect(bv.toShort(true)).toBe(-1);
     });
 
     it("should convert to/from UShort", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const bv = ByteVector.fromUShort(0x0102, true);
       expect(bv.length).toBe(2);
       expect(bv.get(0)).toBe(0x01);
@@ -245,14 +245,14 @@ describe("ByteVector", () => {
     });
 
     it("should convert to/from LongLong", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const bv = ByteVector.fromLongLong(-1n, true);
       expect(bv.length).toBe(8);
       expect(bv.toLongLong(true)).toBe(-1n);
     });
 
     it("should convert to/from ULongLong", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testIntegerConversion
       const val = 0x0102030405060708n;
       const bv = ByteVector.fromULongLong(val, true);
       expect(bv.length).toBe(8);
@@ -268,28 +268,28 @@ describe("ByteVector", () => {
 
   describe("float conversions", () => {
     it("should convert Float32BE round-trip", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFloatingPointConversion
       const bv = ByteVector.fromFloat32BE(1.5);
       expect(bv.length).toBe(4);
       expect(bv.toFloat32BE(0)).toBeCloseTo(1.5, 5);
     });
 
     it("should convert Float32LE round-trip", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFloatingPointConversion
       const bv = ByteVector.fromFloat32LE(2.5);
       expect(bv.length).toBe(4);
       expect(bv.toFloat32LE(0)).toBeCloseTo(2.5, 5);
     });
 
     it("should convert Float64BE round-trip", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFloatingPointConversion
       const bv = ByteVector.fromFloat64BE(3.14159);
       expect(bv.length).toBe(8);
       expect(bv.toFloat64BE(0)).toBeCloseTo(3.14159, 10);
     });
 
     it("should convert Float64LE round-trip", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testFloatingPointConversion
       const bv = ByteVector.fromFloat64LE(2.71828);
       expect(bv.length).toBe(8);
       expect(bv.toFloat64LE(0)).toBeCloseTo(2.71828, 10);
@@ -298,14 +298,14 @@ describe("ByteVector", () => {
 
   describe("hex and base64", () => {
     it("should convert to hex", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testToHex
       const bv = ByteVector.fromByteArray(new Uint8Array([0xAB, 0xCD, 0xEF]));
       const hex = bv.toHex();
       expect(hex.toString(StringType.Latin1)).toBe("abcdef");
     });
 
     it("should round-trip base64", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testBase64
       const original = ByteVector.fromString("Hello, World!", StringType.Latin1);
       const encoded = original.toBase64();
       const decoded = ByteVector.fromBase64(encoded);
@@ -376,7 +376,7 @@ describe("ByteVector", () => {
 
   describe("replace", () => {
     it("should replace single byte", () => {
-      // TypeScript-only test
+      // C++: test_bytevector.cpp – TestByteVector::testReplace
       const bv = ByteVector.fromString("abcabc", StringType.Latin1);
       bv.replace(0x61, 0x78); // 'a' -> 'x'
       expect(bv.toString(StringType.Latin1)).toBe("xbcxbc");

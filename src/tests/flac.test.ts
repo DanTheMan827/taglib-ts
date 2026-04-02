@@ -31,7 +31,7 @@ describe("FLAC", () => {
   });
 
   it("should read sinewave file audio properties", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testAudioProperties
     const f = await openFlacFile("sinewave.flac");
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
@@ -48,37 +48,37 @@ describe("FLAC", () => {
   });
 
   it("should read no-tags file", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testSignature
     const f = await openFlacFile("no-tags.flac");
     expect(f.isValid).toBe(true);
   });
 
   it("should read empty-seektable file", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testEmptySeekTable
     const f = await openFlacFile("empty-seektable.flac");
     expect(f.isValid).toBe(true);
   });
 
   it("should read zero-sized-padding file", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testZeroSizedPadding1
     const f = await openFlacFile("zero-sized-padding.flac");
     expect(f.isValid).toBe(true);
   });
 
   it("should read multiple-vc file", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testMultipleCommentBlocks
     const f = await openFlacFile("multiple-vc.flac");
     expect(f.isValid).toBe(true);
   });
 
   it("should read Xiph Comment", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testDict
     const f = await openFlacFile("silence-44-s.flac");
     expect(f.xiphComment).not.toBeNull();
   });
 
   it("should access pictures", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testReadPicture
     const f = await openFlacFile("silence-44-s.flac");
     // Silence file may or may not have pictures, but API should work
     const pics = f.pictureList;
@@ -86,7 +86,7 @@ describe("FLAC", () => {
   });
 
   it("should save and re-read", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testRepeatedSave1
     const data = readTestData("silence-44-s.flac");
     const stream = new ByteVectorStream(data);
     const f = await FlacFile.open(stream, true, ReadStyle.Average);
@@ -107,7 +107,7 @@ describe("FLAC", () => {
   });
 
   it("should save and re-read artwork via complexProperties", async () => {
-    // TypeScript-only test
+    // C++: test_flac.cpp – TestFLAC::testAddPicture
     const data = readTestData("silence-44-s.flac");
     const stream = new ByteVectorStream(data);
     const f = await FlacFile.open(stream, true, ReadStyle.Average);

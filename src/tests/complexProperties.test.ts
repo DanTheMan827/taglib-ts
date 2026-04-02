@@ -19,7 +19,7 @@ describe("Complex Properties", () => {
   });
 
   it("should read M4A picture", async () => {
-    // TypeScript-only test
+    // C++: test_complexproperties.cpp – TestComplexProperties::testReadM4aPicture
     const data = readTestData("has-tags.m4a");
     const ref = await FileRef.fromByteArray(new Uint8Array(data), "test.m4a");
     expect(ref.isNull).toBe(false);
@@ -40,7 +40,7 @@ describe("Complex Properties", () => {
   });
 
   it("should handle non-existent complex property", async () => {
-    // TypeScript-only test
+    // C++: test_complexproperties.cpp – TestComplexProperties::testNonExistent
     const data = readTestData("xing.mp3");
     const ref = await FileRef.fromByteArray(new Uint8Array(data), "test.mp3");
     expect(ref.isNull).toBe(false);
