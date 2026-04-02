@@ -158,6 +158,25 @@ These rules are **mandatory** and must never be violated:
      acceptable when write support has not yet been implemented; the format
      must eventually be made writable and byte-equal.
 
+10. **Every ported `it(...)` block must cite its C++ source.** The first line
+    inside each `it(...)` callback must be a comment of the form:
+    ```ts
+    // C++: test_<format>.cpp – <TestClassName>::<testMethodName>
+    ```
+    For example:
+    ```ts
+    it("testAudioProperties", async () => {
+      // C++: test_flac.cpp – TestFLAC::testAudioProperties
+      ...
+    });
+    ```
+    This makes it trivial to cross-reference the TypeScript test with its C++
+    counterpart and verify that asserted values are correct.  Tests that have
+    no C++ counterpart (TypeScript-only tests) must instead begin with:
+    ```ts
+    // TypeScript-only test
+    ```
+
 ### Adding a New Format
 
 1. Create `src/<format>/` directory with at minimum:

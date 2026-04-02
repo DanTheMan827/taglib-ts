@@ -14,6 +14,17 @@ import { DsdiffDiinTag } from "./dsdiffDiinTag.js";
 // =============================================================================
 
 /**
+ * Identifies which tag types to strip from a DSDIFF file.
+ * Values are bitflags that can be combined with `|`.
+ */
+export enum DsdiffTagType {
+  /** The ID3v2 chunk. */
+  ID3v2 = 1,
+  /** The DIIN sub-chunks (title + artist). */
+  DIIN = 2,
+}
+
+/**
  * Describes a single chunk in a DSDIFF file using 64-bit sizes.
  * Offsets and sizes are in bytes relative to the start of the file.
  */
@@ -146,24 +157,26 @@ export class DsdiffFile extends File {
 
   /**
    * Writes all pending tag changes back to the underlying stream.
+   * @param version ID3v2 version to use when rendering the ID3v2 tag (3 or 4, default 4).
    * @returns `true` on success, `false` if the file is read-only.
    */
-  async save(): Promise<boolean> {
+  async save(version: number = 4): Promise<boolean> {
     if (this.readOnly) return false;
 
     // Save ID3v2 tag
     if (this._id3v2Tag) {
       if (!this._id3v2Tag.isEmpty) {
+        const rendered = this._id3v2Tag.render(version);
         if (this._isID3InPropChunk) {
           await this.setChildChunkData(
             this._id3v2TagChunkID,
-            this._id3v2Tag.render(),
+            rendered,
             ChildChunkKind.PROP,
           );
         } else {
           await this.setRootChunkData(
             this._id3v2TagChunkID,
-            this._id3v2Tag.render(),
+            rendered,
           );
         }
         this._hasID3v2 = true;
@@ -211,6 +224,34 @@ export class DsdiffFile extends File {
     }
 
     return true;
+  }
+
+  /**
+   * Removes the specified tag types from the file.
+   *
+   * Passing {@link DsdiffTagType.ID3v2} removes the ID3v2 chunk, passing
+   * {@link DsdiffTagType.DIIN} removes the DIIN sub-chunks, and passing both
+   * (or omitting the argument) removes all tags.
+   *
+   * @param tags Bitmask of tag types to remove (default: all tags).
+   */
+  async strip(tags: DsdiffTagType = DsdiffTagType.ID3v2 | DsdiffTagType.DIIN): Promise<void> {
+    if (tags & DsdiffTagType.ID3v2) {
+      if (this._isID3InPropChunk) {
+        await this.setChildChunkData(this._id3v2TagChunkID, new ByteVector(), ChildChunkKind.PROP);
+      } else {
+        await this.setRootChunkData(this._id3v2TagChunkID, new ByteVector());
+      }
+      this._id3v2Tag = null;
+      this._hasID3v2 = false;
+    }
+    if (tags & DsdiffTagType.DIIN) {
+      await this.setChildChunkData("DITI", new ByteVector(), ChildChunkKind.DIIN);
+      await this.setChildChunkData("DIAR", new ByteVector(), ChildChunkKind.DIIN);
+      this._diinTag = null;
+      this._hasDiin = false;
+    }
+    this.refreshCombinedTag();
   }
 
   // ---------------------------------------------------------------------------
