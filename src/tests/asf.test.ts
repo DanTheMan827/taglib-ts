@@ -21,12 +21,13 @@ async function openAsfFileCopy(name: string): Promise<{ file: AsfFile; stream: B
 
 describe("ASF", () => {
   it("should read audio properties", async () => {
+    // C++: test_asf.cpp – TestASF::testAudioProperties
     const f = await openAsfFile("silence-1.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
-    expect(props!.lengthInSeconds).toBe(4);
-    expect(props!.lengthInMilliseconds).toBe(3713);
-    expect(props!.bitrate).toBe(65);
+    expect(props!.lengthInSeconds).toBe(3);
+    expect(props!.lengthInMilliseconds).toBe(3712);
+    expect(props!.bitrate).toBe(64);
     expect(props!.channels).toBe(2);
     expect(props!.sampleRate).toBe(48000);
     expect(props!.bitsPerSample).toBe(16);
@@ -36,12 +37,13 @@ describe("ASF", () => {
   });
 
   it("should read lossless properties", async () => {
+    // C++: test_asf.cpp – TestASF::testLosslessProperties
     const f = await openAsfFile("lossless.wma");
     const props = f.audioProperties();
     expect(props).not.toBeNull();
-    expect(props!.lengthInSeconds).toBe(4);
-    expect(props!.lengthInMilliseconds).toBe(3550);
-    expect(props!.bitrate).toBe(1153);
+    expect(props!.lengthInSeconds).toBe(3);
+    expect(props!.lengthInMilliseconds).toBe(3549);
+    expect(props!.bitrate).toBe(1152);
     expect(props!.channels).toBe(2);
     expect(props!.sampleRate).toBe(44100);
     expect(props!.bitsPerSample).toBe(16);
@@ -51,11 +53,13 @@ describe("ASF", () => {
   });
 
   it("should read tags", async () => {
+    // C++: test_asf.cpp – TestASF::testRead
     const f = await openAsfFile("silence-1.wma");
     expect(f.tag()!.title).toBe("test");
   });
 
   it("should save multiple values", async () => {
+    // C++: test_asf.cpp – TestASF::testSaveMultipleValues
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const values = [
       AsfAttribute.fromString("Foo"),
@@ -70,6 +74,7 @@ describe("ASF", () => {
   });
 
   it("should save stream", async () => {
+    // C++: test_asf.cpp – TestASF::testSaveStream
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const attr = AsfAttribute.fromString("Foo");
     attr.stream = 43;
@@ -82,6 +87,7 @@ describe("ASF", () => {
   });
 
   it("should save language", async () => {
+    // C++: test_asf.cpp – TestASF::testSaveLanguage
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const attr = AsfAttribute.fromString("Foo");
     attr.stream = 32;
@@ -96,6 +102,7 @@ describe("ASF", () => {
   });
 
   it("should handle DWord track number", async () => {
+    // C++: test_asf.cpp – TestASF::testDWordTrackNumber
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     expect(f.tag()!.contains("WM/TrackNumber")).toBe(false);
     f.tag()!.setAttribute("WM/TrackNumber", AsfAttribute.fromUInt(123));
@@ -117,6 +124,7 @@ describe("ASF", () => {
   });
 
   it("should save large value", async () => {
+    // C++: test_asf.cpp – TestASF::testSaveLargeValue
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const bigData = ByteVector.fromSize(70000, 0x78); // 'x'
     const attr = AsfAttribute.fromByteVector(bigData);
@@ -132,6 +140,7 @@ describe("ASF", () => {
   });
 
   it("should save picture", async () => {
+    // C++: test_asf.cpp – TestASF::testSavePicture
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const picture = AsfPicture.create();
     picture.mimeType = "image/jpeg";
@@ -154,6 +163,7 @@ describe("ASF", () => {
   });
 
   it("should save multiple pictures", async () => {
+    // C++: test_asf.cpp – TestASF::testSaveMultiplePictures
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     const picture = AsfPicture.create();
     picture.mimeType = "image/jpeg";
@@ -198,6 +208,7 @@ describe("ASF", () => {
   });
 
   it("should handle properties", async () => {
+    // C++: test_asf.cpp – TestASF::testProperties
     const { file: f } = await openAsfFileCopy("silence-1.wma");
 
     const tags = f.properties();
@@ -229,6 +240,7 @@ describe("ASF", () => {
   });
 
   it("should handle repeated save", async () => {
+    // C++: test_asf.cpp – TestASF::testRepeatedSave
     const { file: f, stream } = await openAsfFileCopy("silence-1.wma");
     // Generate long text (~128KB)
     let longText = "";

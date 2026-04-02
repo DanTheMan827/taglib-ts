@@ -14,10 +14,14 @@ import {
  * Structure: encoding(1) + language(3) + description(null-terminated) + text.
  */
 export class CommentsFrame extends Id3v2Frame {
-  /** Text encoding used for the description and comment text fields. */
-  private _encoding: StringType = StringType.UTF8;
-  /** Three-byte ISO-639-2 language code (e.g. `"eng"`). */
-  private _language: ByteVector = ByteVector.fromString("XXX", StringType.Latin1);
+  /** Text encoding used for the description and comment text fields. Defaults to Latin1 matching C++ FrameFactory default. */
+  private _encoding: StringType = StringType.Latin1;
+  /**
+   * Three-byte ISO-639-2 language code. Stored as empty by default; rendered
+   * as `"XXX"` (unknown language) when not exactly 3 bytes — matching C++
+   * `CommentsFrame::renderFields()`: `d->language.size() == 3 ? d->language : "XXX"`.
+   */
+  private _language: ByteVector = new ByteVector();
   /** Short content description that distinguishes multiple COMM frames. */
   private _description: string = "";
   /** The actual comment text. */
@@ -26,9 +30,9 @@ export class CommentsFrame extends Id3v2Frame {
   /**
    * Creates a new, empty CommentsFrame.
    * @param encoding - Text encoding to use for description and comment text.
-   *                   Defaults to `StringType.UTF8`.
+   *                   Defaults to `StringType.Latin1` (matching C++ TagLib `FrameFactory` default).
    */
-  constructor(encoding: StringType = StringType.UTF8) {
+  constructor(encoding: StringType = StringType.Latin1) {
     const header = new Id3v2FrameHeader(
       ByteVector.fromString("COMM", StringType.Latin1),
     );
@@ -166,7 +170,10 @@ export class CommentsFrame extends Id3v2Frame {
   protected renderFields(_version: number): ByteVector {
     const v = new ByteVector();
     v.append(this._encoding);
-    v.append(this._language.mid(0, 3));
+    // Match C++: d->language.size() == 3 ? d->language : "XXX"
+    v.append(this._language.length === 3
+      ? this._language.mid(0, 3)
+      : ByteVector.fromString("XXX", StringType.Latin1));
     v.append(ByteVector.fromString(this._description, this._encoding));
     // Null terminator
     if (

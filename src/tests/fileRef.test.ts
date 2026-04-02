@@ -75,74 +75,92 @@ async function fileRefSave(filename: string, ext: string): Promise<void> {
 
 describe("FileRef", () => {
   it("should save and re-read MP3", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testMP3
     await fileRefSave("xing", ".mp3");
   });
 
   it("should save and re-read FLAC", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testFLAC
     await fileRefSave("no-tags", ".flac");
   });
 
   it("should save and re-read OGG Vorbis", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testVorbis
     await fileRefSave("empty", ".ogg");
   });
 
   it("should save and re-read Speex", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testSpeex
     await fileRefSave("empty", ".spx");
   });
 
   it("should save and re-read MP4 (has-tags)", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testMP4_1
     await fileRefSave("has-tags", ".m4a");
   });
 
   it("should save and re-read MP4 (no-tags)", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testMP4_2
     await fileRefSave("no-tags", ".m4a");
   });
 
   it("should save and re-read WAV", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testWav
     await fileRefSave("empty", ".wav");
   });
 
   it("should save and re-read AIFF", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testAIFF_1
     await fileRefSave("empty", ".aiff");
   });
 
   it("should save and re-read TrueAudio", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testTrueAudio
     await fileRefSave("empty", ".tta");
   });
 
   it("should save and re-read MPC", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testMusepack
     await fileRefSave("click", ".mpc");
   });
 
   it("should save and re-read WavPack", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testWavPack
     await fileRefSave("click", ".wv");
   });
 
   it("should save and re-read APE", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testAPE
     await fileRefSave("mac-399", ".ape");
   });
 
   it("should save and re-read Opus", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testOpus
     await fileRefSave("correctness_gain_silent_output", ".opus");
   });
 
   it("should save and re-read DSF", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testDSF
     await fileRefSave("empty10ms", ".dsf");
   });
 
   it("should save and re-read DSDIFF", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testDSDIFF
     await fileRefSave("empty10ms", ".dff");
   });
 
   it("should save and re-read ASF", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testASF
     await fileRefSave("silence-1", ".wma");
   });
 
   it("should save and re-read Matroska (MKA)", async () => {
+    // TypeScript-only test
     await fileRefSave("no-tags", ".mka");
   });
 
   it("should save and re-read OGG FLAC", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testOGA_FLAC
     await fileRefSave("empty_flac", ".oga");
   });
 
@@ -179,22 +197,27 @@ describe("FileRef", () => {
   }
 
   it("should save and re-read MOD", async () => {
+    // TypeScript-only test
     await fileRefSaveTrackerTitle("test", ".mod");
   });
 
   it("should save and re-read S3M", async () => {
+    // TypeScript-only test
     await fileRefSaveTrackerTitle("test", ".s3m");
   });
 
   it("should save and re-read XM", async () => {
+    // TypeScript-only test
     await fileRefSaveTrackerTitle("test", ".xm");
   });
 
   it("should save and re-read IT", async () => {
+    // TypeScript-only test
     await fileRefSaveTrackerTitle("test", ".it");
   });
 
   it("should open Shorten (read-only) without error", async () => {
+    // TypeScript-only test
     const data = readTestData("2sec-silence.shn");
     const ref = await FileRef.fromByteArray(new Uint8Array(data), "test.shn");
     expect(ref.isNull).toBe(false);
@@ -205,11 +228,13 @@ describe("FileRef", () => {
   });
 
   it("should return null for unsupported files", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testUnsupported
     const ref = await FileRef.fromByteArray(new Uint8Array([0, 1, 2, 3]), "unsupported.xx");
     expect(ref.isNull).toBe(true);
   });
 
   it("should read audio properties via FileRef", async () => {
+    // C++: test_fileref.cpp – TestFileRef::testAudioProperties
     const data = readTestData("xing.mp3");
     const ref = await FileRef.fromByteArray(new Uint8Array(data), "test.mp3");
     expect(ref.isNull).toBe(false);
@@ -221,6 +246,7 @@ describe("FileRef", () => {
   });
 
   it("should list default file extensions", () => {
+    // C++: test_fileref.cpp – TestFileRef::testDefaultFileExtensions
     const exts = FileRef.defaultFileExtensions();
     expect(exts).toContain("mp3");
     expect(exts).toContain("flac");

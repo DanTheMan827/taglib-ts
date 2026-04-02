@@ -18,6 +18,11 @@ import {
   readFloatValue,
   readStringValue,
   renderVoidElement,
+  encodeId,
+  encodeVint,
+  combineByteVectors,
+  renderEbmlElement,
+  renderUintElement,
   type EbmlElement,
 } from "./ebml/ebmlElement.js";
 
@@ -43,6 +48,18 @@ export class MatroskaFile extends File {
   private _segmentSizeVintOffset: number = -1;
   /** Byte length of the segment size VINT encoding. */
   private _segmentSizeVintLength: number = 0;
+  /** Absolute byte offset of the segment data start (after Segment ID + size VINT). */
+  private _segmentDataOffset: number = -1;
+  /**
+   * The SeekHead element parsed from the file, or `null` if absent.
+   * Used to add new SeekEntries when Tags/Attachments are appended.
+   */
+  private _seekHeadEl: EbmlElement | null = null;
+  /**
+   * The Void element that immediately follows the SeekHead (pre-allocated padding),
+   * or `null` if absent.  This space is available for expanding the SeekHead.
+   */
+  private _voidAfterSeekHeadEl: EbmlElement | null = null;
 
   /**
    * Private constructor — use {@link MatroskaFile.open} instead.
@@ -131,7 +148,6 @@ export class MatroskaFile extends File {
     newData: ByteVector | null,
     elementId: number,
   ): Promise<boolean> {
-    void elementId; // reserved for future SeekHead updates
     if (!newData || newData.length === 0) {
       // If empty and no existing element, nothing to do
       if (!existing) return true;
@@ -165,35 +181,138 @@ export class MatroskaFile extends File {
         const voidEl = renderVoidElement(oldTotalSize);
         await this._stream.seek(existing.offset, Position.Beginning);
         await this._stream.writeBlock(voidEl);
-        await this.appendAtEndOfSegment(newData);
+        await this.appendAtEndOfSegment(newData, elementId);
         return true;
       }
     } else {
       // No existing element — append at end of segment
-      await this.appendAtEndOfSegment(newData);
+      await this.appendAtEndOfSegment(newData, elementId);
       return true;
     }
   }
 
   /**
-   * Append data at the end of the file.
-   * If the segment has a fixed (known) size, convert it to "unknown" size first
-   * so that the appended data is included within the segment.
-   * In EBML, the "unknown" size VINT has all data bits set to 1.
+   * Render a Void element using the same size-VINT strategy as C++ TagLib's
+   * VoidElement::renderSize(): sizeLength = min(totalSize - 1, 8), meaning
+   * large Voids always use an 8-byte size VINT (matching the on-disk format).
    */
-  private async appendAtEndOfSegment(data: ByteVector): Promise<void> {
-    if (this._segmentSizeVintOffset >= 0 && this._segmentSizeVintLength > 0) {
-      // Render an "unknown" size VINT of the same byte length.
-      // For n bytes: first byte = (1 << (9-n)) - 1, rest = 0xFF
-      const n = this._segmentSizeVintLength;
-      const unknownVint = new Uint8Array(n);
-      unknownVint[0] = (1 << (9 - n)) - 1;
-      for (let i = 1; i < n; i++) unknownVint[i] = 0xff;
-      await this._stream.seek(this._segmentSizeVintOffset, Position.Beginning);
-      await this._stream.writeBlock(new ByteVector(unknownVint));
-      // Don't update segment size again on subsequent saves
-      this._segmentSizeVintOffset = -1;
+  private renderTaglibCompatVoidElement(totalSize: number): ByteVector {
+    if (totalSize < 1) return new ByteVector(new Uint8Array(0));
+    const idByte = new ByteVector(new Uint8Array([0xEC]));
+    if (totalSize === 1) return idByte;
+    const bytesNeeded = totalSize - 1; // bytes after the 1-byte ID
+    const sizeLength = Math.min(bytesNeeded, 8);
+    const dataSize = bytesNeeded - sizeLength;
+    const vint = encodeVint(dataSize, sizeLength);
+    const padding = new ByteVector(new Uint8Array(dataSize));
+    return combineByteVectors([idByte, vint, padding]);
+  }
+
+  /**
+   * Update the SeekHead in-place to include (or replace) an entry for the given
+   * element ID at the given segment-relative offset.  Uses the Void element
+   * immediately after the SeekHead as padding buffer.  If the new SeekHead would
+   * exceed the combined SeekHead + Void space, the update is silently skipped.
+   */
+  private async updateSeekHeadEntry(elementId: number, relativeOffset: number): Promise<void> {
+    if (!this._seekHeadEl) return;
+
+    // Re-parse the existing SeekHead entries from the stream
+    const seekDataOffset = this._seekHeadEl.offset + this._seekHeadEl.headSize;
+    const children = await readChildElements(this._stream, seekDataOffset, this._seekHeadEl.dataSize);
+
+    const entries = new Map<number, number>(); // elementId → relativeOffset
+    for (const child of children) {
+      if (child.id === EbmlId.Seek) {
+        const seekChildren = await readChildElements(
+          this._stream, child.offset + child.headSize, child.dataSize,
+        );
+        let seekId = 0, seekPos = 0;
+        for (const sc of seekChildren) {
+          if (sc.id === EbmlId.SeekID) seekId = await readUintValue(this._stream, sc);
+          if (sc.id === EbmlId.SeekPosition) seekPos = await readUintValue(this._stream, sc);
+        }
+        if (seekId) entries.set(seekId, seekPos);
+      }
     }
+
+    // Add or update entry, then sort by offset
+    entries.set(elementId, relativeOffset);
+    const sortedEntries = [...entries.entries()].sort((a, b) => a[1] - b[1]);
+
+    // Render each Seek element: SeekID (binary element ID) + SeekPosition (uint)
+    const seekElements = sortedEntries.map(([id, pos]) => renderEbmlElement(
+      EbmlId.Seek,
+      combineByteVectors([
+        renderEbmlElement(EbmlId.SeekID, encodeId(id)),
+        renderUintElement(EbmlId.SeekPosition, pos),
+      ]),
+    ));
+    const newSeekHeadData = combineByteVectors(seekElements);
+
+    // Compute new SeekHead total size
+    const newSeekHeadIdSize = idSize(EbmlId.SeekHead); // 4 bytes
+    const newSeekHeadSizeVint = encodeVint(newSeekHeadData.length);
+    const newSeekHeadTotal = newSeekHeadIdSize + newSeekHeadSizeVint.length + newSeekHeadData.length;
+
+    // Available space = old SeekHead + Void padding immediately after it
+    const oldSeekHeadTotal = this._seekHeadEl.headSize + this._seekHeadEl.dataSize;
+    const oldVoidTotal = this._voidAfterSeekHeadEl
+      ? this._voidAfterSeekHeadEl.headSize + this._voidAfterSeekHeadEl.dataSize
+      : 0;
+    const totalAvailable = oldSeekHeadTotal + oldVoidTotal;
+
+    if (newSeekHeadTotal > totalAvailable) {
+      // Not enough space in the SeekHead + Void area — the new element will still
+      // be appended but the SeekHead will not reference it.
+      return;
+    }
+
+    // Write new SeekHead
+    await this._stream.seek(this._seekHeadEl.offset, Position.Beginning);
+    await this._stream.writeBlock(combineByteVectors([
+      encodeId(EbmlId.SeekHead),
+      newSeekHeadSizeVint,
+      newSeekHeadData,
+    ]));
+
+    // Fill remaining space with a C++-compatible Void element
+    const remaining = totalAvailable - newSeekHeadTotal;
+    if (remaining >= 1) {
+      await this._stream.writeBlock(this.renderTaglibCompatVoidElement(remaining));
+    }
+  }
+
+  /**
+   * Append data at the end of the segment.
+   * Updates the segment size VINT to the exact new size (matching C++ TagLib's
+   * Segment::render() which uses renderVINT(newDataSize, sizeLength)).
+   * Also updates the SeekHead to include the new element's position.
+   */
+  private async appendAtEndOfSegment(data: ByteVector, elementId?: number): Promise<void> {
+    // Determine the absolute offset where the new element will be placed
+    await this._stream.seek(0, Position.End);
+    const newElementAbsoluteOffset = await this._stream.tell();
+
+    // Update the segment size VINT with the exact new segment data size
+    const canUpdateSegmentSize = this._segmentSizeVintOffset >= 0
+      && this._segmentSizeVintLength > 0
+      && this._segmentDataOffset >= 0;
+    if (canUpdateSegmentSize) {
+      const oldSegmentDataSize = newElementAbsoluteOffset - this._segmentDataOffset;
+      const newSegmentDataSize = oldSegmentDataSize + data.length;
+      const newSizeVint = encodeVint(newSegmentDataSize, this._segmentSizeVintLength);
+      await this._stream.seek(this._segmentSizeVintOffset, Position.Beginning);
+      await this._stream.writeBlock(newSizeVint);
+    }
+
+    // Update the SeekHead to point to the new element
+    if (elementId !== undefined && this._seekHeadEl && this._segmentDataOffset >= 0) {
+      const relativeOffset = newElementAbsoluteOffset - this._segmentDataOffset;
+      await this.updateSeekHeadEntry(elementId, relativeOffset);
+    }
+
+    // Append the new element at end of file
     await this._stream.seek(0, Position.End);
     await this._stream.writeBlock(data);
   }
@@ -303,6 +422,7 @@ export class MatroskaFile extends File {
     this._segmentSizeVintLength = segment.headSize - idSize(EbmlId.Segment);
 
     const segmentDataOffset = segment.offset + segment.headSize;
+    this._segmentDataOffset = segmentDataOffset;
     // Segment may have "unknown" EBML size (all 1-bits); use fileLength as cap
     const segmentEnd = Math.min(segmentDataOffset + segment.dataSize, fileLength);
 
@@ -321,7 +441,15 @@ export class MatroskaFile extends File {
       if (!el) break;
 
       if (el.id === EbmlId.SeekHead) {
+        this._seekHeadEl = el;
         await this.parseSeekHead(segmentDataOffset, el, elementPositions);
+        // Check if the element immediately after SeekHead is a Void (SeekHead padding)
+        const afterSeekHead = el.offset + el.headSize + el.dataSize;
+        await this._stream.seek(afterSeekHead, Position.Beginning);
+        const maybeVoid = await readElement(this._stream);
+        if (maybeVoid && maybeVoid.id === EbmlId.VoidElement) {
+          this._voidAfterSeekHeadEl = maybeVoid;
+        }
         await skipElement(this._stream, el);
         lastScanPosition = await this._stream.tell();
         continue;

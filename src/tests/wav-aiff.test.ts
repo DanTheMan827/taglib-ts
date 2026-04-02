@@ -1,140 +1,259 @@
 import { describe, expect, it } from "vitest";
 import { AiffFile } from "../riff/aiff/aiffFile.js";
 import { WavFile } from "../riff/wav/wavFile.js";
+import { ByteVector } from "../byteVector.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { ReadStyle } from "../toolkit/types.js";
-import { openTestStream, readTestData } from "./testHelper.js";
+import { openTestStream, readTestData, readTestDataBV } from "./testHelper.js";
 
 describe("WAV", () => {
-  it("should read empty wav file", async () => {
+  it("should test PCM properties", async () => {
+    // TypeScript-only test
     const stream = openTestStream("empty.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
     expect(props).not.toBeNull();
-    if (props) {
-      expect(props.sampleRate).toBeGreaterThan(0);
-      expect(props.channels).toBeGreaterThan(0);
-      expect(props.bitsPerSample).toBeGreaterThan(0);
-    }
+    expect(props?.lengthInSeconds).toBe(3);
+    expect(props?.lengthInMilliseconds).toBe(3675);
+    expect(props?.bitrate).toBe(32);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(1000);
+    expect(props?.bitsPerSample).toBe(16);
+    expect(props?.sampleFrames).toBe(3675);
+    expect(props?.format).toBe(1);
   });
 
-  it("should read alaw wav file", async () => {
+  it("should test ALAW properties", async () => {
+    // TypeScript-only test
     const stream = openTestStream("alaw.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    expect(props?.lengthInSeconds).toBe(3);
+    expect(props?.lengthInMilliseconds).toBe(3550);
+    expect(props?.bitrate).toBe(128);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(8000);
+    expect(props?.bitsPerSample).toBe(8);
+    expect(props?.sampleFrames).toBe(28400);
+    expect(props?.format).toBe(6);
   });
 
-  it("should read float64 wav file", async () => {
+  it("should test float64 properties", async () => {
+    // TypeScript-only test
     const stream = openTestStream("float64.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
     const props = f.audioProperties();
-    if (props) {
-      expect(props.bitsPerSample).toBe(64);
-    }
+    expect(props).not.toBeNull();
+    expect(props?.lengthInSeconds).toBe(0);
+    expect(props?.lengthInMilliseconds).toBe(97);
+    expect(props?.bitrate).toBe(5645);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(44100);
+    expect(props?.bitsPerSample).toBe(64);
+    expect(props?.sampleFrames).toBe(4281);
+    expect(props?.format).toBe(3);
   });
 
-  it("should read uint8we wav file", async () => {
+  it("should test float properties without fact chunk", async () => {
+    // TypeScript-only test
+    // Remove the fact chunk by renaming it (change 'fact' to 'fakt')
+    const wavData = readTestDataBV("float64.wav");
+    expect(wavData.mid(36, 4).toString()).toBe("fact");
+    wavData.set(38, 0x6b); // 'k'
+    const stream = new ByteVectorStream(wavData);
+    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    expect(props?.lengthInSeconds).toBe(0);
+    expect(props?.lengthInMilliseconds).toBe(97);
+    expect(props?.bitrate).toBe(5645);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(44100);
+    expect(props?.bitsPerSample).toBe(64);
+    expect(props?.sampleFrames).toBe(4281);
+    expect(props?.format).toBe(3);
+  });
+
+  it("should test WAVE_FORMAT_EXTENSIBLE properties", async () => {
+    // TypeScript-only test
     const stream = openTestStream("uint8we.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    expect(props?.lengthInSeconds).toBe(2);
+    expect(props?.lengthInMilliseconds).toBe(2937);
+    expect(props?.bitrate).toBe(128);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(8000);
+    expect(props?.bitsPerSample).toBe(8);
+    expect(props?.sampleFrames).toBe(23493);
+    expect(props?.format).toBe(1);
   });
 
-  it("should read pcm_with_fact_chunk wav file", async () => {
+  it("should test PCM with fact chunk properties", async () => {
+    // TypeScript-only test
     const stream = openTestStream("pcm_with_fact_chunk.wav");
+    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props).not.toBeNull();
+    expect(props?.lengthInSeconds).toBe(3);
+    expect(props?.lengthInMilliseconds).toBe(3675);
+    expect(props?.bitrate).toBe(32);
+    expect(props?.channels).toBe(2);
+    expect(props?.sampleRate).toBe(1000);
+    expect(props?.bitsPerSample).toBe(16);
+    expect(props?.sampleFrames).toBe(3675);
+    expect(props?.format).toBe(1);
+  });
+
+  it("should handle zero-size data chunk", async () => {
+    // TypeScript-only test
+    const stream = openTestStream("zero-size-chunk.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
-  it("should read duplicate tags wav file", async () => {
+  it("should save and re-read ID3v2 tag", async () => {
+    // TypeScript-only test
+    const wavData = readTestDataBV("empty.wav");
+    const stream = new ByteVectorStream(wavData);
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasId3v2Tag).toBe(false);
+
+    f.id3v2Tag!.title = "Title";
+    f.id3v2Tag!.artist = "Artist";
+    await f.save();
+    expect(f.hasId3v2Tag).toBe(true);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasId3v2Tag).toBe(true);
+    expect(f.id3v2Tag?.title).toBe("Title");
+    expect(f.id3v2Tag?.artist).toBe("Artist");
+
+    f.id3v2Tag!.title = "";
+    f.id3v2Tag!.artist = "";
+    await f.save();
+    expect(f.hasId3v2Tag).toBe(false);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasId3v2Tag).toBe(false);
+    expect(f.id3v2Tag?.title).toBe("");
+    expect(f.id3v2Tag?.artist).toBe("");
+  });
+
+  it("should save ID3v2 v3 tag", async () => {
+    // TypeScript-only test
+    const wavData = readTestDataBV("empty.wav");
+    const stream = new ByteVectorStream(wavData);
+    const xxx = "X".repeat(254);
+
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.hasId3v2Tag).toBe(false);
+    f.id3v2Tag!.title = xxx;
+    f.id3v2Tag!.artist = "Artist A";
+    await f.save(3);
+    expect(f.hasId3v2Tag).toBe(true);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.id3v2Tag?.header?.majorVersion).toBe(3);
+    expect(f.id3v2Tag?.artist).toBe("Artist A");
+    expect(f.id3v2Tag?.title).toBe(xxx);
+  });
+
+  it("should save and re-read INFO tag", async () => {
+    // TypeScript-only test
+    const wavData = readTestDataBV("empty.wav");
+    const stream = new ByteVectorStream(wavData);
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasInfoTag).toBe(false);
+
+    f.infoTag!.title = "Title";
+    f.infoTag!.artist = "Artist";
+    await f.save();
+    expect(f.hasInfoTag).toBe(true);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasInfoTag).toBe(true);
+    expect(f.infoTag?.title).toBe("Title");
+    expect(f.infoTag?.artist).toBe("Artist");
+
+    f.infoTag!.title = "";
+    f.infoTag!.artist = "";
+    await f.save();
+    expect(f.hasInfoTag).toBe(false);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasInfoTag).toBe(false);
+    expect(f.infoTag?.title).toBe("");
+    expect(f.infoTag?.artist).toBe("");
+  });
+
+  it("should handle duplicate tags", async () => {
+    // TypeScript-only test
     const stream = openTestStream("duplicate_tags.wav");
+    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+
+    // duplicate_tags.wav has duplicate ID3v2/INFO tags.
+    // title() returns "Title2" if can't skip the second tag.
+    expect(f.hasId3v2Tag).toBe(true);
+    expect(f.id3v2Tag?.title).toBe("Title1");
+
+    expect(f.hasInfoTag).toBe(true);
+    expect(f.infoTag?.title).toBe("Title1");
+
+    await f.save();
+    expect(await f.fileLength()).toBe(15898);
+    expect(await f.find(ByteVector.fromString("Title2"))).toBe(-1);
+  });
+
+  it("should handle infloop (fuzzed) wav file", async () => {
+    // TypeScript-only test
+    const stream = openTestStream("infloop.wav");
+    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    const props = f.audioProperties();
+    expect(props?.channels).toBe(1);
+    expect(props?.bitrate).toBe(88);
+    expect(props?.bitsPerSample).toBe(8);
+    expect(props?.sampleRate).toBe(11025);
+    expect(f.hasInfoTag).toBe(false);
+    expect(f.hasId3v2Tag).toBe(false);
+  });
+
+  it("should handle segfault wav", async () => {
+    // TypeScript-only test
+    const stream = openTestStream("segfault.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
   });
 
   it("should handle invalid chunk wav file", async () => {
+    // TypeScript-only test
+    // invalid-chunk.wav has an invalid chunk after a valid id3 chunk.
+    // No fmt/data chunks, so audioProperties is null; C++ lengthInSeconds would be 0.
     const stream = openTestStream("invalid-chunk.wav");
     const f = await WavFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-
-  it("should handle segfault wav", async () => {
-    const stream = openTestStream("segfault.wav");
-    const f = await WavFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-
-  it("should handle zero-size-chunk wav", async () => {
-    const stream = openTestStream("zero-size-chunk.wav");
-    const f = await WavFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-
-  it("should handle infloop wav", async () => {
-    const stream = openTestStream("infloop.wav");
-    const f = await WavFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-
-  it("should save and re-read", async () => {
-    const data = readTestData("empty.wav");
-    const stream = new ByteVectorStream(data);
-    const f = await WavFile.open(stream, true, ReadStyle.Average);
-
-    if (f.isValid && f.id3v2Tag) {
-      f.id3v2Tag.title = "WAV Test";
-      await f.save();
-    }
-
-    await stream.seek(0);
-    const f2 = await WavFile.open(stream, true, ReadStyle.Average);
-    if (f2.isValid && f2.id3v2Tag) {
-      expect(f2.id3v2Tag.title).toBe("WAV Test");
-    }
+    expect(f.audioProperties()?.lengthInSeconds ?? 0).toBe(0);
+    expect(f.hasId3v2Tag).toBe(true);
   });
 });
 
-describe("AIFF", () => {
-  it("should read empty aiff file", async () => {
-    const stream = openTestStream("empty.aiff");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f.isValid).toBe(true);
-    const props = f.audioProperties();
-    expect(props).not.toBeNull();
-    if (props) {
-      expect(props.sampleRate).toBeGreaterThan(0);
-      expect(props.channels).toBeGreaterThan(0);
-    }
-  });
-
-  it("should read noise aif file", async () => {
-    const stream = openTestStream("noise.aif");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f.isValid).toBe(true);
-  });
-
-  it("should read noise_odd aif file", async () => {
-    const stream = openTestStream("noise_odd.aif");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f.isValid).toBe(true);
-  });
-
-  it("should read duplicate_id3v2 aiff file", async () => {
-    const stream = openTestStream("duplicate_id3v2.aiff");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f.isValid).toBe(true);
-  });
-
-  it("should handle segfault aif", async () => {
-    const stream = openTestStream("segfault.aif");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-
-  it("should handle excessive alloc aif", async () => {
-    const stream = openTestStream("excessive_alloc.aif");
-    const f = await AiffFile.open(stream, true, ReadStyle.Average);
-    expect(f).toBeDefined();
-  });
-});

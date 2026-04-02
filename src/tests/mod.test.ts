@@ -53,11 +53,13 @@ async function testRead(stream: ByteVectorStream, title: string, comment: string
 
 describe("MOD", () => {
   it("should read tags", async () => {
+    // C++: test_mod.cpp – TestMod::testReadTags
     const stream = openTestStream("test.mod");
     await testRead(stream, titleBefore, commentBefore);
   });
 
   it("should write tags", async () => {
+    // C++: test_mod.cpp – TestMod::testWriteTags
     const data = readTestDataBV("test.mod");
     const stream = new ByteVectorStream(data);
     const file = await ModFile.open(stream, true, ReadStyle.Average);
@@ -71,6 +73,7 @@ describe("MOD", () => {
   });
 
   it("should handle property interface", async () => {
+    // C++: test_mod.cpp – TestMod::testPropertyInterface
     const t = new ModTag();
     const properties = new PropertyMap();
     properties.replace("BLA", ["bla"]);

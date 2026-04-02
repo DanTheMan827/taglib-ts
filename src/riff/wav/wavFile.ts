@@ -90,35 +90,64 @@ export class WavFile extends RiffFile {
   }
 
   /**
-   * The RIFF INFO tag embedded in the `"LIST"` / `"INFO"` chunk, or `null` if absent.
-   * @returns The {@link RiffInfoTag}, or `null`.
+   * Whether the file currently contains a non-empty ID3v2 tag chunk.
+   * Returns `true` if an ID3v2 chunk was found during parsing (regardless of tag validity),
+   * matching C++ `hasID3v2Tag()` behavior.
+   * @returns `true` if an ID3v2 chunk is present.
    */
-  get infoTag(): RiffInfoTag | null {
+  get hasId3v2Tag(): boolean {
+    return this._id3v2ChunkIndex >= 0;
+  }
+
+  /**
+   * The RIFF INFO tag embedded in the `"LIST"` / `"INFO"` chunk, or `null` if absent.
+   * Auto-creates an empty INFO tag on first access so callers can always write to it.
+   * @returns The {@link RiffInfoTag}.
+   */
+  get infoTag(): RiffInfoTag {
+    if (!this._infoTag) {
+      this._infoTag = new RiffInfoTag();
+    }
     return this._infoTag;
   }
 
   /**
+   * Whether the file currently contains a RIFF INFO tag.
+   * Returns `true` if a `LIST/INFO` chunk was found during parsing.
+   * @returns `true` if an INFO tag chunk is present.
+   */
+  get hasInfoTag(): boolean {
+    return this._infoChunkIndex >= 0;
+  }
+
+  /**
    * Writes all pending tag changes back to the underlying stream.
+   * Matches C++ behavior: removes all existing tag chunks before re-writing.
+   * @param version - Optional ID3v2 version to save as (2 or 3; default is 4).
    * @returns `true` on success, `false` if the file is read-only.
    */
-  async save(): Promise<boolean> {
+  async save(version?: number): Promise<boolean> {
     if (this.readOnly) return false;
 
-    // Save ID3v2
+    // Remove all existing ID3 tag chunks (both case variants), then re-add if non-empty.
+    await this.removeAllChunks("ID3 ");
+    await this.removeAllChunks("id3 ");
+    this._id3v2ChunkIndex = -1;
+
     if (this._id3v2Tag && !this._id3v2Tag.isEmpty) {
-      const rendered = this._id3v2Tag.render();
-      await this.setChunkData("ID3 ", rendered);
-    } else if (this._id3v2ChunkIndex >= 0) {
-      await this.removeChunk("ID3 ");
+      await this.setChunkData("ID3 ", this._id3v2Tag.render(version));
+      this._id3v2ChunkIndex = this.chunkCount - 1;
     }
 
-    // Save INFO
+    // Remove all existing LIST chunks, then re-add INFO if non-empty.
+    await this.removeAllChunks("LIST");
+    this._infoChunkIndex = -1;
+
     if (this._infoTag && !this._infoTag.isEmpty) {
       const infoData = ByteVector.fromString("INFO", StringType.Latin1);
       infoData.append(this._infoTag.render());
       await this.setChunkData("LIST", infoData);
-    } else if (this._infoChunkIndex >= 0) {
-      await this.removeChunk("LIST");
+      this._infoChunkIndex = this.chunkCount - 1;
     }
 
     return true;
@@ -136,15 +165,21 @@ export class WavFile extends RiffFile {
   private async read(readProperties: boolean, readStyle?: ReadStyle): Promise<void> {
     let fmtData: ByteVector | null = null;
     let streamLength = 0;
+    let totalSamples = 0;
 
     for (let i = 0; i < this.chunkCount; i++) {
       const name = this.chunkName(i);
 
-      if (name === "fmt " && readProperties) {
+      if (name === "fmt " && readProperties && fmtData === null) {
         fmtData = await this.chunkData(i);
-      } else if (name === "data" && readProperties) {
-        streamLength = this.chunkDataSize(i);
-      } else if (name === "ID3 " || name === "id3 ") {
+      } else if (name === "data" && readProperties && streamLength === 0) {
+        streamLength = this.chunkDataSize(i) + this.chunkPadding(i);
+      } else if (name === "fact" && readProperties && totalSamples === 0) {
+        const factData = await this.chunkData(i);
+        if (factData.length >= 4) {
+          totalSamples = factData.toUInt(0, false);
+        }
+      } else if ((name === "ID3 " || name === "id3 ") && this._id3v2ChunkIndex < 0) {
         this._id3v2ChunkIndex = i;
         this._id3v2Tag = await Id3v2Tag.readFrom(
           this._stream,
@@ -153,7 +188,7 @@ export class WavFile extends RiffFile {
       } else if (name === "LIST") {
         await this.seek(this.chunkOffset(i));
         const subType = (await this.readBlock(4)).toString(StringType.Latin1);
-        if (subType === "INFO") {
+        if (subType === "INFO" && this._infoChunkIndex < 0) {
           this._infoChunkIndex = i;
           const infoSize = this.chunkDataSize(i) - 4;
           if (infoSize > 0) {
@@ -164,19 +199,22 @@ export class WavFile extends RiffFile {
       }
     }
 
-    // Ensure default tags exist
+    // Ensure default ID3v2 tag exists
     if (!this._id3v2Tag) {
       this._id3v2Tag = new Id3v2Tag();
     }
-    if (!this._infoTag) {
-      this._infoTag = new RiffInfoTag();
-    }
+    // Note: _infoTag is only created when an INFO chunk is found in the file or when
+    // explicitly accessed via the infoTag getter.  It is NOT auto-created here so that
+    // writing via the combined tag (tag.title = "...") only updates ID3v2, matching
+    // C++ TagLib where WAV::File::tag() returns only the ID3v2 tag.
 
-    // Build combined tag (ID3v2 higher priority)
-    this._combinedTag.setTags([this._id3v2Tag, this._infoTag]);
+    // Build combined tag: ID3v2 is always primary; INFO is included only when present.
+    const combinedTags: Tag[] = [this._id3v2Tag];
+    if (this._infoTag) combinedTags.push(this._infoTag);
+    this._combinedTag.setTags(combinedTags);
 
     if (readProperties && fmtData) {
-      this._properties = new WavProperties(fmtData, streamLength, readStyle);
+      this._properties = new WavProperties(fmtData, streamLength, totalSamples, readStyle);
     }
   }
 }

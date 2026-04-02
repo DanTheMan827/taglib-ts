@@ -57,20 +57,29 @@ export class XiphComment extends Tag {
   }
 
   /**
-   * User comment, read from "DESCRIPTION" (preferred) or "COMMENT" as a fallback.
+   * User comment, read from "COMMENT" (preferred, matching C++ TagLib default) or
+   * "DESCRIPTION" as a fallback for tags written by older encoders.
    * @returns The comment string, or `""` if neither field is set.
    */
   get comment(): string {
-    const desc = this.firstFieldValue("DESCRIPTION");
-    return desc !== "" ? desc : this.firstFieldValue("COMMENT");
+    const comment = this.firstFieldValue("COMMENT");
+    return comment !== "" ? comment : this.firstFieldValue("DESCRIPTION");
   }
   /**
-   * Sets the comment in the "DESCRIPTION" field and removes any "COMMENT" alias.
+   * Sets the comment. Matches C++ TagLib `XiphComment::setComment()`: if a
+   * "DESCRIPTION" field already exists (loaded from file), update that field;
+   * otherwise write to "COMMENT" (the standard Vorbis comment field name).
    * @param v - New comment string; empty string removes the field.
    */
   set comment(v: string) {
-    this.addField("DESCRIPTION", v, true);
-    this.removeField("COMMENT");
+    // Match C++ TagLib: prefer "DESCRIPTION" if already present, else use "COMMENT"
+    if (this._fields.has("DESCRIPTION")) {
+      this.addField("DESCRIPTION", v, true);
+      this.removeField("COMMENT");
+    } else {
+      this.addField("COMMENT", v, true);
+      this.removeField("DESCRIPTION");
+    }
   }
 
   /** Genre stored in the "GENRE" field. */
@@ -453,12 +462,24 @@ export class XiphComment extends Tag {
       StringType.UTF8,
     );
 
-    // Collect all entries first
+    // Collect all field entries.  To match C++ TagLib's XiphComment::render():
+    //   1. Regular text fields are iterated in sorted (alphabetical) key order,
+    //      matching std::map<String, StringList> iteration order.
+    //   2. METADATA_BLOCK_PICTURE entries are appended last, matching the
+    //      separate d->pictureList written after fieldListMap.
     const entries: ByteVector[] = [];
-    for (const [key, values] of this._fields) {
+    const sortedKeys = [...this._fields.keys()]
+      .filter(k => k !== "METADATA_BLOCK_PICTURE")
+      .sort();
+    for (const key of sortedKeys) {
+      const values = this._fields.get(key)!;
       for (const value of values) {
         entries.push(ByteVector.fromString(`${key}=${value}`, StringType.UTF8));
       }
+    }
+    const picEntries = this._fields.get("METADATA_BLOCK_PICTURE") ?? [];
+    for (const value of picEntries) {
+      entries.push(ByteVector.fromString(`METADATA_BLOCK_PICTURE=${value}`, StringType.UTF8));
     }
 
     // Calculate total size: vendor length(4) + vendor + entry count(4) + entries(length(4) + data each) + optional framing

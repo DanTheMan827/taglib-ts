@@ -94,6 +94,108 @@ examples/               ← TypeScript usage examples
 - Binary test data lives in `tests/data/`
 - Name tests after the C++ test file they port (e.g., `test_fileref.cpp` → `fileRef.test.ts`)
 
+### Testing Rules and C++ Compatibility
+
+These rules are **mandatory** and must never be violated:
+
+1. **Every C++ test has a TypeScript equivalent.** For every test method in
+   `taglib/tests/test_*.cpp` there must be a corresponding `it(...)` block in
+   the matching TypeScript test file.
+
+2. **Asserted values must match C++ exactly.** If a C++ test asserts
+   `CPPUNIT_ASSERT_EQUAL(1887, f.audioProperties()->lengthInSeconds())`, the
+   TypeScript test must assert `expect(props.lengthInSeconds).toBe(1887)`.
+   Do **not** relax, approximate, or omit expected values.
+
+3. **Never change a test value to make a bad implementation pass.** If the
+   TypeScript output disagrees with the C++ expectation, the implementation
+   must be fixed.  Only change the test itself when the C++ source changed and
+   you have verified the new C++ value.
+
+4. **Byte equality is required for ALL writable formats.** Cross-validation
+   tests in `cTagLibValidation.test.ts` MUST verify byte-for-byte identical
+   output between taglib-ts and C++ TagLib for every format that taglib-ts can
+   write.  Both implementations start from the **same original file**, so
+   format-specific bytes (vendor strings, audio data, etc.) are preserved
+   identically in both outputs.  The only bytes that differ are tag bytes, and
+   those must match exactly.  If bytes differ, fix the TypeScript
+   implementation — **never add `skipByteEquality: true` as a workaround**.
+
+5. **Audio properties must match.** All audio-property fields
+   (`lengthInSeconds`, `lengthInMilliseconds`, `bitrate`, `sampleRate`,
+   `channels`, etc.) returned by a TypeScript `AudioProperties` subclass must
+   equal the values returned by the corresponding C++ `AudioProperties`
+   subclass for the same file.
+
+6. **Cross-validation tests must compare audio properties between
+   implementations.** When a format has audio properties (sample rate, channels,
+   etc.), the cross-validation test must verify that the C++ validator reports
+   the same audio property values for both the C-tagged and TS-tagged outputs.
+
+7. **Tag collection ordering must be deterministic and match C++.** Any
+   tag field collection (ID3v2 frames, XiphComment fields, APEv2 items, MP4
+   items, ASF attributes) must be rendered in **alphabetical key order** to
+   match C++ `TagLib::Map<K, V>` (which uses `std::map` sorted iteration).
+   Insertion-order JavaScript `Map` iteration is NOT acceptable for rendering.
+
+8. **All tests must pass at all times.** Every `it(...)` block in every test
+   file must pass before changes are merged.  Running the full suite with
+   `npx vitest run` must report zero failures (tests that require the C
+   validators are automatically skipped when the validators are not built).
+   Never disable or skip a test to hide a failure — fix the implementation.
+
+9. **Format parity with C++ is mandatory.** Every audio container format that
+   C++ TagLib supports must have a corresponding TypeScript implementation in
+   taglib-ts:
+   - **Read support:** If C++ can read a format, TypeScript must also be able
+     to read it with the same data.
+   - **Write support:** If C++ can write a format, TypeScript must also be able
+     to write it.  A cross-validation test in `cTagLibValidation.test.ts` MUST
+     exist for every writable format, verifying byte-for-byte identical output
+     between the two implementations.
+   - Adding a new format to taglib-ts automatically requires a cross-validation
+     entry.  Adding a format as read-only (`tsReadOnly: true`) is only
+     acceptable when write support has not yet been implemented; the format
+     must eventually be made writable and byte-equal.
+
+10. **Every ported `it(...)` block must cite its C++ source.** The first line
+    inside each `it(...)` callback must be a comment of the form:
+    ```ts
+    // C++: test_<format>.cpp – <TestClassName>::<testMethodName>
+    ```
+    For example:
+    ```ts
+    it("testAudioProperties", async () => {
+      // C++: test_flac.cpp – TestFLAC::testAudioProperties
+      ...
+    });
+    ```
+    This makes it trivial to cross-reference the TypeScript test with its C++
+    counterpart and verify that asserted values are correct.  Tests that have
+    no C++ counterpart (TypeScript-only tests) must instead begin with:
+    ```ts
+    // TypeScript-only test
+    ```
+
+11. **C validators must build and all cross-validation tests must pass.**
+    The C validator programs (`validator/taglib_validate.cpp` and
+    `validator/tag_with_c_full.cpp`) must compile without errors or warnings.
+    **Any change to these files must be followed by a full build and test run**
+    before committing — no exceptions:
+    ```sh
+    cmake -B validator/build -S validator
+    cmake --build validator/build
+    TAGLIB_VALIDATE=validator/build/taglib_validate \
+    TAGLIB_TAGGER=validator/build/tag_with_c_full \
+      npx vitest run src/tests/cTagLibValidation.test.ts
+    ```
+    Build against the TagLib submodule in CI (not the system library), so
+    always verify that the headers and namespaces used match the submodule
+    (currently v2.2.1).  All cross-validation tests in
+    `cTagLibValidation.test.ts` must pass with the built validators, verifying
+    byte-identical output between C++ TagLib and taglib-ts for every writable
+    format.
+
 ### Adding a New Format
 
 1. Create `src/<format>/` directory with at minimum:

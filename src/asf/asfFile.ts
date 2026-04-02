@@ -94,7 +94,7 @@ class FilePropertiesObject implements BaseObject {
     const duration = this.data.toLongLong(40, false);
     const preroll = this.data.toLongLong(56, false);
     file._properties!.setLengthInMilliseconds(
-      Math.round(Number(duration) / 10000.0 - Number(preroll) + 0.5),
+      Math.trunc(Number(duration) / 10000.0 - Number(preroll) + 0.5),
     );
   }
   render(): ByteVector { return baseRender(this); }
@@ -110,7 +110,7 @@ class StreamPropertiesObject implements BaseObject {
     file._properties!.setCodec(this.data.toUShort(54, false));
     file._properties!.setChannels(this.data.toUShort(56, false));
     file._properties!.setSampleRate(this.data.toUInt(58, false));
-    file._properties!.setBitrate(Math.round(this.data.toUInt(62, false) * 8.0 / 1000.0 + 0.5));
+    file._properties!.setBitrate(Math.trunc(this.data.toUInt(62, false) * 8.0 / 1000.0 + 0.5));
     file._properties!.setBitsPerSample(this.data.toUShort(68, false));
   }
   render(): ByteVector { return baseRender(this); }
@@ -418,12 +418,14 @@ export class AsfFile extends File {
       this._headerExtensionObject.objects.push(this._metadataLibraryObject);
     }
 
-    // Distribute attributes across the appropriate objects
+    // Distribute attributes across the appropriate objects.
+    // Sort alphabetically to match C++ TagLib::Map<String, AttributeList> iteration order.
     this._extendedContentDescriptionObject.attributeData = [];
     this._metadataObject.attributeData = [];
     this._metadataLibraryObject.attributeData = [];
 
-    for (const [name, attributes] of this._tag.attributeListMap) {
+    const sortedAttrs = [...this._tag.attributeListMap.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    for (const [name, attributes] of sortedAttrs) {
       let inExtended = false;
       let inMetadata = false;
 
