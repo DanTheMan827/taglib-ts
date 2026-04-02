@@ -5,6 +5,7 @@ import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
+  needsNonLatin1Encoding,
   nullTerminatorSize,
 } from "../id3v2Frame.js";
 
@@ -40,8 +41,8 @@ export enum PictureType {
  *            + description(null-terminated in encoding) + pictureData.
  */
 export class AttachedPictureFrame extends Id3v2Frame {
-  /** Text encoding used for the description field. Defaults to Latin1 matching C++ FrameFactory default. */
-  private _encoding: StringType = StringType.Latin1;
+  /** Text encoding used for the description field. Defaults to UTF-8 to correctly handle all Unicode. */
+  private _encoding: StringType = StringType.UTF8;
   /** MIME type of the embedded image (e.g. `"image/jpeg"`). */
   private _mimeType: string = "";
   /** Semantic role of the picture within the tag. */
@@ -54,9 +55,9 @@ export class AttachedPictureFrame extends Id3v2Frame {
   /**
    * Creates a new, empty AttachedPictureFrame.
    * @param encoding - Text encoding to use for the description field.
-   *                   Defaults to `StringType.Latin1` (matching C++ TagLib `FrameFactory` default).
+   *                   Defaults to `StringType.UTF8` so all Unicode characters are stored correctly.
    */
-  constructor(encoding: StringType = StringType.Latin1) {
+  constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
       ByteVector.fromString("APIC", StringType.Latin1),
     );
@@ -187,8 +188,14 @@ export class AttachedPictureFrame extends Id3v2Frame {
    * @returns A `ByteVector` containing the encoded APIC field data.
    */
   protected renderFields(version: number): ByteVector {
+    // Auto-upgrade: if description contains non-Latin1 characters, use UTF-8
+    // instead (matching C++ TagLib's AttachedPictureFrame::renderFields()).
+    const encoding = this._encoding === StringType.Latin1 &&
+      needsNonLatin1Encoding(this._description)
+      ? StringType.UTF8
+      : this._encoding;
     const v = new ByteVector();
-    v.append(this._encoding);
+    v.append(encoding);
 
     if (version < 3) {
       // ID3v2.2 PIC: 3-byte image format string (no null terminator)
@@ -203,12 +210,12 @@ export class AttachedPictureFrame extends Id3v2Frame {
     }
 
     v.append(this._pictureType);
-    v.append(ByteVector.fromString(this._description, this._encoding));
+    v.append(ByteVector.fromString(this._description, encoding));
     // Null terminator for description
     if (
-      this._encoding === StringType.UTF16 ||
-      this._encoding === StringType.UTF16BE ||
-      this._encoding === StringType.UTF16LE
+      encoding === StringType.UTF16 ||
+      encoding === StringType.UTF16BE ||
+      encoding === StringType.UTF16LE
     ) {
       v.append(ByteVector.fromSize(2, 0));
     } else {

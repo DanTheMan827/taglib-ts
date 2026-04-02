@@ -106,10 +106,18 @@ const frameConversion3to4 = new Map<string, string>([
 
 /**
  * Factory that creates appropriate ID3v2 frame types from raw data.
+ *
+ * The singleton instance is accessible via {@link Id3v2FrameFactory.instance}.
+ * Its {@link defaultTextEncoding} property controls which text encoding is used
+ * for all newly created ID3v2 text frames — equivalent to C++ TagLib's
+ * `FrameFactory::setDefaultTextEncoding()`.
  */
 export class Id3v2FrameFactory {
   /** Singleton instance of the factory. */
   private static _instance: Id3v2FrameFactory | null = null;
+
+  /** The text encoding applied to newly created text frames. Defaults to UTF-8. */
+  private _defaultTextEncoding: StringType = StringType.UTF8;
 
   /**
    * Returns the singleton `Id3v2FrameFactory` instance, creating it on first access.
@@ -120,6 +128,31 @@ export class Id3v2FrameFactory {
       Id3v2FrameFactory._instance = new Id3v2FrameFactory();
     }
     return Id3v2FrameFactory._instance;
+  }
+
+  /**
+   * Gets the default text encoding used when creating new ID3v2 text frames.
+   * Defaults to `StringType.UTF8`.
+   */
+  get defaultTextEncoding(): StringType {
+    return this._defaultTextEncoding;
+  }
+
+  /**
+   * Sets the default text encoding used when creating new ID3v2 text frames.
+   * Equivalent to C++ TagLib's `FrameFactory::setDefaultTextEncoding()`.
+   * @param encoding - The encoding to use for newly created text frames.
+   */
+  set defaultTextEncoding(encoding: StringType) {
+    this._defaultTextEncoding = encoding;
+  }
+
+  /**
+   * Alias for {@link defaultTextEncoding} setter — mirrors the C++ TagLib API.
+   * @param encoding - The encoding to use for newly created text frames.
+   */
+  setDefaultTextEncoding(encoding: StringType): void {
+    this._defaultTextEncoding = encoding;
   }
 
   /**

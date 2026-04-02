@@ -4,6 +4,7 @@ import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
+  needsNonLatin1Encoding,
   nullTerminatorSize,
 } from "../id3v2Frame.js";
 
@@ -13,13 +14,13 @@ import {
  * Structure: encoding(1) + text (in encoding, multiple values separated by null).
  */
 export class TextIdentificationFrame extends Id3v2Frame {
-  /** Default encoding matching C++ TagLib FrameFactory: Latin1. */
-  private _encoding: StringType = StringType.Latin1;
+  /** Default encoding: UTF-8 ensures all Unicode strings are stored correctly. */
+  private _encoding: StringType = StringType.UTF8;
   private _fieldList: string[] = [];
   private _rawData: ByteVector | undefined;
   private _rawVersion: number = 4;
 
-  constructor(frameId: ByteVector, encoding: StringType = StringType.Latin1) {
+  constructor(frameId: ByteVector, encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(frameId);
     super(header);
     this._encoding = encoding;
@@ -94,14 +95,20 @@ export class TextIdentificationFrame extends Id3v2Frame {
 
   protected renderFields(version: number): ByteVector {
     this._parseRawData();
+    // Auto-upgrade: if any field needs non-Latin1 chars, use UTF-8 (matching
+    // C++ TagLib's TextIdentificationFrame::renderFields() behaviour).
+    const encoding = this._encoding === StringType.Latin1 &&
+      this._fieldList.some(needsNonLatin1Encoding)
+      ? StringType.UTF8
+      : this._encoding;
     const v = new ByteVector();
-    v.append(this._encoding);
+    v.append(encoding);
 
     if (version >= 4) {
       // ID3v2.4: NUL-separated multiple values
-      const nt = this._encoding === StringType.UTF16 ||
-        this._encoding === StringType.UTF16BE ||
-        this._encoding === StringType.UTF16LE
+      const nt = encoding === StringType.UTF16 ||
+        encoding === StringType.UTF16BE ||
+        encoding === StringType.UTF16LE
         ? ByteVector.fromSize(2, 0)
         : ByteVector.fromSize(1, 0);
 
@@ -109,12 +116,12 @@ export class TextIdentificationFrame extends Id3v2Frame {
         if (i > 0) {
           v.append(nt);
         }
-        v.append(ByteVector.fromString(this._fieldList[i], this._encoding));
+        v.append(ByteVector.fromString(this._fieldList[i], encoding));
       }
     } else {
       // ID3v2.3 and earlier: '/' separated multiple values (rendered as Latin1 separator)
       const joined = this._fieldList.join("/");
-      v.append(ByteVector.fromString(joined, this._encoding));
+      v.append(ByteVector.fromString(joined, encoding));
     }
 
     return v;
@@ -165,7 +172,7 @@ export class TextIdentificationFrame extends Id3v2Frame {
  * The first field is the description, the rest are values.
  */
 export class UserTextIdentificationFrame extends TextIdentificationFrame {
-  constructor(encoding: StringType = StringType.Latin1) {
+  constructor(encoding: StringType = StringType.UTF8) {
     super(ByteVector.fromString("TXXX", StringType.Latin1), encoding);
   }
 

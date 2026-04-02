@@ -140,6 +140,26 @@ export class DsdiffFile extends File {
   // ---------------------------------------------------------------------------
 
   /**
+   * Converts a JavaScript string to Latin-1 bytes using C-string semantics:
+   * each character is stored as `charCode & 0xFF`, stopping at the first
+   * character whose code point maps to `0x00` in Latin-1. This matches the
+   * behaviour of C++ TagLib's `ByteVector::fromCString(tag->artist().toCString())`
+   * used in the DSDIFF DIIN chunk writer — `toCString()` returns a null-terminated
+   * `const char*`, so characters that are truncated to `\x00` (i.e. code points
+   * that are a multiple of 256) act as a string terminator.
+   */
+  private static _toLatin1CString(s: string): ByteVector {
+    const buf = new Uint8Array(s.length);
+    let len = 0;
+    for (let i = 0; i < s.length; i++) {
+      const b = s.charCodeAt(i) & 0xff;
+      if (b === 0) break;
+      buf[len++] = b;
+    }
+    return ByteVector.fromUint8Array(buf.subarray(0, len));
+  }
+
+  /**
    * Returns the combined tag (ID3v2 with DIIN fallback) for this file.
    * @returns The active {@link CombinedTag}.
    */
@@ -202,7 +222,7 @@ export class DsdiffFile extends File {
           ByteVector.fromUInt(this._diinTag.title.length, true),
         );
         titleData.append(
-          ByteVector.fromString(this._diinTag.title, StringType.Latin1),
+          DsdiffFile._toLatin1CString(this._diinTag.title),
         );
         await this.setChildChunkData("DITI", titleData, ChildChunkKind.DIIN);
       } else {
@@ -215,7 +235,7 @@ export class DsdiffFile extends File {
           ByteVector.fromUInt(this._diinTag.artist.length, true),
         );
         artistData.append(
-          ByteVector.fromString(this._diinTag.artist, StringType.Latin1),
+          DsdiffFile._toLatin1CString(this._diinTag.artist),
         );
         await this.setChildChunkData("DIAR", artistData, ChildChunkKind.DIIN);
       } else {

@@ -52,15 +52,17 @@ const HAS_C_TAGLIB = existsSync(VALIDATOR) && existsSync(C_TAGGER);
 
 const describeIfC = HAS_C_TAGLIB ? describe : describe.skip;
 
-// Fixed tag values – identical for both C and TypeScript tagging
+// Fixed tag values – identical for both C and TypeScript tagging.
+// Strings include CJK (kanji/katakana) characters to verify that all Unicode
+// code paths work correctly across every format.
 const TAG = {
-  title: "Cross-Validation Test",
-  artist: "Cross-Validation Artist",
-  album: "Cross-Validation Album",
-  comment: "Cross-Validation Comment",
-  genre: "Electronic",
-  year: 2025,
-  track: 7,
+  title:   "Unicode テスト",   // CJK katakana
+  artist:  "音楽 Artist",      // CJK kanji
+  album:   "日本語 Album",     // CJK kanji
+  comment: "コメント Comment", // CJK katakana
+  genre:   "Electronic",
+  year:    2025,
+  track:   7,
 };
 
 // Deterministic 512-byte JPEG-like buffer (same as in tag_with_c_full.cpp)
