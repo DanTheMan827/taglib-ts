@@ -91,13 +91,13 @@ describe("APE", () => {
   });
 
   it("testFuzzedFile1 - longloop.ape", async () => {
-    // TypeScript-only test
+    // C++: test_ape.cpp – TestAPE::testFuzzedFile1
     const f = await openApeFile("longloop.ape");
     expect(typeof f.isValid).toBe("boolean");
   });
 
   it("testFuzzedFile2 - zerodiv.ape", async () => {
-    // TypeScript-only test
+    // C++: test_ape.cpp – TestAPE::testFuzzedFile2
     const f = await openApeFile("zerodiv.ape");
     expect(typeof f.isValid).toBe("boolean");
   });

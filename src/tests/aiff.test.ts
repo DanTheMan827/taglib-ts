@@ -7,7 +7,7 @@ import { Id3v2Tag } from "../mpeg/id3v2/id3v2Tag.js";
 
 describe("AIFF", () => {
   it("should test aiff properties", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testAiffProperties
     const stream = openTestStream("empty.aiff");
     const f = await AiffFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
@@ -24,7 +24,7 @@ describe("AIFF", () => {
   });
 
   it("should test aiffc properties", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testAiffCProperties
     const stream = openTestStream("alaw.aifc");
     const f = await AiffFile.open(stream, true, ReadStyle.Average);
     expect(f.isValid).toBe(true);
@@ -43,7 +43,7 @@ describe("AIFF", () => {
   });
 
   it("should test saving ID3v2 tag", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testSaveID3v2
     const stream = openTestStream("empty.aiff");
     await reuseTestStream(stream, async () => {
       const f = await AiffFile.open(stream, true, ReadStyle.Average);
@@ -72,7 +72,7 @@ describe("AIFF", () => {
   });
 
   it("should test saving ID3v2 v3 tag", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testSaveID3v23
     const stream = openTestStream("empty.aiff");
     const xxx = "X".repeat(254);
 
@@ -96,7 +96,7 @@ describe("AIFF", () => {
   });
 
   it("should handle duplicate ID3v2 tags", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testDuplicateID3v2
     const stream = openTestStream("duplicate_id3v2.aiff");
 
     // duplicate_id3v2.aiff has duplicate ID3v2 tag chunks.
@@ -112,7 +112,7 @@ describe("AIFF", () => {
   });
 
   it("should handle segfault aif", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testFuzzedFile1
     const stream = openTestStream("segfault.aif");
     const f = await AiffFile.open(stream, true, ReadStyle.Average);
     expect(f).toBeDefined();
@@ -120,7 +120,7 @@ describe("AIFF", () => {
   });
 
   it("should handle excessive alloc aif", async () => {
-    // TypeScript-only test
+    // C++: test_aiff.cpp – TestAIFF::testFuzzedFile2
     const stream = openTestStream("excessive_alloc.aif");
     const f = await AiffFile.open(stream, true, ReadStyle.Average);
     expect(f).toBeDefined();
