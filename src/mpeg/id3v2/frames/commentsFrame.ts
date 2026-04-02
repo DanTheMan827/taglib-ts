@@ -5,6 +5,7 @@ import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
+  needsNonLatin1Encoding,
   nullTerminatorSize,
 } from "../id3v2Frame.js";
 
@@ -14,8 +15,8 @@ import {
  * Structure: encoding(1) + language(3) + description(null-terminated) + text.
  */
 export class CommentsFrame extends Id3v2Frame {
-  /** Text encoding used for the description and comment text fields. Defaults to Latin1 matching C++ FrameFactory default. */
-  private _encoding: StringType = StringType.Latin1;
+  /** Text encoding used for the description and comment text fields. Defaults to UTF-8 to correctly handle all Unicode. */
+  private _encoding: StringType = StringType.UTF8;
   /**
    * Three-byte ISO-639-2 language code. Stored as empty by default; rendered
    * as `"XXX"` (unknown language) when not exactly 3 bytes — matching C++
@@ -30,9 +31,13 @@ export class CommentsFrame extends Id3v2Frame {
   /**
    * Creates a new, empty CommentsFrame.
    * @param encoding - Text encoding to use for description and comment text.
-   *                   Defaults to `StringType.Latin1` (matching C++ TagLib `FrameFactory` default).
+   *                   Defaults to `StringType.UTF8` so all Unicode characters (including CJK)
+   *                   are stored correctly. Note: this differs from the previous Latin-1 default,
+   *                   meaning newly created frames will have a different encoding byte (0x03 vs 0x00)
+   *                   compared to older taglib-ts output. Frames read from existing files preserve
+   *                   whatever encoding was stored on disk.
    */
-  constructor(encoding: StringType = StringType.Latin1) {
+  constructor(encoding: StringType = StringType.UTF8) {
     const header = new Id3v2FrameHeader(
       ByteVector.fromString("COMM", StringType.Latin1),
     );
@@ -168,24 +173,30 @@ export class CommentsFrame extends Id3v2Frame {
    * @returns A `ByteVector` containing the encoded COMM field data.
    */
   protected renderFields(_version: number): ByteVector {
+    // Auto-upgrade: if description or text contains non-Latin1 characters,
+    // use UTF-8 instead (matching C++ TagLib's CommentsFrame::renderFields()).
+    const encoding = this._encoding === StringType.Latin1 &&
+      (needsNonLatin1Encoding(this._description) || needsNonLatin1Encoding(this._text))
+      ? StringType.UTF8
+      : this._encoding;
     const v = new ByteVector();
-    v.append(this._encoding);
+    v.append(encoding);
     // Match C++: d->language.size() == 3 ? d->language : "XXX"
     v.append(this._language.length === 3
       ? this._language.mid(0, 3)
       : ByteVector.fromString("XXX", StringType.Latin1));
-    v.append(ByteVector.fromString(this._description, this._encoding));
+    v.append(ByteVector.fromString(this._description, encoding));
     // Null terminator
     if (
-      this._encoding === StringType.UTF16 ||
-      this._encoding === StringType.UTF16BE ||
-      this._encoding === StringType.UTF16LE
+      encoding === StringType.UTF16 ||
+      encoding === StringType.UTF16BE ||
+      encoding === StringType.UTF16LE
     ) {
       v.append(ByteVector.fromSize(2, 0));
     } else {
       v.append(0);
     }
-    v.append(ByteVector.fromString(this._text, this._encoding));
+    v.append(ByteVector.fromString(this._text, encoding));
     return v;
   }
 }

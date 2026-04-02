@@ -436,6 +436,19 @@ const NULL_BYTE = ByteVector.fromSize(1, 0x00);
 /** Two-byte null terminator used for UTF-16 encoded strings. */
 const NULL_DOUBLE = ByteVector.fromSize(2, 0x00);
 
+/**
+ * Returns true if the string contains any character whose code point is
+ * greater than 0xFF (i.e. outside the Latin-1 / ISO-8859-1 range).
+ * Used to decide when a Latin1-encoded frame must be upgraded to UTF-8.
+ * Mirrors the logic in C++ TagLib's `TextIdentificationFrame::renderFields()`.
+ */
+export function needsNonLatin1Encoding(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) > 0xff) return true;
+  }
+  return false;
+}
+
 /** Return the null terminator for the given encoding. */
 export function nullTerminator(encoding: StringType): ByteVector {
   return encoding === StringType.UTF16 ||

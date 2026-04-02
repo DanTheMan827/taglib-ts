@@ -7,11 +7,11 @@
  * Usage: tag_with_c_full <input> <output> <format>
  *   format: mp3, flac, ogg, oggflac, opus, speex, m4a, wav, aiff, mpc, wv, ape, tta, dsf, dff, asf, mkv
  *
- * Tags written:
- *   title   = "Cross-Validation Test"
- *   artist  = "Cross-Validation Artist"
- *   album   = "Cross-Validation Album"
- *   comment = "Cross-Validation Comment"
+ * Tags written (UTF-8 encoded Unicode strings including CJK characters):
+ *   title   = "Unicode テスト"
+ *   artist  = "音楽 Artist"
+ *   album   = "日本語 Album"
+ *   comment = "コメント Comment"
  *   genre   = "Electronic"
  *   year    = 2025
  *   track   = 7
@@ -53,6 +53,7 @@
 #include <taglib/wavfile.h>
 #include <taglib/wavpackfile.h>
 #include <taglib/xiphcomment.h>
+#include <taglib/id3v2framefactory.h>
 
 namespace fs = std::filesystem;
 
@@ -61,11 +62,13 @@ static std::string toLower(std::string s) {
   return s;
 }
 
-// Fixed tag values for cross-validation
-static constexpr const char *TITLE   = "Cross-Validation Test";
-static constexpr const char *ARTIST  = "Cross-Validation Artist";
-static constexpr const char *ALBUM   = "Cross-Validation Album";
-static constexpr const char *COMMENT = "Cross-Validation Comment";
+// Fixed tag values for cross-validation (UTF-8 encoded in this source file).
+// Includes Latin-1 Supplement, Latin Extended-A, and CJK characters to verify
+// that all Unicode code paths are exercised correctly.
+static constexpr const char *TITLE   = "Unicode テスト";    // CJK katakana
+static constexpr const char *ARTIST  = "音楽 Artist";       // CJK kanji
+static constexpr const char *ALBUM   = "日本語 Album";      // CJK kanji
+static constexpr const char *COMMENT = "コメント Comment";  // CJK katakana
 static constexpr const char *GENRE   = "Electronic";
 static constexpr unsigned int YEAR   = 2025;
 static constexpr unsigned int TRACK  = 7;
@@ -85,11 +88,13 @@ static TagLib::ByteVector makeFakeJPEG(int size = 512) {
 }
 
 static void applyBasicTags(TagLib::Tag *tag) {
-  tag->setTitle(TITLE);
-  tag->setArtist(ARTIST);
-  tag->setAlbum(ALBUM);
-  tag->setComment(COMMENT);
-  tag->setGenre(GENRE);
+  // Construct TagLib strings explicitly as UTF-8 so multi-byte sequences are
+  // decoded correctly (the default const char* constructor uses Latin-1).
+  tag->setTitle(TagLib::String(TITLE, TagLib::String::UTF8));
+  tag->setArtist(TagLib::String(ARTIST, TagLib::String::UTF8));
+  tag->setAlbum(TagLib::String(ALBUM, TagLib::String::UTF8));
+  tag->setComment(TagLib::String(COMMENT, TagLib::String::UTF8));
+  tag->setGenre(TagLib::String(GENRE, TagLib::String::UTF8));
   tag->setYear(YEAR);
   tag->setTrack(TRACK);
 }
@@ -109,6 +114,8 @@ static TagLib::FLAC::Picture *makeFLACPicture() {
 
 static TagLib::ID3v2::AttachedPictureFrame *makeAPICFrame() {
   auto *apic = new TagLib::ID3v2::AttachedPictureFrame();
+  // Use UTF-8 encoding to match taglib-ts AttachedPictureFrame default.
+  apic->setTextEncoding(TagLib::String::UTF8);
   apic->setMimeType("image/jpeg");
   apic->setType(TagLib::ID3v2::AttachedPictureFrame::FrontCover);
   apic->setDescription("Front Cover");
@@ -275,6 +282,11 @@ int main(int argc, char *argv[]) {
     std::cerr << "  format: mp3|flac|ogg|oggflac|opus|speex|m4a|wav|aiff|mpc|wv|ape|tta|dsf|dff|asf|mkv" << std::endl;
     return 1;
   }
+
+  // Use UTF-8 as the default text encoding for all ID3v2 frames so that all
+  // Unicode characters (including CJK) are stored correctly, matching what
+  // taglib-ts writes with its UTF-8 default.
+  TagLib::ID3v2::FrameFactory::instance()->setDefaultTextEncoding(TagLib::String::UTF8);
 
   const std::string input  = argv[1];
   const std::string output = argv[2];

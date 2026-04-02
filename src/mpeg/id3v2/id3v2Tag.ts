@@ -316,7 +316,7 @@ export class Id3v2Tag extends Tag {
     if (existing) {
       existing.text = value;
     } else {
-      const frame = new CommentsFrame();
+      const frame = new CommentsFrame(Id3v2FrameFactory.instance.defaultTextEncoding);
       frame.text = value;
       this.addFrame(frame);
     }
@@ -656,6 +656,7 @@ export class Id3v2Tag extends Tag {
       if (frameId) {
         const frame = new TextIdentificationFrame(
           ByteVector.fromString(frameId, StringType.Latin1),
+          Id3v2FrameFactory.instance.defaultTextEncoding,
         );
         frame.text = values[0];
         this.addFrame(frame);
@@ -664,7 +665,7 @@ export class Id3v2Tag extends Tag {
 
       if (key === "COMMENT") {
         for (const val of values) {
-          const frame = new CommentsFrame();
+          const frame = new CommentsFrame(Id3v2FrameFactory.instance.defaultTextEncoding);
           frame.text = val;
           this.addFrame(frame);
         }
@@ -672,7 +673,7 @@ export class Id3v2Tag extends Tag {
       }
 
       if (key === "LYRICS") {
-        const frame = new UnsynchronizedLyricsFrame();
+        const frame = new UnsynchronizedLyricsFrame(Id3v2FrameFactory.instance.defaultTextEncoding);
         frame.text = values[0];
         this.addFrame(frame);
         continue;
@@ -751,7 +752,7 @@ export class Id3v2Tag extends Tag {
     if (key.toUpperCase() === "PICTURE") {
       this.removeFrames("APIC");
       for (const m of value) {
-        const frame = new AttachedPictureFrame();
+        const frame = new AttachedPictureFrame(Id3v2FrameFactory.instance.defaultTextEncoding);
         const data = m.get("data");
         if (data) frame.picture = data.toByteVector();
         const mimeType = m.get("mimeType");
@@ -813,6 +814,7 @@ export class Id3v2Tag extends Tag {
 
     const frame = new TextIdentificationFrame(
       ByteVector.fromString(frameId, StringType.Latin1),
+      Id3v2FrameFactory.instance.defaultTextEncoding,
     );
     frame.text = value;
     this.addFrame(frame);
