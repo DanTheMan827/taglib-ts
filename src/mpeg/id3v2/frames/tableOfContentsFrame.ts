@@ -1,4 +1,4 @@
-/** @file ID3v2 table of contents frame (CTOC). Defines hierarchical chapter structure with ordered child entries. */
+/** @packageDocumentation ID3v2 table of contents frame (CTOC). Defines hierarchical chapter structure with ordered child entries. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

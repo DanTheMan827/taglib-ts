@@ -1,4 +1,4 @@
-/** @file Audio properties implementation for the Monkey's Audio (APE) format. */
+/** @packageDocumentation Audio properties implementation for the Monkey's Audio (APE) format. */
 
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector, StringType } from "../byteVector.js";

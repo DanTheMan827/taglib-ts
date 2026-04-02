@@ -1,4 +1,4 @@
-/** @file ID3v2 event timing codes frame (ETCO). Stores timestamped event markers within the audio stream. */
+/** @packageDocumentation ID3v2 event timing codes frame (ETCO). Stores timestamped event markers within the audio stream. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 

@@ -1,5 +1,5 @@
 /**
- * @file TagLib version number representation and runtime version accessor.
+ * @packageDocumentation TagLib version number representation and runtime version accessor.
  */
 
 /**

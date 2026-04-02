@@ -1,4 +1,4 @@
-/** @file Xiph/Vorbis comment tag implementation used by OGG-based formats (Vorbis, Opus, Speex, FLAC-in-OGG). */
+/** @packageDocumentation Xiph/Vorbis comment tag implementation used by OGG-based formats (Vorbis, Opus, Speex, FLAC-in-OGG). */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { Tag } from "../tag.js";

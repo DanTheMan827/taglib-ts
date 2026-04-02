@@ -1,4 +1,4 @@
-/** @file MPEG (MP3) file format handler supporting ID3v1, ID3v2, and APE tags with audio property reading. */
+/** @packageDocumentation MPEG (MP3) file format handler supporting ID3v1, ID3v2, and APE tags with audio property reading. */
 import { ApeFooter, ApeTag } from "../ape/apeTag.js";
 import { ByteVector, StringType } from "../byteVector.js";
 import { CombinedTag } from "../combinedTag.js";

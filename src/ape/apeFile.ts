@@ -1,5 +1,5 @@
 /**
- * @file apeFile.ts
+ * @packageDocumentation apeFile.ts
  * Monkey's Audio (APE) file format handler.
  * Reads and writes APE, ID3v1, and (detection-only) ID3v2 tags embedded
  * in `.ape` files and exposes audio properties parsed from the MAC header.

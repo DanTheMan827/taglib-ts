@@ -1,4 +1,4 @@
-/** @file Abstract base class for RIFF/FORM container formats (WAV, AIFF). Handles chunk parsing and manipulation. */
+/** @packageDocumentation Abstract base class for RIFF/FORM container formats (WAV, AIFF). Handles chunk parsing and manipulation. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

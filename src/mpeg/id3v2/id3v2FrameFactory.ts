@@ -1,4 +1,4 @@
-/** @file Factory for creating typed ID3v2 frame instances from raw tag data, with version conversion support. */
+/** @packageDocumentation Factory for creating typed ID3v2 frame instances from raw tag data, with version conversion support. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "./id3v2Frame.js";
 import { Id3v2Header } from "./id3v2Header.js";

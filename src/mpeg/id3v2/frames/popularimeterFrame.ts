@@ -1,4 +1,4 @@
-/** @file ID3v2 popularimeter frame (POPM). Stores a per-user email address, rating, and play counter. */
+/** @packageDocumentation ID3v2 popularimeter frame (POPM). Stores a per-user email address, rating, and play counter. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

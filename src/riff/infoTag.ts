@@ -1,4 +1,4 @@
-/** @file RIFF INFO tag implementation. Reads and writes metadata stored in a LIST/INFO chunk. */
+/** @packageDocumentation RIFF INFO tag implementation. Reads and writes metadata stored in a LIST/INFO chunk. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { Tag } from "../tag.js";

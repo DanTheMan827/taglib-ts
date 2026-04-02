@@ -1,4 +1,4 @@
-/** @file DSDIFF (DSD Interchange File Format) file handler. */
+/** @packageDocumentation DSDIFF (DSD Interchange File Format) file handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";

@@ -1,4 +1,4 @@
-/** @file Audio properties for Musepack (MPC) streams. Parses SV4–SV8 headers. */
+/** @packageDocumentation Audio properties for Musepack (MPC) streams. Parses SV4–SV8 headers. */
 
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector, StringType } from "../byteVector.js";
@@ -253,8 +253,9 @@ export class MpcProperties extends AudioProperties {
    * at the "SE" (Stream End) packet or on read error.
    * @param file - The MPC file positioned immediately after the "MPCK" magic.
    * @param streamLength - Byte length of the audio data (excluding tags).
+   * @internal
    */
-  private async readSV8(file: MpcFile, streamLength: offset_t): Promise<void> {
+  async readSV8(file: MpcFile, streamLength: offset_t): Promise<void> {
     let readSH = false;
     let readRG = false;
 
@@ -333,8 +334,9 @@ export class MpcProperties extends AudioProperties {
    * Parses audio properties from an SV7 ("MP+") or legacy SV4/SV5 fixed-size header.
    * @param data - The raw header bytes (at least {@link MPC_HEADER_SIZE} bytes).
    * @param streamLength - Byte length of the audio data (excluding tags).
+   * @internal
    */
-  private readSV7(data: ByteVector, streamLength: offset_t): void {
+  readSV7(data: ByteVector, streamLength: offset_t): void {
     const mpPlus = ByteVector.fromString("MP+", StringType.Latin1);
 
     if (data.startsWith(mpPlus)) {

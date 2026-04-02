@@ -1,4 +1,4 @@
-/** @file Shorten (.shn) lossless audio file format handler. Read-only; decodes audio properties from the embedded verbatim header. */
+/** @packageDocumentation Shorten (.shn) lossless audio file format handler. Read-only; decodes audio properties from the embedded verbatim header. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

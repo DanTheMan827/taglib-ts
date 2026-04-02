@@ -1,4 +1,4 @@
-/** @file Binary data container used throughout taglib-ts for reading and writing byte sequences. */
+/** @packageDocumentation Binary data container used throughout taglib-ts for reading and writing byte sequences. */
 
 /**
  * String encoding types matching TagLib's String::Type enum.

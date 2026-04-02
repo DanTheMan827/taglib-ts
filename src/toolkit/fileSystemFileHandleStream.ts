@@ -1,5 +1,5 @@
 /**
- * @file Read/write IOStream backed by the browser File System Access API's
+ * @packageDocumentation Read/write IOStream backed by the browser File System Access API's
  * `FileSystemSyncAccessHandle` (available in dedicated web workers).
  *
  * In read-only mode the stream falls back to slice-based reads from the
@@ -9,6 +9,9 @@
 import { ByteVector } from "../byteVector.js";
 import { type offset_t, Position } from "./types.js";
 import { IOStream } from "./ioStream.js";
+import { type BlobStream } from "./blobStream.js";
+
+type _BlobStream = BlobStream; // Used for type imports to prevent eslint warnings.
 
 // ---------------------------------------------------------------------------
 // Minimal type declarations for the File System Access API sync handle.

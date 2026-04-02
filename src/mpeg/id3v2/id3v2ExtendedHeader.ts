@@ -1,4 +1,4 @@
-/** @file ID3v2 extended header parser (optional header section in ID3v2.3/2.4 tags). */
+/** @packageDocumentation ID3v2 extended header parser (optional header section in ID3v2.3/2.4 tags). */
 import { ByteVector } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 
@@ -22,7 +22,7 @@ export class Id3v2ExtendedHeader {
    * Parse the extended header from data.
    *
    * @param data - The raw extended header bytes.
-   * @param version - The ID3v2 major version (3 or 4). Currently the C++
+   * @param _version - The ID3v2 major version (3 or 4). Currently the C++
    *   implementation reads the first 4 bytes as a synchsafe integer
    *   regardless of version.
    */

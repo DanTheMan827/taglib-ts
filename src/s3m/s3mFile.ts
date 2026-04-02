@@ -1,4 +1,4 @@
-/** @file ScreamTracker III (S3M) file format handler. Reads the module title and instrument names; supports writing both back. */
+/** @packageDocumentation ScreamTracker III (S3M) file format handler. Reads the module title and instrument names; supports writing both back. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

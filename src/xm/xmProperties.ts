@@ -1,4 +1,4 @@
-/** @file Audio properties for Extended Module (XM) tracker files. */
+/** @packageDocumentation Audio properties for Extended Module (XM) tracker files. */
 
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";

@@ -1,4 +1,4 @@
-/** @file Audio properties for Impulse Tracker (IT) files. */
+/** @packageDocumentation Audio properties for Impulse Tracker (IT) files. */
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";
 

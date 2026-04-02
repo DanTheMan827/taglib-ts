@@ -1,4 +1,4 @@
-/** @file ASF GUID constants and low-level binary reading/writing helpers. */
+/** @packageDocumentation ASF GUID constants and low-level binary reading/writing helpers. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import type { File } from "../file.js";

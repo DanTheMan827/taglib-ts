@@ -1,4 +1,4 @@
-/** @file Audio properties for WAV files. Parses the RIFF "fmt " chunk. */
+/** @packageDocumentation Audio properties for WAV files. Parses the RIFF "fmt " chunk. */
 
 import { ByteVector } from "../../byteVector.js";
 import { AudioProperties } from "../../audioProperties.js";

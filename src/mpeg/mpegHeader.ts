@@ -1,4 +1,4 @@
-/** @file MPEG audio frame header parser including ADTS (AAC) support and bitrate/sample-rate lookup tables. */
+/** @packageDocumentation MPEG audio frame header parser including ADTS (AAC) support and bitrate/sample-rate lookup tables. */
 import type { ByteVector } from "../byteVector.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 import type { offset_t } from "../toolkit/types.js";

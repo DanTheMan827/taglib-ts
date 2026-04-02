@@ -1,7 +1,10 @@
-/** @file Audio properties implementation for the ASF / WMA format. */
+/** @packageDocumentation Audio properties implementation for the ASF / WMA format. */
 
 import { AudioProperties } from "../audioProperties.js";
 import { ReadStyle } from "../toolkit/types.js";
+import { type AsfFile } from "./asfFile.js";
+
+type _AsfFile = AsfFile; // Used for type imports to prevent eslint warnings.
 
 // ---------------------------------------------------------------------------
 // AsfCodec

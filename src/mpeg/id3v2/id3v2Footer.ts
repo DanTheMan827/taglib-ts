@@ -1,4 +1,4 @@
-/** @file ID3v2 footer class used by ID3v2.4 tags to allow reverse scanning. */
+/** @packageDocumentation ID3v2 footer class used by ID3v2.4 tags to allow reverse scanning. */
 import { ByteVector } from "../../byteVector.js";
 import { Id3v2Header } from "./id3v2Header.js";
 

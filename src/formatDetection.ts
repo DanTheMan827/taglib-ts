@@ -1,5 +1,5 @@
 /**
- * @file Format detection utilities for mapping file extensions and magic bytes
+ * @packageDocumentation Format detection utilities for mapping file extensions and magic bytes
  * to taglib-ts format keys. This module has no imports of format-specific
  * classes to enable tree-shaking and code splitting.
  */

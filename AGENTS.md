@@ -237,7 +237,37 @@ These rules are **mandatory** and must never be violated:
 
 ## Documentation
 - The npm package name is `@dantheman827/taglib-ts`
-- All TypeScript files must have an `@file` comment describing the purpose of the file.
+- All TypeScript files must have an `@packageDocumentation` comment describing the purpose of the file.
 - All classes, methods, properties, and variables must have JSDoc tags regardless of if they're public or not.
 - Examples must always be accurate to the current state of the code.
 - The AGENTS.md must remain current as changes are made to the project structure.
+
+## Documentation and Examples
+
+Maintaining accurate documentation and working examples is mandatory. These rules ensure the repository remains usable and examples reflect the current public API and behavior.
+
+1. **Mandatory verification on source changes:** Whenever changes are made to source files that affect public APIs, behavior, or examples, contributors MUST verify that:
+    - All examples under the `examples/` directory still build and run as intended.
+    - Any inline code examples in `README.md` continue to be correct and runnable.
+
+2. **Update or add tests for examples:** If an example no longer functions due to intentional API changes, update the example to the new API and, add or update tests that exercise the example's main usage path.
+
+3. **README.md accuracy rule:** Agents and contributors MUST ensure `README.md` is kept accurate. Before merging changes that affect the public surface or examples, an agent or reviewer must:
+    - Run the examples in `examples/` and any runnable snippets from `README.md` (manually or via automated scripts).
+    - Update `README.md` to reflect API, usage, or configuration changes.
+    - If the README contains non-runnable conceptual examples, add a short note indicating they are illustrative and provide a linking runnable example in `examples/`.
+
+4. **Commit message and PR checklist entries:** Pull requests that change source files should include a checklist item confirming that examples and README snippets were verified and updated as necessary.
+
+5. **CI / Automation (recommended):** Where practical, add CI checks that run the `examples/` directory scripts and validate runnable README snippets to catch regressions early.
+
+6.  **typedoc warnings:** Agents and contributors MUST ensure that typedoc warnings are resolved for accurate documentation.
+    - If a symbol is referenced by another but not included in the documentation, that symbol must be exported as public.  Use the `@internal` block tag to mark this as internal.
+    - If a symbol is referenced by another but cannot be resolved, the type should be imported in the referencing file.
+      - If a type is imported to satisfy typedoc, but it creates an eslint warning, add an internal type to satisfy the usage requirement, for example: 
+        ```ts
+        type _IOStream = IOStream; // Used for type imports to prevent eslint warnings.`
+        ```
+      - If a type is truly unused, including by tsdoc, the aliased type must be removed.
+
+These rules are **mandatory** and follow the same enforcement expectations as the testing and C++ compatibility rules above: do not merge changes that leave examples or README snippets broken.

@@ -1,4 +1,4 @@
-/** @file ID3v2 synchronized lyrics frame (SYLT). Stores timestamped lyrics or text. */
+/** @packageDocumentation ID3v2 synchronized lyrics frame (SYLT). Stores timestamped lyrics or text. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

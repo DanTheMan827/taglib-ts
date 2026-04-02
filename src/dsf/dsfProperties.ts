@@ -1,4 +1,4 @@
-/** @file Audio properties implementation for the DSF (DSD Stream File) format. */
+/** @packageDocumentation Audio properties implementation for the DSF (DSD Stream File) format. */
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector } from "../byteVector.js";
 import type { ReadStyle } from "../toolkit/types.js";

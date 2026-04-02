@@ -1,4 +1,4 @@
-/** @file AIFF/AIFC file handler. Reads and writes ID3v2 tags embedded in AIFF/FORM containers. */
+/** @packageDocumentation AIFF/AIFC file handler. Reads and writes ID3v2 tags embedded in AIFF/FORM containers. */
 
 import { ByteVector } from "../../byteVector.js";
 import { RiffFile } from "../riffFile.js";

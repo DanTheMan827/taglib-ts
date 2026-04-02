@@ -1,4 +1,4 @@
-/** @file ID3v2 private frame (PRIV). Stores owner-identified private binary data. */
+/** @packageDocumentation ID3v2 private frame (PRIV). Stores owner-identified private binary data. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

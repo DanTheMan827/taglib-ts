@@ -1,4 +1,4 @@
-/** @file ID3v2 attached picture frame (APIC). Stores embedded album art and other images. */
+/** @packageDocumentation ID3v2 attached picture frame (APIC). Stores embedded album art and other images. */
 
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {

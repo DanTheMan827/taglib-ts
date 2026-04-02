@@ -1,4 +1,4 @@
-/** @file FLAC picture metadata block — parsing and rendering. */
+/** @packageDocumentation FLAC picture metadata block — parsing and rendering. */
 import { ByteVector, StringType } from "../byteVector.js";
 
 /**

@@ -1,5 +1,5 @@
 /**
- * @file In-memory IOStream backed by a ByteVector.
+ * @packageDocumentation In-memory IOStream backed by a ByteVector.
  */
 
 import { ByteVector } from "../byteVector.js";

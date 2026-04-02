@@ -1,4 +1,4 @@
-/** @file ID3v1 genre list and look-up utilities. Provides the standard 192-genre table and helper functions. */
+/** @packageDocumentation ID3v1 genre list and look-up utilities. Provides the standard 192-genre table and helper functions. */
 
 /** The canonical list of 192 ID3v1 genre names, indexed by genre number. */
 const genres: readonly string[] = [

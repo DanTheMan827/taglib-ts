@@ -1,4 +1,4 @@
-/** @file Audio properties for the Ogg Opus format, parsed from the OpusHead identification header (packet 0). */
+/** @packageDocumentation Audio properties for the Ogg Opus format, parsed from the OpusHead identification header (packet 0). */
 
 import { AudioProperties } from "../../audioProperties.js";
 import { ByteVector, StringType } from "../../byteVector.js";

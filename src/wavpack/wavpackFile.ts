@@ -1,4 +1,4 @@
-/** @file WavPack file format handler. Supports APE (primary) and ID3v1 (secondary) tags. */
+/** @packageDocumentation WavPack file format handler. Supports APE (primary) and ID3v1 (secondary) tags. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

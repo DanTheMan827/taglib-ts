@@ -1,4 +1,4 @@
-/** @file Musepack (MPC) file format handler. Supports ID3v1, ID3v2 detection, and APE tags. */
+/** @packageDocumentation Musepack (MPC) file format handler. Supports ID3v1, ID3v2 detection, and APE tags. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

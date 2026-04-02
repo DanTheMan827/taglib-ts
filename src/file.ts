@@ -1,5 +1,5 @@
 /**
- * @file Abstract base class for audio file format implementations.
+ * @packageDocumentation Abstract base class for audio file format implementations.
  *
  * Provides async I/O helpers that delegate to an {@link IOStream}, along with
  * metadata access via the format-specific {@link Tag} and

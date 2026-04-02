@@ -1,4 +1,4 @@
-/** @file ID3v2 ownership frame (OWNE). Records purchase and ownership information. */
+/** @packageDocumentation ID3v2 ownership frame (OWNE). Records purchase and ownership information. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

@@ -1,4 +1,4 @@
-/** @file Abstract AudioProperties base class shared by all format-specific audio-properties implementations. */
+/** @packageDocumentation Abstract AudioProperties base class shared by all format-specific audio-properties implementations. */
 
 import { ReadStyle } from "./toolkit/types.js";
 

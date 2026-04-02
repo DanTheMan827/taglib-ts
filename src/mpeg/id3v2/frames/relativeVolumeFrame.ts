@@ -1,4 +1,4 @@
-/** @file ID3v2 relative volume adjustment frame (RVA2). Stores per-channel volume adjustment and peak volume data. */
+/** @packageDocumentation ID3v2 relative volume adjustment frame (RVA2). Stores per-channel volume adjustment and peak volume data. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 

@@ -1,4 +1,4 @@
-/** @file ID3v1 tag implementation. Reads and writes the fixed 128-byte ID3v1 tag block. */
+/** @packageDocumentation ID3v1 tag implementation. Reads and writes the fixed 128-byte ID3v1 tag block. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { Tag } from "../../tag.js";

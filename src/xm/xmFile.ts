@@ -1,4 +1,4 @@
-/** @file Extended Module (XM) tracker file format handler. Reads and writes title, tracker name, instrument names, and sample names. */
+/** @packageDocumentation Extended Module (XM) tracker file format handler. Reads and writes title, tracker name, instrument names, and sample names. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

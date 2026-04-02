@@ -1,4 +1,4 @@
-/** @file Audio properties implementation for MPEG (MP3) and ADTS (AAC) files, including VBR (Xing/VBRI) support. */
+/** @packageDocumentation Audio properties implementation for MPEG (MP3) and ADTS (AAC) files, including VBR (Xing/VBRI) support. */
 import { AudioProperties } from "../audioProperties.js";
 import { ReadStyle } from "../toolkit/types.js";
 import { MpegHeader, MpegVersion, ChannelMode } from "./mpegHeader.js";

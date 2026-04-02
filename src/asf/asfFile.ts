@@ -1,4 +1,4 @@
-/** @file ASF / WMA file implementation including internal object parsing hierarchy. */
+/** @packageDocumentation ASF / WMA file implementation including internal object parsing hierarchy. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
@@ -37,8 +37,9 @@ import {
  * Common interface shared by all ASF object types that appear inside the
  * Header Object.  Each object knows how to parse itself from a file stream
  * and render itself back to bytes.
+ * @internal
  */
-interface BaseObject {
+export interface BaseObject {
   guid(): ByteVector;
   parse(file: AsfFile, size: bigint): Promise<void>;
   render(file: AsfFile): ByteVector;
@@ -177,8 +178,11 @@ class ExtendedContentDescriptionObject implements BaseObject {
   }
 }
 
-/** Parses/renders the Metadata Object (stream-specific attributes, no language index). */
-class MetadataObject implements BaseObject {
+/**
+ * Parses/renders the Metadata Object (stream-specific attributes, no language index).
+ * @internal
+ */
+export class MetadataObject implements BaseObject {
   data = new ByteVector();
   attributeData: ByteVector[] = [];
   guid(): ByteVector { return metadataGuid; }
@@ -201,8 +205,9 @@ class MetadataObject implements BaseObject {
 /**
  * Parses/renders the Metadata Library Object (stream- and language-specific
  * attributes, supports large values > 64 KB).
+ * @internal
  */
-class MetadataLibraryObject implements BaseObject {
+export class MetadataLibraryObject implements BaseObject {
   data = new ByteVector();
   attributeData: ByteVector[] = [];
   guid(): ByteVector { return metadataLibraryGuid; }

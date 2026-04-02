@@ -1,5 +1,5 @@
 /**
- * @file Simple high-level API for reading and writing audio file tags.
+ * @packageDocumentation Simple high-level API for reading and writing audio file tags.
  *
  * Provides two convenience functions — {@link readTags} and {@link writeTags} —
  * that accept `File`, `Blob`, or `Uint8Array` inputs and return/accept plain

@@ -1,4 +1,4 @@
-/** @file DSF (DSD Stream File) format handler. */
+/** @packageDocumentation DSF (DSD Stream File) format handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";

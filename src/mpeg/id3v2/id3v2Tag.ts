@@ -1,4 +1,4 @@
-/** @file ID3v2 tag implementation supporting read, write, and PropertyMap access for all standard frame types. */
+/** @packageDocumentation ID3v2 tag implementation supporting read, write, and PropertyMap access for all standard frame types. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { Tag } from "../../tag.js";
 import { PropertyMap } from "../../toolkit/propertyMap.js";
@@ -23,8 +23,9 @@ import { genre as id3v1Genre } from "../id3v1/id3v1Genres.js";
 /**
  * Standard frame ID → property name mapping for ID3v2.
  * Maps four-character frame IDs (e.g. `"TIT2"`) to TagLib property names (e.g. `"TITLE"`).
+ * @internal
  */
-const frameIdToProperty = new Map<string, string>([
+export const frameIdToProperty = new Map<string, string>([
   ["TIT1", "CONTENTGROUP"],
   ["TIT2", "TITLE"],
   ["TIT3", "SUBTITLE"],

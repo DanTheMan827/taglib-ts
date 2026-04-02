@@ -34,7 +34,7 @@ jobs:
         run: npm run build
 
       - name: Generate docs
-        run: npx typedoc src/index.ts --out docs --name "taglib-ts" --readme README.md --excludePrivate --excludeInternal
+        run: npm run docs
 
       - name: Copy examples
         run: |

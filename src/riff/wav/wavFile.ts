@@ -1,4 +1,4 @@
-/** @file WAV file handler. Reads and writes ID3v2 and RIFF INFO tags embedded in WAV/RIFF containers. */
+/** @packageDocumentation WAV file handler. Reads and writes ID3v2 and RIFF INFO tags embedded in WAV/RIFF containers. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { RiffFile } from "../riffFile.js";

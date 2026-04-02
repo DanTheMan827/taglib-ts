@@ -1,4 +1,4 @@
-/** @file Audio properties for AIFF/AIFC files. Parses the COMM chunk including optional AIFC compression info. */
+/** @packageDocumentation Audio properties for AIFF/AIFC files. Parses the COMM chunk including optional AIFC compression info. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { AudioProperties } from "../../audioProperties.js";

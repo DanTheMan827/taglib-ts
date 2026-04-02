@@ -1,5 +1,6 @@
 /**
- * @file Benchmarks for all in-process {@link IOStream} implementations.
+ * @hidden
+ * @packageDocumentation Benchmarks for all in-process {@link IOStream} implementations.
  *
  * ### Why async is slower than sync
  *

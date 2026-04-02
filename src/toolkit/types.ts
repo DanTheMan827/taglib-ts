@@ -1,6 +1,10 @@
 /**
- * @file Core type definitions and enumerations used throughout taglib-ts.
+ * @packageDocumentation Core type definitions and enumerations used throughout taglib-ts.
  */
+
+import { type IOStream } from "./ioStream";
+
+type _IOStream = IOStream; // Used for type imports to prevent eslint warnings.
 
 /** Byte offset within a stream or file, represented as a JavaScript number. */
 export type offset_t = number;

@@ -1,4 +1,4 @@
-/** @file ID3v2 podcast marker frame (PCST). An iTunes-specific 4-byte marker that identifies a file as a podcast. */
+/** @packageDocumentation ID3v2 podcast marker frame (PCST). An iTunes-specific 4-byte marker that identifies a file as a podcast. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 

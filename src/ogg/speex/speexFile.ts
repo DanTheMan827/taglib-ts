@@ -1,4 +1,4 @@
-/** @file Ogg Speex file format handler. Reads and writes XiphComment tags and Speex audio properties. */
+/** @packageDocumentation Ogg Speex file format handler. Reads and writes XiphComment tags and Speex audio properties. */
 
 import { IOStream } from "../../toolkit/ioStream.js";
 import { ReadStyle } from "../../toolkit/types.js";

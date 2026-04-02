@@ -19,10 +19,26 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache TagLib build
+        id: cache-taglib
+        uses: actions/cache@v5
+        with:
+          path: ~/.local
+          key: taglib-${{ runner.os }}-${{ hashFiles('taglib/*', 'taglib/**/*') }}
+
+      - name: Cache Validator build
+        id: cache-validator
+        uses: actions/cache@v5
+        with:
+          path: validator/build/*
+          key: validator-${{ runner.os }}-${{ hashFiles('taglib/*', 'taglib/**/*', 'validator/*', 'validator/**/*') }}
+
       - name: Install system dependencies
+        if: steps.cache-taglib.outputs.cache-hit != 'true'
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build zlib1g-dev
 
       - name: Configure TagLib (from submodule)
+        if: steps.cache-taglib.outputs.cache-hit != 'true'
         run: |
           cmake -B taglib/build -S taglib \
             -G Ninja \
@@ -33,9 +49,11 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF
 
       - name: Build & install TagLib
+        if: steps.cache-taglib.outputs.cache-hit != 'true'
         run: cmake --build taglib/build -j$(nproc) && cmake --install taglib/build
 
       - name: Build C validators
+        if: steps.cache-validator.outputs.cache-hit != 'true'
         run: |
           PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig \
           cmake -B validator/build -S validator \
@@ -96,7 +114,12 @@ jobs:
         run: npm pack
 
       - name: Generate TypeDoc docs
-        run: npx typedoc
+        run: npm run docs
+
+      - name: Copy examples
+        run: |
+          mkdir -p docs/examples
+          cp examples/*.ts docs/examples/
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v7

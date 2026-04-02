@@ -1,5 +1,5 @@
 /**
- * @file Read/write IOStream backed by a `Blob` or `File` object.
+ * @packageDocumentation Read/write IOStream backed by a `Blob` or `File` object.
  *
  * Reads are performed lazily — each `BlobSegment` is fetched from the blob on
  * first access and the result is **cached on the segment**, so subsequent reads
@@ -32,8 +32,9 @@ import { IOStream } from "./ioStream.js";
  * Once the range has been read, the raw bytes are stored in {@link cache} so
  * that future reads of overlapping ranges are served from memory without
  * issuing another `arrayBuffer()` call.
+ * @internal
  */
-interface BlobSegment {
+export interface BlobSegment {
   /** Discriminant tag. */
   kind: "blob";
   /** Inclusive start offset within the source blob. */
@@ -50,16 +51,20 @@ interface BlobSegment {
 /**
  * A segment that holds a small in-memory buffer representing inserted or
  * overwritten bytes.
+ * @internal
  */
-interface BufferSegment {
+export interface BufferSegment {
   /** Discriminant tag. */
   kind: "buffer";
   /** The raw byte data. */
   data: Uint8Array;
 }
 
-/** A single entry in the {@link BlobStream} piece table. */
-type Segment = BlobSegment | BufferSegment;
+/**
+ * A single entry in the {@link BlobStream} piece table.
+ * @internal
+*/
+export type Segment = BlobSegment | BufferSegment;
 
 /**
  * Returns the logical byte length of a single segment.

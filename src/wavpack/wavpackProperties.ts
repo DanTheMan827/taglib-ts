@@ -1,4 +1,4 @@
-/** @file Audio properties for WavPack streams. Parses block headers including non-standard sample rates and DSD audio. */
+/** @packageDocumentation Audio properties for WavPack streams. Parses block headers including non-standard sample rates and DSD audio. */
 
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector, StringType } from "../byteVector.js";

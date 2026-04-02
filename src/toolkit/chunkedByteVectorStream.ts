@@ -1,10 +1,13 @@
 /**
- * @file In-memory IOStream backed by an array of Uint8Array chunks.
+ * @packageDocumentation In-memory IOStream backed by an array of Uint8Array chunks.
  */
 
 import { ByteVector } from "../byteVector.js";
 import { IOStream } from "./ioStream.js";
 import { type offset_t, Position } from "./types.js";
+import { type ByteVectorStream } from "./byteVectorStream.js";
+
+type _ByteVectorStream = ByteVectorStream; // Used for type imports to prevent eslint warnings.
 
 /**
  * An in-memory {@link IOStream} backed by an array of `Uint8Array` chunks.

@@ -1,4 +1,4 @@
-/** @file ID3v2 unsynchronized lyrics frame (USLT). Stores free-form lyrics or text transcription. */
+/** @packageDocumentation ID3v2 unsynchronized lyrics frame (USLT). Stores free-form lyrics or text transcription. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

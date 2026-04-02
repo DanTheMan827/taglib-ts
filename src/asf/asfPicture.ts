@@ -1,4 +1,4 @@
-/** @file Picture type enumeration and {@link AsfPicture} class for embedded artwork in ASF files. */
+/** @packageDocumentation Picture type enumeration and {@link AsfPicture} class for embedded artwork in ASF files. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 

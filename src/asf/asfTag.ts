@@ -1,4 +1,4 @@
-/** @file ASF tag implementation with PropertyMap and complex property (picture) support. */
+/** @packageDocumentation ASF tag implementation with PropertyMap and complex property (picture) support. */
 
 import { Tag } from "../tag.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";

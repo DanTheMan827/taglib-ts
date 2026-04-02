@@ -1,4 +1,4 @@
-/** @file ASF attribute value type and {@link AsfAttribute} implementation. */
+/** @packageDocumentation ASF attribute value type and {@link AsfAttribute} implementation. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import type { File } from "../file.js";

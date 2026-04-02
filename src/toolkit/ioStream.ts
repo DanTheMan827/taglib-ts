@@ -1,5 +1,5 @@
 /**
- * @file Abstract IOStream interface for byte-level I/O.
+ * @packageDocumentation Abstract IOStream interface for byte-level I/O.
  */
 
 import { ByteVector } from "../byteVector.js";

@@ -1,4 +1,4 @@
-/** @file ID3v2 general encapsulated object frame (GEOB). Stores arbitrary binary objects with metadata. */
+/** @packageDocumentation ID3v2 general encapsulated object frame (GEOB). Stores arbitrary binary objects with metadata. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

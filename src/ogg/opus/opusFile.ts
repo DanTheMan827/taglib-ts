@@ -1,4 +1,4 @@
-/** @file Ogg Opus file format handler. Reads and writes XiphComment tags and Opus audio properties. */
+/** @packageDocumentation Ogg Opus file format handler. Reads and writes XiphComment tags and Opus audio properties. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { IOStream } from "../../toolkit/ioStream.js";

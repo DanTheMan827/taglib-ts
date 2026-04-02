@@ -1,4 +1,4 @@
-/** @file Matroska tag implementation using EBML SimpleTag structures. */
+/** @packageDocumentation Matroska tag implementation using EBML SimpleTag structures. */
 import { Tag } from "../tag.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 import type { VariantMap } from "../toolkit/variant.js";

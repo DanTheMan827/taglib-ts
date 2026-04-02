@@ -1,4 +1,4 @@
-/** @file ID3v2 tag header parser and renderer (the mandatory 10-byte header found at the start of every ID3v2 tag). */
+/** @packageDocumentation ID3v2 tag header parser and renderer (the mandatory 10-byte header found at the start of every ID3v2 tag). */
 import { ByteVector } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 

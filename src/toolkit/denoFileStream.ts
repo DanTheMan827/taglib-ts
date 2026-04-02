@@ -1,5 +1,5 @@
 /**
- * @file Read/write IOStream backed by Deno's native file system API
+ * @packageDocumentation Read/write IOStream backed by Deno's native file system API
  * (`Deno.FsFile`).
  *
  * Because Deno types are not available in a standard TypeScript / Node.js

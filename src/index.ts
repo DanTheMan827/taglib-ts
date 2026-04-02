@@ -1,4 +1,4 @@
-/** @file Public API barrel — re-exports every public symbol from taglib-ts. */
+/** @packageDocumentation Public API barrel — re-exports every public symbol from taglib-ts. */
 
 // Core
 export { ByteVector, StringType } from "./byteVector.js";

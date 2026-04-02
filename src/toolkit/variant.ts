@@ -1,5 +1,5 @@
 /**
- * @file Variant discriminated-union type for complex metadata properties.
+ * @packageDocumentation Variant discriminated-union type for complex metadata properties.
  */
 
 import { ByteVector } from "../byteVector.js";

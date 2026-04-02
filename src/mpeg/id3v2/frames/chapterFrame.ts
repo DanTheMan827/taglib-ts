@@ -1,4 +1,4 @@
-/** @file ID3v2 chapter frame (CHAP). Marks a chapter within the audio stream. */
+/** @packageDocumentation ID3v2 chapter frame (CHAP). Marks a chapter within the audio stream. */
 
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {

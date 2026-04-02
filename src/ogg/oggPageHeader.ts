@@ -1,4 +1,4 @@
-/** @file OGG page header parser for the OGG container format. */
+/** @packageDocumentation OGG page header parser for the OGG container format. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import type { offset_t } from "../toolkit/types.js";

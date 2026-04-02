@@ -1,4 +1,4 @@
-/** @file Matroska/WebM file format handler. */
+/** @packageDocumentation Matroska/WebM file format handler. */
 import { File } from "../file.js";
 import { IOStream } from "../toolkit/ioStream.js";
 import { Position, ReadStyle } from "../toolkit/types.js";

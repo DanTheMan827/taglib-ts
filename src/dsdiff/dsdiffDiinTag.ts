@@ -1,4 +1,4 @@
-/** @file DIIN (DSD Interchange Information) tag implementation for DSDIFF files. */
+/** @packageDocumentation DIIN (DSD Interchange Information) tag implementation for DSDIFF files. */
 import { Tag } from "../tag.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 

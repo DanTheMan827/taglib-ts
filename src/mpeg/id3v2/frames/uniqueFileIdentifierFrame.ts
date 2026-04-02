@@ -1,4 +1,4 @@
-/** @file ID3v2 unique file identifier frame (UFID). Stores an owner-identified binary identifier for the file. */
+/** @packageDocumentation ID3v2 unique file identifier frame (UFID). Stores an owner-identified binary identifier for the file. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

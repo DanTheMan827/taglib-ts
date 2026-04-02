@@ -1,4 +1,4 @@
-/** @file Abstract Tag base class shared by all format-specific tag implementations. */
+/** @packageDocumentation Abstract Tag base class shared by all format-specific tag implementations. */
 
 import { PropertyMap } from "./toolkit/propertyMap.js";
 import type { VariantMap } from "./toolkit/variant.js";

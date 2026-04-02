@@ -1,4 +1,4 @@
-/** @file Audio properties for Shorten (.shn) lossless audio files. */
+/** @packageDocumentation Audio properties for Shorten (.shn) lossless audio files. */
 
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";

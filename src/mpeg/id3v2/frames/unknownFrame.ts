@@ -1,4 +1,4 @@
-/** @file ID3v2 unknown frame fallback. Preserves the raw payload of frame types without a dedicated parser. */
+/** @packageDocumentation ID3v2 unknown frame fallback. Preserves the raw payload of frame types without a dedicated parser. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 

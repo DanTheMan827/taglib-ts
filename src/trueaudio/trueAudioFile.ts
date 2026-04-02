@@ -1,4 +1,4 @@
-/** @file TrueAudio (TTA) file format handler. Supports ID3v1 and ID3v2 tags. */
+/** @packageDocumentation TrueAudio (TTA) file format handler. Supports ID3v1 and ID3v2 tags. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";

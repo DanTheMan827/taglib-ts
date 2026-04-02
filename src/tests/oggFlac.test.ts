@@ -1,4 +1,4 @@
-/** @file OGG FLAC file format tests — ported from taglib/tests/test_oggflac.cpp */
+/** @packageDocumentation OGG FLAC file format tests — ported from taglib/tests/test_oggflac.cpp */
 
 import { describe, expect, it } from "vitest";
 import { OggFlacFile } from "../ogg/flac/oggFlacFile.js";

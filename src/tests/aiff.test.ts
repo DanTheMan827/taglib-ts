@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openTestStream, readTestData, reuseTestStream } from "./testHelper.js";
+import { openTestStream, reuseTestStream } from "./testHelper.js";
 import { AiffFile } from "../riff/aiff/aiffFile";
 import { ReadStyle } from "../toolkit/types";
 import { ByteVector } from "../byteVector.js";

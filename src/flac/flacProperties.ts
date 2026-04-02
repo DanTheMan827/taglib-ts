@@ -1,4 +1,4 @@
-/** @file FLAC audio properties parsed from the STREAMINFO metadata block. */
+/** @packageDocumentation FLAC audio properties parsed from the STREAMINFO metadata block. */
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector } from "../byteVector.js";
 import { ReadStyle } from "../toolkit/types.js";

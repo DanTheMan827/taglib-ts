@@ -1,4 +1,4 @@
-/** @file ID3v2 comments frame (COMM). Stores free-form comments with language and description. */
+/** @packageDocumentation ID3v2 comments frame (COMM). Stores free-form comments with language and description. */
 
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {

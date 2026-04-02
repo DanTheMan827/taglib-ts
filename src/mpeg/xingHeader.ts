@@ -1,4 +1,4 @@
-/** @file Xing and VBRI VBR header parser for MPEG audio files, used to determine total frame count and stream size. */
+/** @packageDocumentation Xing and VBRI VBR header parser for MPEG audio files, used to determine total frame count and stream size. */
 import { ByteVector, StringType } from "../byteVector.js";
 
 // =============================================================================

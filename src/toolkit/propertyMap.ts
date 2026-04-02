@@ -1,5 +1,5 @@
 /**
- * @file Case-insensitive key-value container for audio metadata properties.
+ * @packageDocumentation Case-insensitive key-value container for audio metadata properties.
  */
 
 /**

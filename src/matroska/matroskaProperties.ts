@@ -1,4 +1,4 @@
-/** @file Audio properties for Matroska/WebM files. */
+/** @packageDocumentation Audio properties for Matroska/WebM files. */
 import { AudioProperties } from "../audioProperties.js";
 import { ReadStyle } from "../toolkit/types.js";
 

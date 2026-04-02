@@ -3,7 +3,6 @@ import { DsdiffFile, DsdiffTagType } from "../dsdiff/dsdiffFile.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { ReadStyle } from "../toolkit/types.js";
 import { openTestStream, readTestData } from "./testHelper.js";
-import { ByteVector } from "../byteVector.js";
 
 async function openDsdiffFile(filename: string, readProperties = true, readStyle = ReadStyle.Average): Promise<DsdiffFile> {
   const stream = openTestStream(filename);

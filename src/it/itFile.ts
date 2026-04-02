@@ -1,4 +1,4 @@
-/** @file Impulse Tracker (IT) file format handler. */
+/** @packageDocumentation Impulse Tracker (IT) file format handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";

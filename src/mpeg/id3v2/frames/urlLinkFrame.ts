@@ -1,4 +1,4 @@
-/** @file ID3v2 URL link frames (W*** and WXXX). Store hyperlinks related to the audio content. */
+/** @packageDocumentation ID3v2 URL link frames (W*** and WXXX). Store hyperlinks related to the audio content. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

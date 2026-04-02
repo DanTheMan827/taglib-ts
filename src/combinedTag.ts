@@ -1,4 +1,4 @@
-/** @file CombinedTag — a priority-ordered union of multiple Tag instances. */
+/** @packageDocumentation CombinedTag — a priority-ordered union of multiple Tag instances. */
 
 import { Tag } from "./tag.js";
 import { PropertyMap } from "./toolkit/propertyMap.js";

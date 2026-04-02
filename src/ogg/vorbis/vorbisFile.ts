@@ -1,4 +1,4 @@
-/** @file Ogg Vorbis file format handler. Reads and writes XiphComment tags and Vorbis audio properties. */
+/** @packageDocumentation Ogg Vorbis file format handler. Reads and writes XiphComment tags and Vorbis audio properties. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { IOStream } from "../../toolkit/ioStream.js";

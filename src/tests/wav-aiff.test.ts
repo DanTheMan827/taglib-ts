@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { AiffFile } from "../riff/aiff/aiffFile.js";
 import { WavFile } from "../riff/wav/wavFile.js";
 import { ByteVector } from "../byteVector.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { ReadStyle } from "../toolkit/types.js";
-import { openTestStream, readTestData, readTestDataBV } from "./testHelper.js";
+import { openTestStream, readTestDataBV } from "./testHelper.js";
 
 describe("WAV", () => {
   it("should test PCM properties", async () => {

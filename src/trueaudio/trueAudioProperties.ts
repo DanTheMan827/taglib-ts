@@ -1,4 +1,4 @@
-/** @file Audio properties for TrueAudio (TTA) streams. Parses the 18-byte TTA1 header. */
+/** @packageDocumentation Audio properties for TrueAudio (TTA) streams. Parses the 18-byte TTA1 header. */
 
 import { AudioProperties } from "../audioProperties.js";
 import { ByteVector, StringType } from "../byteVector.js";

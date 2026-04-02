@@ -1,4 +1,4 @@
-/** @file FileRef — format-agnostic entry point for opening audio files and accessing their tags and properties. */
+/** @packageDocumentation FileRef — format-agnostic entry point for opening audio files and accessing their tags and properties. */
 
 import { File } from "./file.js";
 import { Tag } from "./tag.js";
@@ -20,7 +20,8 @@ import { detectByExtension, detectByContent, detectOggSubFormat, defaultFileExte
  * operations are exposed as convenience methods so that callers rarely need to
  * interact with the underlying {@link File} directly.
  *
- * @example Open an audio file from a browser `File` object
+ * @example
+ * Open an audio file from a browser `File` object
  * ```ts
  * const ref = await FileRef.fromBlob(file, file.name);
  * if (ref.isValid) {

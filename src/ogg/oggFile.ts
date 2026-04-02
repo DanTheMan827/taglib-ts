@@ -1,4 +1,4 @@
-/** @file Abstract base class for OGG container file formats. Handles page-level I/O and logical packet reassembly. */
+/** @packageDocumentation Abstract base class for OGG container file formats. Handles page-level I/O and logical packet reassembly. */
 
 import { ByteVector } from "../byteVector.js";
 import { File } from "../file.js";

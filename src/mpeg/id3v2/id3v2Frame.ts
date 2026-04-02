@@ -1,4 +1,4 @@
-/** @file ID3v2 frame header and abstract base class for all ID3v2 frame types. */
+/** @packageDocumentation ID3v2 frame header and abstract base class for all ID3v2 frame types. */
 import { ByteVector, StringType } from "../../byteVector.js";
 import { SynchData } from "./id3v2SynchData.js";
 

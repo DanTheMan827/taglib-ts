@@ -1,4 +1,4 @@
-/** @file Audio properties implementation for the DSDIFF (DSD Interchange File Format). */
+/** @packageDocumentation Audio properties implementation for the DSDIFF (DSD Interchange File Format). */
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";
 

@@ -1,4 +1,4 @@
-/** @file Audio properties for ProTracker MOD files. */
+/** @packageDocumentation Audio properties for ProTracker MOD files. */
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";
 

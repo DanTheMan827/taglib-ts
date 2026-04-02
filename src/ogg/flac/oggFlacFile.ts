@@ -1,4 +1,4 @@
-/** @file FLAC-in-OGG file format handler. Reads and writes XiphComment tags and FLAC audio properties. */
+/** @packageDocumentation FLAC-in-OGG file format handler. Reads and writes XiphComment tags and FLAC audio properties. */
 
 import { ByteVector, StringType } from "../../byteVector.js";
 import { IOStream } from "../../toolkit/ioStream.js";

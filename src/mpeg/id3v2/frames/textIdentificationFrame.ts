@@ -1,4 +1,4 @@
-/** @file ID3v2 text identification frames (T*** and TXXX). Store text metadata fields with optional per-value encoding. */
+/** @packageDocumentation ID3v2 text identification frames (T*** and TXXX). Store text metadata fields with optional per-value encoding. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
   Id3v2Frame,

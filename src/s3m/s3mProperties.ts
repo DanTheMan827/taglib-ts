@@ -1,4 +1,4 @@
-/** @file Audio properties for ScreamTracker III (S3M) module files. */
+/** @packageDocumentation Audio properties for ScreamTracker III (S3M) module files. */
 
 import { AudioProperties } from "../audioProperties.js";
 import type { ReadStyle } from "../toolkit/types.js";

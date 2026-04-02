@@ -1,4 +1,4 @@
-/** @file ProTracker MOD file format handler. */
+/** @packageDocumentation ProTracker MOD file format handler. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { Tag } from "../tag.js";

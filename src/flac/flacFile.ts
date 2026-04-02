@@ -1,4 +1,4 @@
-/** @file FLAC file format handler with support for XiphComment, ID3v2, ID3v1, and picture blocks. */
+/** @packageDocumentation FLAC file format handler with support for XiphComment, ID3v2, ID3v1, and picture blocks. */
 import { ByteVector, StringType } from "../byteVector.js";
 import { File } from "../file.js";
 import { type offset_t, Position, ReadStyle } from "../toolkit/types.js";

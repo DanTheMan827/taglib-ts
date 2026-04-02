@@ -1,4 +1,4 @@
-/** @file APEv2 tag implementation, including item, footer, and tag classes. */
+/** @packageDocumentation APEv2 tag implementation, including item, footer, and tag classes. */
 
 import { ByteVector, StringType } from "../byteVector.js";
 import { Tag } from "../tag.js";

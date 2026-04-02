@@ -1,0 +1,17 @@
+{
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "name": "taglib-ts",
+  "readme": "README.md",
+  "excludeExternals": false,
+  "excludeInternal": false,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "externalSymbolLinkMappings": {
+    "typescript": { 
+        "Blob": "#",
+    }
+  },
+  "exclude":["**/*.test.ts", "**/*.bench.ts", "**/tests/**"]
+}

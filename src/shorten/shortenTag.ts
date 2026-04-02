@@ -1,4 +1,4 @@
-/** @file Stub tag implementation for Shorten files. Shorten does not support embedded metadata. */
+/** @packageDocumentation Stub tag implementation for Shorten files. Shorten does not support embedded metadata. */
 
 import { Tag } from "../tag.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
