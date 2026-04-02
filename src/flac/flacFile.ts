@@ -377,9 +377,12 @@ export class FlacFile extends File {
     }
     if (tags & FlacTagTypes.ID3v2) {
       this._id3v2Tag = null;
+      this._id3v2Location = -1;
+      this._id3v2OriginalSize = 0;
     }
     if (tags & FlacTagTypes.ID3v1) {
       this._id3v1Tag = null;
+      this._id3v1Location = -1;
     }
     this.refreshCombinedTag();
   }

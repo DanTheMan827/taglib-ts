@@ -183,7 +183,8 @@ export class WavFile extends RiffFile {
       this._infoChunkIndex = -1;
     }
     // Rebuild the combined tag from the surviving sub-tags
-    const combinedTags: Tag[] = [this._id3v2Tag!];
+    const combinedTags: Tag[] = [];
+    if (this._id3v2Tag) combinedTags.push(this._id3v2Tag);
     if (this._infoTag) combinedTags.push(this._infoTag);
     this._combinedTag.setTags(combinedTags);
   }
