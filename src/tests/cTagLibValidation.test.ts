@@ -344,7 +344,6 @@ const FORMATS: FormatTestCfg[] = [
     testFile: "no-tags.mka",
     ext: ".mka",
     format: "mkv",
-    tsReadOnly: true,
     skipComment: true,
   },
 ];

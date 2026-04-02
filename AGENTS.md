@@ -180,11 +180,14 @@ These rules are **mandatory** and must never be violated:
 11. **C validators must build and all cross-validation tests must pass.**
     The C validator programs (`validator/taglib_validate.cpp` and
     `validator/tag_with_c_full.cpp`) must compile without errors or warnings.
-    Any change to these files **must be verified** by building them locally
-    before committing:
+    **Any change to these files must be followed by a full build and test run**
+    before committing — no exceptions:
     ```sh
     cmake -B validator/build -S validator
     cmake --build validator/build
+    TAGLIB_VALIDATE=validator/build/taglib_validate \
+    TAGLIB_TAGGER=validator/build/tag_with_c_full \
+      npx vitest run src/tests/cTagLibValidation.test.ts
     ```
     Build against the TagLib submodule in CI (not the system library), so
     always verify that the headers and namespaces used match the submodule
