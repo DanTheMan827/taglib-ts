@@ -1,6 +1,6 @@
 {
   "name": "@dantheman827/taglib-ts",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publishConfig": {
     "access": "public"
   },
@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "src",
+    "examples",
     "!dist/tests",
     "!src/tests"
   ],
