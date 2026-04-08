@@ -1186,7 +1186,8 @@ export class Mp4Tag extends Tag {
         let count = data.toUInt();
         await this._stream.seek(atom.offset + 16);
         let pos = 4;
-        while (count-- > 0) {
+        const maxPosStco = data.length - 4;
+        while (count-- > 0 && pos <= maxPosStco) {
           let o = data.toUInt(pos);
           if (o > offset) o += delta;
           await this._stream.writeBlock(ByteVector.fromUInt(o));
@@ -1201,7 +1202,8 @@ export class Mp4Tag extends Tag {
         let count = data.toUInt();
         await this._stream.seek(atom.offset + 16);
         let pos = 4;
-        while (count-- > 0) {
+        const maxPosCo64 = data.length - 8;
+        while (count-- > 0 && pos <= maxPosCo64) {
           let o = Number(data.toLongLong(pos));
           if (o > offset) o += delta;
           await this._stream.writeBlock(ByteVector.fromLongLong(BigInt(o)));

@@ -49,6 +49,16 @@ export class WavFile extends RiffFile {
   /** Zero-based index of the `"LIST"` chunk containing `"INFO"` data, or `-1` if absent. */
   private _infoChunkIndex: number = -1;
 
+  /** Raw BEXT (Broadcast Audio Extension) chunk payload; empty if no BEXT chunk present. */
+  private _bextData: ByteVector = ByteVector.fromSize(0);
+  /** Whether a `"bext"` chunk was found on disk. */
+  private _hasBext: boolean = false;
+
+  /** Raw iXML chunk payload as a UTF-8 string; empty if no iXML chunk present. */
+  private _iXMLData: string = "";
+  /** Whether an `"iXML"` chunk was found on disk. */
+  private _hasiXML: boolean = false;
+
   /**
    * Private constructor — use {@link WavFile.open} to create instances.
    * @param stream - The underlying I/O stream for the WAV file.
@@ -136,6 +146,52 @@ export class WavFile extends RiffFile {
   }
 
   /**
+   * Returns the raw BEXT (Broadcast Audio Extension) chunk payload.
+   * Empty `ByteVector` if no `"bext"` chunk is present.
+   */
+  get bextData(): ByteVector {
+    return this._bextData;
+  }
+
+  /**
+   * Sets the BEXT chunk payload. Pass an empty `ByteVector` to remove the
+   * `"bext"` chunk on the next {@link save}.
+   */
+  set bextData(data: ByteVector) {
+    this._bextData = data;
+  }
+
+  /**
+   * Returns `true` if a `"bext"` chunk was found on disk when the file was opened.
+   */
+  get hasBextData(): boolean {
+    return this._hasBext;
+  }
+
+  /**
+   * Returns the raw iXML chunk payload as a UTF-8 string.
+   * Empty string if no `"iXML"` chunk is present.
+   */
+  get iXMLData(): string {
+    return this._iXMLData;
+  }
+
+  /**
+   * Sets the iXML chunk data. Pass an empty string to remove the `"iXML"`
+   * chunk on the next {@link save}.
+   */
+  set iXMLData(data: string) {
+    this._iXMLData = data;
+  }
+
+  /**
+   * Returns `true` if an `"iXML"` chunk was found on disk when the file was opened.
+   */
+  get hasiXMLData(): boolean {
+    return this._hasiXML;
+  }
+
+  /**
    * Writes all pending tag changes back to the underlying stream.
    * Matches C++ behavior: removes all existing tag chunks before re-writing.
    * @param version - Optional ID3v2 version to save as (2 or 3; default is 4).
@@ -143,6 +199,26 @@ export class WavFile extends RiffFile {
    */
   async save(version?: number): Promise<boolean> {
     if (this.readOnly) return false;
+
+    // BEXT chunk
+    if (this._bextData.length > 0) {
+      await this.removeChunk("bext");
+      await this.setChunkData("bext", this._bextData);
+      this._hasBext = true;
+    } else if (this._hasBext) {
+      await this.removeChunk("bext");
+      this._hasBext = false;
+    }
+
+    // iXML chunk
+    if (this._iXMLData.length > 0) {
+      await this.removeChunk("iXML");
+      await this.setChunkData("iXML", ByteVector.fromString(this._iXMLData, StringType.UTF8));
+      this._hasiXML = true;
+    } else if (this._hasiXML) {
+      await this.removeChunk("iXML");
+      this._hasiXML = false;
+    }
 
     // Remove all existing ID3 tag chunks (both case variants), then re-add if non-empty.
     await this.removeAllChunks("ID3 ");
@@ -232,6 +308,12 @@ export class WavFile extends RiffFile {
             this._infoTag = RiffInfoTag.readFrom(infoData);
           }
         }
+      } else if (name === "iXML") {
+        this._hasiXML = true;
+        this._iXMLData = (await this.chunkData(i)).toString(StringType.UTF8);
+      } else if (name === "bext") {
+        this._hasBext = true;
+        this._bextData = await this.chunkData(i);
       }
     }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { WavFile } from "../riff/wav/wavFile.js";
-import { ByteVector } from "../byteVector.js";
+import { ByteVector, StringType } from "../byteVector.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { ReadStyle } from "../toolkit/types.js";
 import { openTestStream, readTestDataBV } from "./testHelper.js";
@@ -246,13 +246,153 @@ describe("WAV", () => {
   });
 
   it("should handle invalid chunk wav file", async () => {
-    // TypeScript-only test
-    // invalid-chunk.wav has an invalid chunk after a valid id3 chunk.
-    // No fmt/data chunks, so audioProperties is null; C++ lengthInSeconds would be 0.
+    // C++: test_wav.cpp – TestWAV::testInvalidChunk
     const stream = openTestStream("invalid-chunk.wav");
-    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
     expect(f.audioProperties()?.lengthInSeconds ?? 0).toBe(0);
     expect(f.hasId3v2Tag).toBe(true);
+
+    f.id3v2Tag!.title = "Title";
+    await f.save();
+
+    // After saving, the ID3 chunk is appended after the invalid chunk.
+    // On re-read, parsing stops at the invalid chunk name, so the
+    // newly-appended ID3 chunk is unreachable.
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.hasId3v2Tag).toBe(false);
+  });
+
+  it("should read and write BEXT chunk", async () => {
+    // C++: test_wav.cpp – TestWAV::testBEXTTag
+    const origData = readTestDataBV("empty.wav");
+    const stream = new ByteVectorStream(origData);
+
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasBextData).toBe(false);
+    expect(f.bextData.isEmpty).toBe(true);
+
+    f.bextData = ByteVector.fromString("test bext data", StringType.Latin1);
+    await f.save();
+    expect(f.hasBextData).toBe(true);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasBextData).toBe(true);
+    expect(f.bextData.equals(ByteVector.fromString("test bext data", StringType.Latin1))).toBe(true);
+
+    f.bextData = ByteVector.fromSize(0);
+    await f.save();
+    expect(f.hasBextData).toBe(false);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasBextData).toBe(false);
+    expect(f.bextData.isEmpty).toBe(true);
+
+    // File without BEXT should be byte-identical to original
+    await stream.seek(0);
+    const finalData = await stream.readBlock(await stream.length());
+    expect(finalData.equals(origData)).toBe(true);
+  });
+
+  it("should preserve other tags when writing BEXT chunk", async () => {
+    // C++: test_wav.cpp – TestWAV::testBEXTTagWithOtherTags
+    const stream = new ByteVectorStream(readTestDataBV("empty.wav"));
+
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    f.id3v2Tag!.title = "ID3v2 Title";
+    f.infoTag.title = "INFO Title";
+    f.bextData = ByteVector.fromString("bext payload", StringType.Latin1);
+    await f.save();
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.hasId3v2Tag).toBe(true);
+    expect(f.hasInfoTag).toBe(true);
+    expect(f.hasBextData).toBe(true);
+    expect(f.id3v2Tag?.title).toBe("ID3v2 Title");
+    expect(f.infoTag.title).toBe("INFO Title");
+    expect(f.bextData.equals(ByteVector.fromString("bext payload", StringType.Latin1))).toBe(true);
+  });
+
+  it("should read and write iXML chunk", async () => {
+    // C++: test_wav.cpp – TestWAV::testiXMLTag
+    const origData = readTestDataBV("empty.wav");
+    const stream = new ByteVectorStream(origData);
+
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasiXMLData).toBe(false);
+    expect(f.iXMLData).toBe("");
+
+    f.iXMLData = "<BWFXML><IXML_VERSION>1.0</IXML_VERSION></BWFXML>";
+    await f.save();
+    expect(f.hasiXMLData).toBe(true);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasiXMLData).toBe(true);
+    expect(f.iXMLData).toBe("<BWFXML><IXML_VERSION>1.0</IXML_VERSION></BWFXML>");
+
+    f.iXMLData = "";
+    await f.save();
+    expect(f.hasiXMLData).toBe(false);
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasiXMLData).toBe(false);
+    expect(f.iXMLData).toBe("");
+
+    // File without iXML should be byte-identical to original
+    await stream.seek(0);
+    const finalData = await stream.readBlock(await stream.length());
+    expect(finalData.equals(origData)).toBe(true);
+  });
+
+  it("should preserve other tags when writing iXML chunk", async () => {
+    // C++: test_wav.cpp – TestWAV::testiXMLTagWithOtherTags
+    const stream = new ByteVectorStream(readTestDataBV("empty.wav"));
+
+    let f = await WavFile.open(stream, true, ReadStyle.Average);
+    f.id3v2Tag!.title = "ID3v2 Title";
+    f.iXMLData = "<BWFXML><SCENE>1</SCENE></BWFXML>";
+    f.bextData = ByteVector.fromString("bext data", StringType.Latin1);
+    await f.save();
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.hasId3v2Tag).toBe(true);
+    expect(f.hasiXMLData).toBe(true);
+    expect(f.hasBextData).toBe(true);
+    expect(f.id3v2Tag?.title).toBe("ID3v2 Title");
+    expect(f.iXMLData).toBe("<BWFXML><SCENE>1</SCENE></BWFXML>");
+    expect(f.bextData.equals(ByteVector.fromString("bext data", StringType.Latin1))).toBe(true);
+
+    f.iXMLData = "";
+    f.bextData = ByteVector.fromSize(0);
+    f.strip();
+    await f.save();
+
+    await stream.seek(0);
+    f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.hasId3v2Tag).toBe(false);
+    expect(f.hasiXMLData).toBe(false);
+    expect(f.iXMLData).toBe("");
+    expect(f.hasBextData).toBe(false);
+    expect(f.bextData.isEmpty).toBe(true);
+
+    // File with all data removed should be byte-identical to original
+    await stream.seek(0);
+    const origData = readTestDataBV("empty.wav");
+    const finalData = await stream.readBlock(await stream.length());
+    expect(finalData.equals(origData)).toBe(true);
   });
 });
 
