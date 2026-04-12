@@ -6,6 +6,17 @@ import type { offset_t } from "../toolkit/types.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 
 /**
+ * Returns `true` if every byte in the four-character chunk name is a printable
+ * ASCII character (>= 0x20), matching C++ `RIFF::File::isValidChunkName()`.
+ */
+function isValidChunkName(name: string): boolean {
+  for (let i = 0; i < name.length; i++) {
+    if (name.charCodeAt(i) < 0x20) return false;
+  }
+  return name.length === 4;
+}
+
+/**
  * Metadata about a single RIFF/FORM chunk stored during parsing.
  */
 interface ChunkInfo {
@@ -271,7 +282,19 @@ export abstract class RiffFile extends File {
       if (chunkHeader.length < 8) break;
 
       const chunkName = chunkHeader.mid(0, 4).toString(StringType.Latin1);
-      const chunkSize = chunkHeader.toUInt(4, this._bigEndian);
+
+      // Reject chunks whose 4-byte ID contains non-printable characters (< 0x20).
+      if (!isValidChunkName(chunkName)) break;
+
+      let chunkSize = chunkHeader.toUInt(4, this._bigEndian);
+
+      // Clamp oversized chunks to available bytes rather than rejecting outright.
+      // Some encoders write a correct data chunk but with a slightly too-large
+      // declared size. Lenient parsers (ffmpeg, QuickTime) handle this by clamping.
+      if (pos + 8 + chunkSize > fileLen) {
+        chunkSize = fileLen - pos - 8;
+      }
+
       const dataOffset = pos + 8;
       const padding = chunkSize % 2 !== 0 ? 1 : 0;
 

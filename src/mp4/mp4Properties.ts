@@ -187,7 +187,7 @@ export class Mp4Properties extends AudioProperties {
           if (data.length >= pos + 4) {
             const bitrateValue = data.toUInt(pos);
             if (bitrateValue !== 0 || this._lengthMs <= 0) {
-              this._bitrate = Math.round((bitrateValue + 500) / 1000);
+              this._bitrate = Math.round(bitrateValue / 1000);
             } else {
               this._bitrate = Math.round(
                 (calculateMdatLength(atoms.atoms) * 8) / this._lengthMs,

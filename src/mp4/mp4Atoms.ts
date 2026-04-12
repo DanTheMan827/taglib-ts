@@ -15,6 +15,9 @@ const CONTAINERS = new Set([
 
 const META_CHILDREN_NAMES = new Set(["hdlr", "ilst", "mhdr", "ctry", "lang"]);
 
+/** Maximum allowed MP4 atom nesting depth (mirrors C++ MAX_MP4_ATOM_DEPTH). */
+const MAX_MP4_ATOM_DEPTH = 64;
+
 // ---------------------------------------------------------------------------
 // Mp4Atom
 // ---------------------------------------------------------------------------
@@ -35,7 +38,7 @@ export class Mp4Atom {
   }
 
   /** Parse one atom from the current stream position. */
-  static async parse(stream: IOStream): Promise<Mp4Atom> {
+  static async parse(stream: IOStream, depth: number = 0): Promise<Mp4Atom> {
     const atom = new Mp4Atom();
     atom.offset = await stream.tell();
 
@@ -90,8 +93,13 @@ export class Mp4Atom {
         await stream.seek(8, Position.Current);
       }
 
+      if (depth > MAX_MP4_ATOM_DEPTH) {
+        await stream.seek(atom.offset + atom.length);
+        return atom;
+      }
+
       while ((await stream.tell()) < atom.offset + atom.length) {
-        const child = await Mp4Atom.parse(stream);
+        const child = await Mp4Atom.parse(stream, depth + 1);
         atom.children.push(child);
         if (child.length === 0) return atom;
       }

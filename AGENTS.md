@@ -210,6 +210,51 @@ These rules are **mandatory** and must never be violated:
 7. Write tests in `tests/<format>.test.ts`
 8. Add test data files to `tests/data/`
 
+### Upstream Merge Workflow
+
+taglib-ts tracks the upstream C++ [TagLib](https://github.com/taglib/taglib)
+repository as a Git submodule at `taglib/` and as a remote history anchor.
+Whenever upstream merges need to be incorporated, follow this exact sequence:
+
+1. **Create the merge commit first** — record the upstream ancestry without
+   applying any C++ file changes to the TypeScript working tree.  Use the
+   `ours` merge strategy so our tree is left intact:
+   ```sh
+   git remote add taglib https://github.com/taglib/taglib.git  # if not present
+   git fetch taglib master
+   git merge --no-ff -s ours --allow-unrelated-histories taglib/master \
+     -m "Merge upstream taglib/taglib master (discard C++ file changes; TypeScript ports to follow)"
+   ```
+   This creates a two-parent merge commit that permanently records the upstream
+   SHA as `MERGE_HEAD`, making the relationship between taglib-ts and C++ TagLib
+   visible in `git log --graph`.
+
+2. **Update the submodule** — advance the `taglib/` submodule pointer to the
+   same upstream commit that was merged in step 1:
+   ```sh
+   cd taglib && git checkout <upstream-sha> && cd ..
+   ```
+
+3. **Port logic in follow-up commits** — for each upstream commit that contains
+   logic relevant to TypeScript (bug fixes, new features, behavioral changes),
+   create a corresponding TypeScript commit:
+   - Read the C++ diff via `git show <sha> -- <file>`.
+   - Apply the equivalent change in the TypeScript source under `src/`.
+   - Port any new C++ tests into the matching `src/tests/*.test.ts` file,
+     citing the C++ source per Rule 10 above.
+   - Run `npx vitest run` and `node_modules/.bin/tsc --noEmit` to confirm all
+     tests pass before committing.
+
+4. **Skip non-applicable upstream commits** — commits that only affect C++
+   thread-safety, CMake build files, `#include` headers, documentation, or
+   other C++-only concerns do not need TypeScript equivalents.  Still record
+   them in the merge commit history (they are part of the merged submodule
+   range) but do not create TypeScript ports for them.
+
+5. **Submodule version** — after completing all ports, the `taglib/` submodule
+   must point to the same commit that is the second parent of the merge commit
+   created in step 1.  Keep the submodule pointer and the merge history in sync.
+
 ### Code Style
 - ESLint with `@stylistic/eslint-plugin` for formatting
 - Double quotes, semicolons, 2-space indentation
