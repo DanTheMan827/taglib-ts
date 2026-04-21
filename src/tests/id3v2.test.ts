@@ -1157,6 +1157,52 @@ describe("ID3v2", () => {
       const tag2 = f2.tag();
       expect(tag2?.title).toBe("Title");
     });
+
+    it("should drop zero-size frames without aborting tag parse", async () => {
+      // C++: id3v2tag.cpp – ID3v2::Tag::parse (upstream fix #437)
+      // A zero-size frame is invalid but must not abort parsing of subsequent frames.
+      // Build a raw ID3v2v4 tag: [ID3v2 header] [zero-size TIT2] [valid TPE1]
+
+      // Zero-size TIT2 frame: frameId(4) + synchsafe size=0(4) + flags(2)
+      const zeroTit2 = byteVectorFromArray([
+        0x54, 0x49, 0x54, 0x32, // "TIT2"
+        0x00, 0x00, 0x00, 0x00, // size = 0
+        0x00, 0x00,             // flags
+      ]);
+
+      // Valid TPE1 frame with "Artist"
+      const tpe1Body = new ByteVector();
+      tpe1Body.append(byteVectorFromArray([0x00])); // encoding = Latin1
+      tpe1Body.append(ByteVector.fromString("Artist", StringType.Latin1));
+      const tpe1 = buildRawFrame("TPE1", tpe1Body);
+
+      const frames = new ByteVector();
+      frames.append(zeroTit2);
+      frames.append(tpe1);
+
+      // Encode tag size as 4-byte synchsafe integer
+      const tagSize = frames.length;
+      const id3Header = byteVectorFromArray([
+        0x49, 0x44, 0x33,                   // "ID3"
+        0x04, 0x00,                          // version 2.4, revision 0
+        0x00,                                // flags
+        (tagSize >> 21) & 0x7f,             // synchsafe size byte 0
+        (tagSize >> 14) & 0x7f,             // synchsafe size byte 1
+        (tagSize >> 7) & 0x7f,              // synchsafe size byte 2
+        tagSize & 0x7f,                      // synchsafe size byte 3
+      ]);
+
+      const tagData = new ByteVector();
+      tagData.append(id3Header);
+      tagData.append(frames);
+
+      const stream = new ByteVectorStream(tagData);
+      const tag = await Id3v2Tag.readFrom(stream, 0);
+
+      // Zero-size TIT2 must be dropped; TPE1 must survive
+      expect(tag.title).toBe("");
+      expect(tag.artist).toBe("Artist");
+    });
   });
 
   // =========================================================================
