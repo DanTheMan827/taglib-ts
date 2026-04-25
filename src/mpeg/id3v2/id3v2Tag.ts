@@ -235,8 +235,12 @@ export class Id3v2Tag extends Tag {
         break;
       }
 
-      tag._frames.push(result.frame);
       pos += result.size;
+      // Zero-size frames are invalid; drop them but continue parsing the tag
+      // so subsequent frames are not lost. C++: id3v2tag.cpp – ID3v2::Tag::parse
+      if (result.frame.size > 0) {
+        tag._frames.push(result.frame);
+      }
     }
 
     return tag;

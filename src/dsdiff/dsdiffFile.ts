@@ -334,13 +334,13 @@ export class DsdiffFile extends File {
     // Read FRM8 container header
     await this.seek(0);
     await this.readBlock(4); // "FRM8"
-    this._size = Number((await this.readBlock(8)).toLongLong(bigEndian));
+    this._size = Number((await this.readBlock(8)).toULongLong(bigEndian));
     await this.readBlock(4); // "DSD "
 
     // Walk all root-level chunks
     while ((await this.tell()) + 12 <= (await this.fileLength())) {
       const chunkName = await this.readBlock(4);
-      const chunkSize = Number((await this.readBlock(8)).toLongLong(bigEndian));
+      const chunkSize = Number((await this.readBlock(8)).toULongLong(bigEndian));
 
       if (!this.isValidChunkID(chunkName)) {
         this._valid = false;
@@ -397,7 +397,7 @@ export class DsdiffFile extends File {
         while ((await this.tell()) + 12 <= dstChunkEnd) {
           const dstChunkName = await this.readBlock(4);
           const dstChunkSize = Number(
-            (await this.readBlock(8)).toLongLong(bigEndian),
+            (await this.readBlock(8)).toULongLong(bigEndian),
           );
 
           if (!this.isValidChunkID(dstChunkName)) {
@@ -547,7 +547,7 @@ export class DsdiffFile extends File {
     while ((await this.tell()) + 12 <= propChunkEnd) {
       const propChunkName = await this.readBlock(4);
       const propChunkSize = Number(
-        (await this.readBlock(8)).toLongLong(bigEndian),
+        (await this.readBlock(8)).toULongLong(bigEndian),
       );
 
       if (!this.isValidChunkID(propChunkName)) {
@@ -596,7 +596,7 @@ export class DsdiffFile extends File {
     while ((await this.tell()) + 12 <= diinChunkEnd) {
       const diinChunkName = await this.readBlock(4);
       const diinChunkSize = Number(
-        (await this.readBlock(8)).toLongLong(bigEndian),
+        (await this.readBlock(8)).toULongLong(bigEndian),
       );
 
       if (!this.isValidChunkID(diinChunkName)) {
@@ -694,7 +694,7 @@ export class DsdiffFile extends File {
 
     this._size -= chunkTotalSize;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -724,7 +724,7 @@ export class DsdiffFile extends File {
     const newTotal = (data.length + 1) & ~1;
     this._size += newTotal - oldTotal;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -755,7 +755,7 @@ export class DsdiffFile extends File {
     const paddingBefore = offset & 1 ? 1 : 0;
     this._size += paddingBefore + ((data.length + 1) & ~1) + 12;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -789,7 +789,7 @@ export class DsdiffFile extends File {
     // Update global size
     this._size -= removedSize;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -798,7 +798,7 @@ export class DsdiffFile extends File {
     const parentIdx = this._childChunkIndex[kind];
     this._chunks[parentIdx].size -= removedSize;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
+      ByteVector.fromULongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
     );
@@ -839,7 +839,7 @@ export class DsdiffFile extends File {
     // Update global size
     this._size += delta;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -848,7 +848,7 @@ export class DsdiffFile extends File {
     const parentIdx = this._childChunkIndex[kind];
     this._chunks[parentIdx].size += delta;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
+      ByteVector.fromULongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
     );
@@ -921,7 +921,7 @@ export class DsdiffFile extends File {
     const paddingBefore = offset & 1 ? 1 : 0;
     this._size += paddingBefore + ((data.length + 1) & ~1) + 12;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._size), true),
+      ByteVector.fromULongLong(BigInt(this._size), true),
       4,
       8,
     );
@@ -931,7 +931,7 @@ export class DsdiffFile extends File {
     this._chunks[parentIdx].size +=
       paddingBefore + ((data.length + 1) & ~1) + 12;
     await this.insert(
-      ByteVector.fromLongLong(BigInt(this._chunks[parentIdx].size), true),
+      ByteVector.fromULongLong(BigInt(this._chunks[parentIdx].size), true),
       this._chunks[parentIdx].offset - 8,
       8,
     );
@@ -983,7 +983,7 @@ export class DsdiffFile extends File {
       combined.append(ByteVector.fromSize(leadingPadding, 0));
     }
     combined.append(name);
-    combined.append(ByteVector.fromLongLong(BigInt(data.length), true));
+    combined.append(ByteVector.fromULongLong(BigInt(data.length), true));
     combined.append(data);
     if (data.length & 0x01) {
       combined.append(ByteVector.fromSize(1, 0));

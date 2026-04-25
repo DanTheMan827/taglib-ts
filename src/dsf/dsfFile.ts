@@ -108,7 +108,7 @@ export class DsfFile extends File {
       // Update file size in DSD chunk header
       if (this._fileSize !== newFileSize) {
         await this.insert(
-          ByteVector.fromLongLong(BigInt(newFileSize), false),
+          ByteVector.fromULongLong(BigInt(newFileSize), false),
           12,
           8,
         );
@@ -117,7 +117,7 @@ export class DsfFile extends File {
 
       // Clear metadata offset (no tag)
       if (this._metadataOffset) {
-        await this.insert(ByteVector.fromLongLong(0n, false), 20, 8);
+        await this.insert(ByteVector.fromULongLong(0n, false), 20, 8);
         this._metadataOffset = 0;
       }
 
@@ -135,7 +135,7 @@ export class DsfFile extends File {
       // Update file size
       if (this._fileSize !== newFileSize) {
         await this.insert(
-          ByteVector.fromLongLong(BigInt(newFileSize), false),
+          ByteVector.fromULongLong(BigInt(newFileSize), false),
           12,
           8,
         );
@@ -145,7 +145,7 @@ export class DsfFile extends File {
       // Update metadata offset
       if (this._metadataOffset !== newMetadataOffset) {
         await this.insert(
-          ByteVector.fromLongLong(BigInt(newMetadataOffset), false),
+          ByteVector.fromULongLong(BigInt(newMetadataOffset), false),
           20,
           8,
         );
@@ -180,19 +180,19 @@ export class DsfFile extends File {
     }
 
     const dsdHeaderSizeData = await this.readBlock(8);
-    const dsdHeaderSize = Number(dsdHeaderSizeData.toLongLong(false));
+    const dsdHeaderSize = Number(dsdHeaderSizeData.toULongLong(false));
     if (dsdHeaderSize !== 28) {
       this._valid = false;
       return;
     }
 
-    this._fileSize = Number((await this.readBlock(8)).toLongLong(false));
+    this._fileSize = Number((await this.readBlock(8)).toULongLong(false));
     if (this._fileSize > (await this.fileLength())) {
       this._valid = false;
       return;
     }
 
-    this._metadataOffset = Number((await this.readBlock(8)).toLongLong(false));
+    this._metadataOffset = Number((await this.readBlock(8)).toULongLong(false));
     if (this._metadataOffset > this._fileSize) {
       this._valid = false;
       return;
@@ -206,7 +206,7 @@ export class DsfFile extends File {
       return;
     }
 
-    const fmtHeaderSize = Number((await this.readBlock(8)).toLongLong(false));
+    const fmtHeaderSize = Number((await this.readBlock(8)).toULongLong(false));
     if (fmtHeaderSize !== 52) {
       this._valid = false;
       return;
