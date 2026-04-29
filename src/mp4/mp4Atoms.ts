@@ -18,6 +18,9 @@ const META_CHILDREN_NAMES = new Set(["hdlr", "ilst", "mhdr", "ctry", "lang"]);
 /** Maximum allowed MP4 atom nesting depth (mirrors C++ MAX_MP4_ATOM_DEPTH). */
 const MAX_MP4_ATOM_DEPTH = 64;
 
+/** Maximum number of sibling atoms allowed at the top level (mirrors C++ MAX_MP4_ATOM_COUNT_PER_LEVEL). */
+const MAX_MP4_ATOM_COUNT_PER_LEVEL = 5000;
+
 // ---------------------------------------------------------------------------
 // Mp4Atom
 // ---------------------------------------------------------------------------
@@ -182,6 +185,11 @@ export class Mp4Atoms {
       const atom = await Mp4Atom.parse(stream);
       mp4Atoms.atoms.push(atom);
       if (atom.length === 0) break;
+      if (mp4Atoms.atoms.length > MAX_MP4_ATOM_COUNT_PER_LEVEL) {
+        // Maximum atom count exceeded – treat the file as invalid.
+        mp4Atoms.atoms = [];
+        break;
+      }
     }
     return mp4Atoms;
   }
