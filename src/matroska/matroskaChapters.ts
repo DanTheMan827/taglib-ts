@@ -105,11 +105,34 @@ export class MatroskaChapters {
     const dataOffset = chaptersEl.offset + chaptersEl.headSize;
     const editionEls = await readChildElements(stream, dataOffset, chaptersEl.dataSize);
 
+    // Collect any orphan ChapterAtom elements not wrapped in an EditionEntry.
+    // The Matroska spec requires ChapterAtom to be inside an EditionEntry, but
+    // some muxers produce files with ChapterAtom directly under Chapters.
+    // MKVToolNix and FFmpeg handle this case by treating orphan atoms as
+    // belonging to an implicit default edition.
+    const orphanChapters: Chapter[] = [];
+
     for (const edEl of editionEls) {
-      if (edEl.id === EbmlId.EditionEntry) {
+      if (edEl.id === EbmlId.ChapterAtom) {
+        const chapter = await MatroskaChapters.parseChapter(stream, edEl);
+        if (chapter.uid !== 0) {
+          orphanChapters.push(chapter);
+        }
+      } else if (edEl.id === EbmlId.EditionEntry) {
         const edition = await MatroskaChapters.parseEdition(stream, edEl);
         chapters._editions.push(edition);
       }
+    }
+
+    // If orphan chapters were found, wrap them in an implicit default edition
+    // so they are not silently lost.
+    if (orphanChapters.length > 0) {
+      chapters._editions.push({
+        uid: 0,
+        isDefault: true,
+        isOrdered: false,
+        chapters: orphanChapters,
+      });
     }
 
     return chapters;
