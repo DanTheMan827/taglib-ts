@@ -215,8 +215,8 @@ export class FlacFile extends File {
     }
 
     // Append fresh APPLICATION/"riff" blocks for iXML and bext if non-empty.
-    // Per FLAC foreign-metadata convention the payload is a RIFF chunk:
-    // <4 byte FOURCC><4 byte LE size><data>.
+    // Per FLAC foreign-metadata convention the APPLICATION block payload is:
+    // <4 byte appID="riff"><4 byte FOURCC><4 byte LE size><data>.
     if (this._iXMLData.length > 0) {
       const xml = ByteVector.fromString(this._iXMLData, StringType.UTF8);
       const payload = ByteVector.fromString("riff", StringType.Latin1);
@@ -509,7 +509,7 @@ export class FlacFile extends File {
    * foreign-metadata application ID `"riff"` (with a bext RIFF chunk as
    * payload) or the direct application ID `"bext"`.
    *
-   * @see {@link bextData}
+   * @see {@link BEXTData}
    * @see {@link hasBEXTData}
    */
   get BEXTData(): ByteVector {

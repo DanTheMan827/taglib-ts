@@ -316,7 +316,6 @@ describe("FLAC", () => {
 
   it("testRoundTripPreservesUnknownApplicationBlock", async () => {
     // C++: test_flac.cpp – TestFLAC::testRoundTripPreservesUnknownApplicationBlock
-    const smedAppPayload = ByteVector.fromString("SMED", StringType.Latin1);
     const smedExtra = ByteVector.fromString("opaque sequoia metadata payload", StringType.Latin1);
     const smedBlock = ByteVector.fromString("SMED", StringType.Latin1);
     smedBlock.append(smedExtra);
@@ -338,7 +337,7 @@ describe("FLAC", () => {
 
     // SMED block must still be present after save.
     const saved = stream.data()!;
-    expect(saved.find(smedAppPayload)).toBeGreaterThanOrEqual(0);
+    expect(saved.find(smedBlock.mid(0, 4))).toBeGreaterThanOrEqual(0);
     expect(saved.find(smedExtra)).toBeGreaterThanOrEqual(0);
 
     // iXML data must round-trip.
