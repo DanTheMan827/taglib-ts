@@ -122,7 +122,7 @@ const NAME_HANDLER_MAP = new Map<string, ItemHandlerType>([
   ["rate", ItemHandlerType.TextOrInt],
   ["tvsn", ItemHandlerType.UInt],
   ["tves", ItemHandlerType.UInt],
-  ["cnID", ItemHandlerType.UInt],
+  ["cnID", ItemHandlerType.LongLong],
   ["sfID", ItemHandlerType.UInt],
   ["atID", ItemHandlerType.UInt],
   ["geID", ItemHandlerType.UInt],
@@ -862,7 +862,7 @@ function itemFromProperty(
     case ItemHandlerType.UInt:
       return [name, Mp4Item.fromUInt(parseInt(values[0], 10) || 0)];
     case ItemHandlerType.LongLong:
-      return [name, Mp4Item.fromLongLong(BigInt(parseInt(values[0], 10) || 0))];
+      return [name, Mp4Item.fromLongLong(BigInt(values[0]) || 0n)];
     case ItemHandlerType.Byte:
       return [name, Mp4Item.fromByte(parseInt(values[0], 10) || 0)];
     case ItemHandlerType.Bool:

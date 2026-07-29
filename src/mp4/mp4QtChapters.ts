@@ -560,6 +560,10 @@ async function resolveSampleOffsets(
   const chunkOffsets = await readStco(stream, chapterTrak);
   if (chunkOffsets.length === 0) return [];
 
+  // Sample count cannot be > file length / 4 as every sample consumes 4 bytes in stsz
+  const fileLength = await stream.length();
+  if (sizeInfo.sampleCount === 0 || sizeInfo.sampleCount > fileLength / 4) return [];
+
   interface StscEntry { firstChunk: number; samplesPerChunk: number }
   const stscEntries: StscEntry[] = [];
 
@@ -589,6 +593,9 @@ async function resolveSampleOffsets(
       if (e.firstChunk <= chunkNum) samplesInChunk = e.samplesPerChunk;
       else break;
     }
+
+    if (samplesInChunk > sizeInfo.sampleCount - sampleIndex)
+      samplesInChunk = sizeInfo.sampleCount - sampleIndex;
 
     let offsetInChunk = 0;
     for (let s = 0; s < samplesInChunk; s++) {
