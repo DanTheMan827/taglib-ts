@@ -18,7 +18,7 @@ import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 import { ReadStyle } from "../toolkit/types.js";
 import { Variant } from "../toolkit/variant.js";
-import { openTestStream } from "./testHelper.js";
+import { openTestStream, readTestData } from "./testHelper.js";
 
 const TEST_DATA_DIR = resolve(import.meta.dirname ?? __dirname, "data");
 
@@ -1063,6 +1063,47 @@ describe("Matroska", () => {
       expect(tag3).not.toBeNull();
       const foundTitle = tag3!.simpleTags.some(st => st.name === "TITLE" && st.value === "X");
       expect(foundTitle).toBe(true);
+    });
+
+    it("testUnknownSizeSegment", async () => {
+      // C++: test_matroska.cpp – TestMatroska::testUnknownSizeSegment
+      // Verifies that a Matroska file with unknown-size EBML VINTs on the
+      // Segment and Cluster elements can still be read and written correctly.
+      const origData = readTestData("no-tags.mka");
+
+      // Modify the file to use unknown-size VINTs:
+      //   bytes 0x2d–0x33 → 0xff (overwrites the Segment size VINT's data bytes
+      //   so the 8-byte VINT `01 ff ff ff ff ff ff ff` is the unknown-size sentinel)
+      for (let i = 0x2d; i <= 0x33; i++) origData[i] = 0xff;
+      //   bytes 0x1482–0x1483 → 0x7f, 0xff (2-byte unknown-size VINT for Cluster)
+      origData[0x1482] = 0x7f;
+      origData[0x1483] = 0xff;
+
+      const stream = new ByteVectorStream(ByteVector.fromByteArray(origData));
+      const f = await MatroskaFile.open(stream, true, ReadStyle.Accurate);
+      expect(f.isValid).toBe(true);
+      const props = f.audioProperties();
+      expect(props).not.toBeNull();
+      expect(props!.lengthInMilliseconds).toBe(444);
+      expect(props!.bitrate).toBe(223);
+      expect(props!.channels).toBe(2);
+      expect(props!.sampleRate).toBe(44100);
+      expect(props!.docType).toBe("matroska");
+      expect(props!.docTypeVersion).toBe(4);
+      expect(props!.codecName).toBe("A_MPEG/L3");
+      expect(f.tag()!.isEmpty).toBe(true);
+
+      // Save a title tag to the modified file
+      const tag = f.tag()!;
+      tag.title = "Unknown size";
+      expect(await f.save()).toBe(true);
+
+      // Verify the saved tag can be read back
+      await stream.seek(0);
+      const f2 = await MatroskaFile.open(stream, true, ReadStyle.Accurate);
+      expect(f2.isValid).toBe(true);
+      expect(f2.tag()).not.toBeNull();
+      expect(f2.tag()!.title).toBe("Unknown size");
     });
   });
 

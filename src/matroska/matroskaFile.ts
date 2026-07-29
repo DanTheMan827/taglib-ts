@@ -1192,7 +1192,7 @@ export class MatroskaFile extends File {
     const children = await readChildElements(this._stream, dataOffset, seekEl.dataSize);
 
     let seekId = 0;
-    let seekPosition = 0;
+    let seekPosition = -1;
 
     for (const child of children) {
       switch (child.id) {
@@ -1205,7 +1205,7 @@ export class MatroskaFile extends File {
       }
     }
 
-    if (seekId) {
+    if (seekId && seekPosition >= 0) {
       positions.set(seekId, segmentDataOffset + seekPosition);
     }
   }

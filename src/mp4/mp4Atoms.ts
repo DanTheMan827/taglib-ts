@@ -19,7 +19,7 @@ const META_CHILDREN_NAMES = new Set(["hdlr", "ilst", "mhdr", "ctry", "lang"]);
 const MAX_MP4_ATOM_DEPTH = 64;
 
 /** Maximum number of sibling atoms allowed at the top level (mirrors C++ MAX_MP4_ATOM_COUNT_PER_LEVEL). */
-const MAX_MP4_ATOM_COUNT_PER_LEVEL = 5000;
+const MAX_MP4_ATOM_COUNT_PER_LEVEL = 50000;
 
 // ---------------------------------------------------------------------------
 // Mp4Atom
@@ -77,7 +77,7 @@ export class Mp4Atom {
 
     // "stem" is not parsed as a container (per C++ reference)
     if (atom.name === "stem") {
-      await stream.seek(atom.length - 8, Position.Current);
+      await stream.seek(atom.offset + atom.length);
       return atom;
     }
 

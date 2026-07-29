@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Mp4File } from "../mp4/mp4File.js";
+import { Mp4Item } from "../mp4/mp4Tag.js";
 import type { Mp4Chapter } from "../mp4/mp4Chapter.js";
 import { Mp4ChapterHolder, chaptersEqual } from "../mp4/mp4Chapter.js";
 import type { IOStream } from "../toolkit/ioStream.js";
@@ -150,6 +151,34 @@ describe("MP4", () => {
         expect(tag2.title).toBe("MP4 Test");
         expect(tag2.artist).toBe("Test Artist");
       }
+    }
+  });
+
+  it("testMiscItems", async () => {
+    // C++: test_mp4.cpp – TestMP4::testMiscItems
+    const stream = openMutableMp4Stream("has-tags.m4a");
+    {
+      const f = await Mp4File.open(stream);
+      const tag = f.tag();
+      expect(tag).not.toBeNull();
+      tag!.setItem("trkn", Mp4Item.fromIntPair(2, 10));
+      tag!.setItem("rate", Mp4Item.fromInt(80));
+      tag!.setItem("plID", Mp4Item.fromLongLong(1540934238n));
+      tag!.setItem("cnID", Mp4Item.fromLongLong(9876543210n));
+      tag!.setItem("rtng", Mp4Item.fromByte(2));
+      await f.save();
+    }
+    {
+      await stream.seek(0);
+      const f = await Mp4File.open(stream);
+      const tag = f.tag();
+      expect(tag).not.toBeNull();
+      expect(tag!.item("trkn")!.toIntPair()[0]).toBe(2);
+      expect(tag!.item("trkn")!.toIntPair()[1]).toBe(10);
+      expect(tag!.item("rate")!.toInt()).toBe(80);
+      expect(tag!.item("plID")!.toLongLong()).toBe(1540934238n);
+      expect(tag!.item("cnID")!.toLongLong()).toBe(9876543210n);
+      expect(tag!.item("rtng")!.toByte()).toBe(2);
     }
   });
 

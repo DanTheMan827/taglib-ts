@@ -415,9 +415,22 @@ export abstract class Id3v2Frame {
       data = SynchData.decode(data);
     }
 
+    let frameDataLength = header.frameSize;
+    let frameDataOffset = 0;
+
     if (header.dataLengthIndicator) {
-      // First 4 bytes encode the original (uncompressed) data length – skip them.
+      // First 4 bytes encode the original (uncompressed) data length.
+      frameDataLength = SynchData.toUInt(data.mid(0, 4));
+      frameDataOffset = 4;
       data = data.mid(4);
+    }
+
+    // For non-compressed frames, validate that the declared length fits in the
+    // available data (mirrors C++ Frame::fieldData fix).
+    if (!header.compression &&
+        frameData.length >= headerSize &&
+        frameDataOffset + frameDataLength > frameData.length - headerSize) {
+      return ByteVector.fromSize(0);
     }
 
     // Compression is flagged but actual zlib decompression is not yet implemented;

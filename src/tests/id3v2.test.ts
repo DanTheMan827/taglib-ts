@@ -1119,6 +1119,34 @@ describe("ID3v2", () => {
   });
 
   // =========================================================================
+  // Compressed frame with broken length indicator
+  // =========================================================================
+  describe("compressed frame", () => {
+    it("testCompressedFrameWithBrokenLength", async () => {
+      // C++: test_id3v2.cpp – TestID3v2::testCompressedFrameWithBrokenLength
+      // The file has a compressed APIC frame whose data-length indicator claims
+      // 86414 uncompressed bytes, but the actual zlib stream decompresses to only 142.
+      // The C++ fix adds a `!compression` guard so the bogus DLI does not cause
+      // fieldData() to return an empty vector for compressed frames.
+      // TypeScript does not implement zlib decompression; we only verify that the
+      // APIC frame is present (not discarded) and that the file reads as valid.
+      const stream = openTestStream("compressed_id3_frame_invalid.mp3");
+      const f = await MpegFile.open(stream, false, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      const tag = f.id3v2Tag();
+      expect(tag).not.toBeNull();
+      const frameList = tag!.frameListMap().get("APIC");
+      expect(frameList).toBeDefined();
+      expect(frameList!.length).toBeGreaterThan(0);
+      const frame = frameList![0] as AttachedPictureFrame;
+      expect(frame).toBeDefined();
+      // C++ asserts mimeType === "image/bmp", pictureType === PictureType.Other,
+      // description === "", and picture().size() === 142, but these require
+      // zlib decompression which is not yet implemented in TypeScript.
+    });
+  });
+
+  // =========================================================================
   // Empty frame
   // =========================================================================
   describe("empty frame handling", () => {
