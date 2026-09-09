@@ -445,12 +445,61 @@ function buildChapterTrak(
   return renderAtom("trak", trakContent);
 }
 
-/** Builds a `tref` atom containing a `chap` reference to the given track ID. */
-function buildTref(chapterTrackId: number): ByteVector {
+/** Builds a `chap` reference box pointing at the given track ID. */
+function buildChap(chapterTrackId: number): ByteVector {
   const chapData = new ByteVector();
   chapData.append(ByteVector.fromUInt(chapterTrackId));
-  const chap = renderAtom("chap", chapData);
-  return renderAtom("tref", chap);
+  return renderAtom("chap", chapData);
+}
+
+/** Builds a `tref` atom containing a `chap` reference to the given track ID. */
+function buildTref(chapterTrackId: number): ByteVector {
+  return renderAtom("tref", buildChap(chapterTrackId));
+}
+
+/** Returns the track's `tref` atom, or `null` when none exists. */
+function findTrefAtom(trak: Mp4Atom | null): Mp4Atom | null {
+  if (!trak) {
+    return null;
+  }
+  for (const child of trak.children) {
+    if (child.name === "tref") {
+      return child;
+    }
+  }
+  return null;
+}
+
+/** Finds a reference box of the given type inside a `tref` atom. */
+async function findTrefEntry(
+  stream: IOStream,
+  tref: Mp4Atom | null,
+  type: string,
+): Promise<{ offset: offset_t; length: offset_t } | null> {
+  if (!tref) {
+    return null;
+  }
+
+  const trefEnd = tref.offset + tref.length;
+  await stream.seek(tref.offset + 8);
+  while ((await stream.tell()) + 8 <= trefEnd) {
+    const boxStart = await stream.tell();
+    const header = await stream.readBlock(8);
+    if (header.length < 8) {
+      break;
+    }
+
+    const boxSize = header.toUInt();
+    if (boxSize < 8 || boxSize > trefEnd - boxStart) {
+      break;
+    }
+
+    if (header.mid(4, 4).toString(StringType.Latin1) === type && boxSize >= 12) {
+      return { offset: boxStart, length: boxSize };
+    }
+    await stream.seek(boxStart + boxSize);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

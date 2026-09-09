@@ -21,6 +21,7 @@ const FLAC_MAGIC = ByteVector.fromString("fLaC", StringType.Latin1);
 const LAST_BLOCK_FLAG = 0x80;
 const MIN_PADDING_LENGTH = 4096;
 const MAX_PADDING_LENGTH = 1024 * 1024;
+const MAX_FLAC_METADATA_BLOCK_COUNT = 50000;
 
 /**
  * FLAC metadata block type codes as defined by the FLAC specification.
@@ -719,8 +720,14 @@ export class FlacFile extends File {
     this._flacStart = nextBlockOffset;
 
     let xiphCommentData: ByteVector | null = null;
+    let blockCount = 0;
 
     while (true) {
+      if (blockCount++ >= MAX_FLAC_METADATA_BLOCK_COUNT) {
+        this._valid = false;
+        return;
+      }
+
       await this.seek(nextBlockOffset);
       const header = await this.readBlock(4);
       if (header.length < 4) {

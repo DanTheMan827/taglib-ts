@@ -92,6 +92,7 @@ export class ItFile extends File {
    */
   async save(): Promise<boolean> {
     if (this.readOnly) return false;
+    if (!this.isValid) return false;
 
     // Write title
     await this.seek(4);

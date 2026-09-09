@@ -5,6 +5,9 @@ import { ByteVector, StringType } from "../../byteVector.js";
 import { ReadStyle } from "../../toolkit/types.js";
 import type { OggFile } from "../oggFile.js";
 
+/** Maximum signed 32-bit integer used for C++-compatible property clamping. */
+const INT32_MAX = 0x7fffffff;
+
 /** The 6-byte Vorbis bitstream identifier "vorbis" (without the leading packet-type byte). */
 const VORBIS_ID = ByteVector.fromString("vorbis", StringType.Latin1);
 
@@ -149,20 +152,21 @@ export class VorbisProperties extends AudioProperties {
         const frameCount = last.granulePosition - first.granulePosition;
         if (frameCount > 0n) {
           const durationMs = Number(frameCount) * 1000.0 / this._sampleRate;
-          this._lengthInMs = Math.trunc(durationMs + 0.5);
+          if (durationMs > 0 && durationMs < INT32_MAX) {
+            this._lengthInMs = Math.trunc(durationMs + 0.5);
 
-          // Subtract the 3 Vorbis header packets (identification, comment, setup)
-          // from the file size before computing bitrate, matching C++ behaviour.
-          let fileLengthWithoutOverhead = await file.fileLength();
-          for (let i = 0; i < 3; i++) {
-            const pkt = await file.packet(i);
-            fileLengthWithoutOverhead -= pkt.length;
-          }
+            // Subtract the 3 Vorbis header packets (identification, comment, setup)
+            // from the file size before computing bitrate, matching C++ behaviour.
+            let fileLengthWithoutOverhead = await file.fileLength();
+            for (let i = 0; i < 3; i++) {
+              const pkt = await file.packet(i);
+              fileLengthWithoutOverhead -= pkt.length;
+            }
 
-          if (this._lengthInMs > 0) {
-            this._bitrate = Math.trunc(
-              (fileLengthWithoutOverhead * 8.0) / durationMs + 0.5,
-            );
+            const bitrate = (fileLengthWithoutOverhead * 8.0) / durationMs;
+            if (bitrate >= 0 && bitrate < INT32_MAX) {
+              this._bitrate = Math.trunc(bitrate + 0.5);
+            }
           }
         }
       }

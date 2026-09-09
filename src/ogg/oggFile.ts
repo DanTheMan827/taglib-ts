@@ -289,20 +289,15 @@ function renderNonBosPages(
   return result;
 }
 
-/**
- * Assign consecutive sequence numbers to an array of raw OGG pages,
- * starting from 0, and concatenate them into a single Uint8Array.
- * CRCs are recomputed after renumbering.
- */
-function renumberAndConcatenate(pages: Uint8Array[], _serialNumber: number): Uint8Array {
+/** Concatenate raw OGG pages into a single contiguous byte array. */
+function concatenatePages(pages: Uint8Array[]): Uint8Array {
   let totalSize = 0;
   for (const p of pages) totalSize += p.length;
   const output = new Uint8Array(totalSize);
   let writeOffset = 0;
-  for (let seqNum = 0; seqNum < pages.length; seqNum++) {
-    const adjusted = adjustPageSequence(pages[seqNum], seqNum);
-    output.set(adjusted, writeOffset);
-    writeOffset += adjusted.length;
+  for (const page of pages) {
+    output.set(page, writeOffset);
+    writeOffset += page.length;
   }
   return output;
 }
@@ -329,8 +324,18 @@ export abstract class OggFile extends File {
   private _packets: Map<number, ByteVector> = new Map();
   /** Packets that have been modified in memory and not yet flushed to disk. */
   private _dirtyPackets: Map<number, ByteVector> = new Map();
-  /** OGG serial number of the first (and only) logical bitstream encountered. */
+  /** OGG serial number of the logical bitstream currently exposed through this file object. */
   private _serialNumber: number = 0;
+  /** Raw bytes of every physical page in the file, including multiplexed non-target streams. */
+  private _allPageRawData: Uint8Array[] = [];
+  /** Physical page indices corresponding to {@link _pageRawData}. */
+  private _selectedPhysicalPageIndices: number[] = [];
+  /** File offset of the next physical page to scan while indexing. */
+  private _currentPageOffset: number = -1;
+  /** Serial number of the logical bitstream selected for packet reads. */
+  private _streamSerialNumber: number = 0;
+  /** Whether a target logical bitstream serial number has been selected yet. */
+  private _streamSerialNumberSet: boolean = false;
 
   /**
    * Constructs an OggFile backed by the given stream.
@@ -361,14 +366,19 @@ export abstract class OggFile extends File {
    * @param index - Zero-based packet index.
    * @returns The packet data as a {@link ByteVector}.
    */
-  async packet(index: number): Promise<ByteVector> {
+  async packet(index: number, maxSize: number = Number.MAX_SAFE_INTEGER): Promise<ByteVector> {
     const dirty = this._dirtyPackets.get(index);
-    if (dirty) return dirty;
+    if (dirty) {
+      return dirty.length <= maxSize ? dirty : new ByteVector();
+    }
 
     const cached = this._packets.get(index);
-    if (cached) return cached;
+    if (cached) {
+      return cached.length <= maxSize ? cached : new ByteVector();
+    }
 
-    await this.readPages();
+    const ok = await this.readPages(index, maxSize);
+    if (!ok) return new ByteVector();
     return this._packets.get(index) ?? new ByteVector();
   }
 
@@ -401,6 +411,45 @@ export abstract class OggFile extends File {
       return this._pages[this._pages.length - 1];
     }
     return null;
+  }
+
+  /**
+   * Restricts packet parsing to the first logical bitstream whose first packet
+   * begins with `magic`. This is needed for multiplexed OGG files where pages
+   * from multiple codecs are interleaved.
+   * @param magic - Packet prefix identifying the desired logical bitstream.
+   * @returns `true` if a matching logical bitstream was found and selected.
+   */
+  async selectStream(magic: ByteVector): Promise<boolean> {
+    if (this._pages !== null) {
+      return false;
+    }
+
+    let offset = 0;
+    const fileLen = await this.fileLength();
+
+    while (offset < fileLen) {
+      const page = await OggPageHeader.parse(this._stream, offset);
+      if (!page?.isValid) {
+        return false;
+      }
+      if (!page.isFirstPage) {
+        return false;
+      }
+
+      await this._stream.seek(offset + page.headerSize, Position.Beginning);
+      const payload = await this._stream.readBlock(page.dataSize);
+      const firstPacketSize = page.packetSizes[0] ?? 0;
+      if (firstPacketSize > 0 && payload.mid(0, firstPacketSize).startsWith(magic)) {
+        this._streamSerialNumber = page.serialNumber;
+        this._streamSerialNumberSet = true;
+        return true;
+      }
+
+      offset += page.totalSize;
+    }
+
+    return false;
   }
 
   // ---------------------------------------------------------------------------
@@ -498,28 +547,45 @@ export abstract class OggFile extends File {
         );
       }
 
-      // Compute sequence-number delta for pages after pEnd
       const oldPageCount = pEnd - pStart + 1;
       const newPageCount = newRawPages.length;
-      const seqDelta = newPageCount - oldPageCount;
 
       // Replace pages[pStart..pEnd] with newRawPages (temporarily unsequenced)
       pages.splice(pStart, oldPageCount, ...newRawPages);
       // Update pageFirstPktIdx: fill newPageCount entries with firstPktOnPage
       const newPFPI = new Array(newPageCount).fill(firstPktOnPage);
       pageFirstPktIdx.splice(pStart, oldPageCount, ...newPFPI);
-
-      // Adjust pageFirstPktIdx for pages after the replaced range
-      if (seqDelta !== 0) {
-        for (let p = pStart + newPageCount; p < pageFirstPktIdx.length; p++) {
-          // packet indices don't change; sequence numbers do (renumbered below)
-          void p;
-        }
-      }
     }
 
     // --- assign final sequence numbers and recompute CRCs ---
-    const output = renumberAndConcatenate(pages, this._serialNumber);
+    const adjustedSelectedPages = pages.map((page, index) => adjustPageSequence(page, index));
+    const physicalPages: Uint8Array[] = [];
+    const selectedSlots = new Set(this._selectedPhysicalPageIndices);
+    const lastSelectedSlot = this._selectedPhysicalPageIndices.length > 0
+      ? this._selectedPhysicalPageIndices[this._selectedPhysicalPageIndices.length - 1]
+      : -1;
+    let selectedIndex = 0;
+
+    for (let physicalIndex = 0; physicalIndex < this._allPageRawData.length; physicalIndex++) {
+      if (selectedSlots.has(physicalIndex)) {
+        if (selectedIndex < adjustedSelectedPages.length) {
+          physicalPages.push(adjustedSelectedPages[selectedIndex++]);
+        }
+        if (physicalIndex === lastSelectedSlot) {
+          while (selectedIndex < adjustedSelectedPages.length) {
+            physicalPages.push(adjustedSelectedPages[selectedIndex++]);
+          }
+        }
+      } else {
+        physicalPages.push(this._allPageRawData[physicalIndex]);
+      }
+    }
+
+    while (selectedIndex < adjustedSelectedPages.length) {
+      physicalPages.push(adjustedSelectedPages[selectedIndex++]);
+    }
+
+    const output = concatenatePages(physicalPages);
 
     await this._stream.seek(0, Position.Beginning);
     await this._stream.truncate(0);
@@ -532,6 +598,9 @@ export abstract class OggFile extends File {
     this._pageOffsets = [];
     this._pageRawData = [];
     this._pageFirstPktIdx = [];
+    this._allPageRawData = [];
+    this._selectedPhysicalPageIndices = [];
+    this._currentPageOffset = -1;
 
     return true;
   }
@@ -544,82 +613,108 @@ export abstract class OggFile extends File {
    * Parse all OGG pages from the stream and reassemble logical packets.
    * Results are cached; subsequent calls are no-ops until the cache is cleared (e.g., after save).
    */
-  private async readPages(): Promise<void> {
-    if (this._pages !== null) return;
+  private async readPages(index?: number, maxSize: number = Number.MAX_SAFE_INTEGER): Promise<boolean> {
+    if (this._pages !== null) {
+      return index === undefined || this._packets.has(index);
+    }
 
     this._pages = [];
     this._pageOffsets = [];
     this._pageRawData = [];
     this._pageFirstPktIdx = [];
+    this._allPageRawData = [];
+    this._selectedPhysicalPageIndices = [];
     this._packets.clear();
 
-    let offset = 0;
     const fileLen = await this.fileLength();
     let packetIndex = 0;
     let currentPacket = new ByteVector();
     let continued = false;
+    let physicalIndex = 0;
 
-    while (offset < fileLen) {
+    if (this._currentPageOffset < 0) {
+      this._currentPageOffset = 0;
+    }
+
+    while (this._currentPageOffset < fileLen) {
+      const offset = this._currentPageOffset;
       const page = await OggPageHeader.parse(this._stream, offset);
       if (!page || !page.isValid) break;
-
-      this._pages.push(page);
-      this._pageOffsets.push(offset);
-
-      // Record the packet index at the start of this page
-      this._pageFirstPktIdx.push(packetIndex);
 
       // Read raw page bytes for later verbatim copying
       await this._stream.seek(offset, Position.Beginning);
       const rawBv = await this._stream.readBlock(page.totalSize);
-      this._pageRawData.push(new Uint8Array(rawBv.data));
+      const rawPage = new Uint8Array(rawBv.data);
+      this._allPageRawData.push(rawPage);
 
-      if (this._pages.length === 1) {
-        this._serialNumber = page.serialNumber;
+      if (!this._streamSerialNumberSet) {
+        this._streamSerialNumber = page.serialNumber;
+        this._streamSerialNumberSet = true;
       }
 
-      // Read page payload for packet reassembly
-      await this._stream.seek(offset + page.headerSize, Position.Beginning);
-      const payload = await this._stream.readBlock(page.dataSize);
+      this._currentPageOffset += page.totalSize;
 
-      // Reassemble packets from segment table
-      let payloadOffset = 0;
-      const sizes = page.packetSizes;
-      const segTable = page.segmentTable;
+      if (page.serialNumber === this._streamSerialNumber) {
+        this._selectedPhysicalPageIndices.push(physicalIndex);
+        this._pages.push(page);
+        this._pageOffsets.push(offset);
+        this._pageRawData.push(rawPage);
+        this._pageFirstPktIdx.push(packetIndex);
 
-      for (let i = 0; i < sizes.length; i++) {
-        const size = sizes[i];
-        const chunk = payload.mid(payloadOffset, size);
-        payloadOffset += size;
-
-        if (i === 0 && page.isContinuation && continued) {
-          currentPacket.append(chunk);
-        } else {
-          currentPacket = ByteVector.fromByteVector(chunk);
+        if (this._pages.length === 1) {
+          this._serialNumber = page.serialNumber;
         }
 
-        // Check if this packet is complete (last segment byte < 255)
-        const isLastSizeEntry = i === sizes.length - 1;
-        const lastSegByte =
-          segTable.length > 0 ? segTable[segTable.length - 1] : 0;
-        const packetContinuesOnNextPage =
-          isLastSizeEntry && lastSegByte === 255;
+        // Read page payload for packet reassembly
+        await this._stream.seek(offset + page.headerSize, Position.Beginning);
+        const payload = await this._stream.readBlock(page.dataSize);
 
-        if (packetContinuesOnNextPage) {
-          continued = true;
-        } else {
-          this._packets.set(packetIndex, currentPacket);
-          packetIndex++;
-          currentPacket = new ByteVector();
-          continued = false;
+        // Reassemble packets from segment table
+        let payloadOffset = 0;
+        const sizes = page.packetSizes;
+        const segTable = page.segmentTable;
+
+        for (let i = 0; i < sizes.length; i++) {
+          const size = sizes[i];
+          const chunk = payload.mid(payloadOffset, size);
+          payloadOffset += size;
+
+          if (i === 0 && page.isContinuation && continued) {
+            if (index === packetIndex && currentPacket.length + chunk.length > maxSize) {
+              return false;
+            }
+            currentPacket.append(chunk);
+          } else {
+            if (index === packetIndex && chunk.length > maxSize) {
+              return false;
+            }
+            currentPacket = ByteVector.fromByteVector(chunk);
+          }
+
+          // Check if this packet is complete (last segment byte < 255)
+          const isLastSizeEntry = i === sizes.length - 1;
+          const lastSegByte =
+            segTable.length > 0 ? segTable[segTable.length - 1] : 0;
+          const packetContinuesOnNextPage =
+            isLastSizeEntry && lastSegByte === 255;
+
+          if (packetContinuesOnNextPage) {
+            continued = true;
+          } else {
+            this._packets.set(packetIndex, currentPacket);
+            packetIndex++;
+            currentPacket = new ByteVector();
+            continued = false;
+          }
         }
       }
-
-      offset += page.totalSize;
+      physicalIndex++;
     }
 
     if (currentPacket.length > 0) {
       this._packets.set(packetIndex, currentPacket);
     }
+
+    return index === undefined || this._packets.has(index);
   }
 }

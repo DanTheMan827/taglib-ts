@@ -4,6 +4,7 @@ import { Tag } from "../tag.js";
 import { PropertyMap } from "../toolkit/propertyMap.js";
 import { Variant } from "../toolkit/variant.js";
 import type { VariantMap } from "../toolkit/variant.js";
+import { guidFromString, guidToString } from "../toolkit/tagParsingUtils.js";
 import { AsfAttribute, AsfAttributeType } from "./asfAttribute.js";
 import { AsfPicture, pictureTypeToString, pictureTypeFromString } from "./asfPicture.js";
 
@@ -15,61 +16,94 @@ import { AsfPicture, pictureTypeToString, pictureTypeFromString } from "./asfPic
  * Bidirectional mapping between ASF `WM/*` / `MusicBrainz/*` attribute names
  * and the standard property key strings used by {@link PropertyMap}.
  */
-const keyTranslation: [string, string][] = [
-  ["WM/AlbumTitle", "ALBUM"],
-  ["WM/AlbumArtist", "ALBUMARTIST"],
-  ["WM/AuthorURL", "ARTISTWEBPAGE"],
-  ["WM/Composer", "COMPOSER"],
-  ["WM/Writer", "LYRICIST"],
-  ["WM/Conductor", "CONDUCTOR"],
-  ["WM/ModifiedBy", "REMIXER"],
-  ["WM/Year", "DATE"],
-  ["WM/OriginalAlbumTitle", "ORIGINALALBUM"],
-  ["WM/OriginalArtist", "ORIGINALARTIST"],
-  ["WM/OriginalFilename", "ORIGINALFILENAME"],
-  ["WM/OriginalLyricist", "ORIGINALLYRICIST"],
-  ["WM/OriginalReleaseYear", "ORIGINALDATE"],
-  ["WM/Producer", "PRODUCER"],
-  ["WM/ContentGroupDescription", "WORK"],
-  ["WM/SubTitle", "SUBTITLE"],
-  ["WM/SetSubTitle", "DISCSUBTITLE"],
-  ["WM/TrackNumber", "TRACKNUMBER"],
-  ["WM/PartOfSet", "DISCNUMBER"],
-  ["WM/Genre", "GENRE"],
-  ["WM/BeatsPerMinute", "BPM"],
-  ["WM/Mood", "MOOD"],
-  ["WM/InitialKey", "INITIALKEY"],
-  ["WM/ISRC", "ISRC"],
-  ["WM/Lyrics", "LYRICS"],
-  ["WM/Media", "MEDIA"],
-  ["WM/Publisher", "LABEL"],
-  ["WM/CatalogNo", "CATALOGNUMBER"],
-  ["WM/Barcode", "BARCODE"],
-  ["WM/EncodedBy", "ENCODEDBY"],
-  ["WM/EncodingSettings", "ENCODING"],
-  ["WM/EncodingTime", "ENCODINGTIME"],
-  ["WM/AudioFileURL", "FILEWEBPAGE"],
-  ["WM/AlbumSortOrder", "ALBUMSORT"],
-  ["WM/AlbumArtistSortOrder", "ALBUMARTISTSORT"],
-  ["WM/ArtistSortOrder", "ARTISTSORT"],
-  ["WM/TitleSortOrder", "TITLESORT"],
-  ["WM/Script", "SCRIPT"],
-  ["WM/Language", "LANGUAGE"],
-  ["WM/ARTISTS", "ARTISTS"],
-  ["ASIN", "ASIN"],
-  ["MusicBrainz/Track Id", "MUSICBRAINZ_TRACKID"],
-  ["MusicBrainz/Artist Id", "MUSICBRAINZ_ARTISTID"],
-  ["MusicBrainz/Album Id", "MUSICBRAINZ_ALBUMID"],
-  ["MusicBrainz/Album Artist Id", "MUSICBRAINZ_ALBUMARTISTID"],
-  ["MusicBrainz/Album Release Country", "RELEASECOUNTRY"],
-  ["MusicBrainz/Album Status", "RELEASESTATUS"],
-  ["MusicBrainz/Album Type", "RELEASETYPE"],
-  ["MusicBrainz/Release Group Id", "MUSICBRAINZ_RELEASEGROUPID"],
-  ["MusicBrainz/Release Track Id", "MUSICBRAINZ_RELEASETRACKID"],
-  ["MusicBrainz/Work Id", "MUSICBRAINZ_WORKID"],
-  ["MusicIP/PUID", "MUSICIP_PUID"],
-  ["Acoustid/Id", "ACOUSTID_ID"],
-  ["Acoustid/Fingerprint", "ACOUSTID_FINGERPRINT"],
+interface KeyTranslationEntry {
+  /** Canonical ASF attribute name. */
+  name: string;
+  /** Canonical PropertyMap key. */
+  property: string;
+  /** Attribute type to use when writing from PropertyMap back to ASF. */
+  type: AsfAttributeType;
+}
+
+const keyTranslation: KeyTranslationEntry[] = [
+  { name: "WM/AlbumTitle", property: "ALBUM", type: AsfAttributeType.UnicodeType },
+  { name: "WM/AlbumArtist", property: "ALBUMARTIST", type: AsfAttributeType.UnicodeType },
+  { name: "WM/AuthorURL", property: "ARTISTWEBPAGE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Composer", property: "COMPOSER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Writer", property: "LYRICIST", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Conductor", property: "CONDUCTOR", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ModifiedBy", property: "REMIXER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Year", property: "DATE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/OriginalAlbumTitle", property: "ORIGINALALBUM", type: AsfAttributeType.UnicodeType },
+  { name: "WM/OriginalArtist", property: "ORIGINALARTIST", type: AsfAttributeType.UnicodeType },
+  { name: "WM/OriginalFilename", property: "ORIGINALFILENAME", type: AsfAttributeType.UnicodeType },
+  { name: "WM/OriginalLyricist", property: "ORIGINALLYRICIST", type: AsfAttributeType.UnicodeType },
+  { name: "WM/OriginalReleaseYear", property: "ORIGINALDATE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Producer", property: "PRODUCER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ContentGroupDescription", property: "WORK", type: AsfAttributeType.UnicodeType },
+  { name: "WM/SubTitle", property: "SUBTITLE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/SetSubTitle", property: "DISCSUBTITLE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/TrackNumber", property: "TRACKNUMBER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/PartOfSet", property: "DISCNUMBER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Genre", property: "GENRE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/BeatsPerMinute", property: "BPM", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Mood", property: "MOOD", type: AsfAttributeType.UnicodeType },
+  { name: "WM/InitialKey", property: "INITIALKEY", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ISRC", property: "ISRC", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Lyrics", property: "LYRICS", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Media", property: "MEDIA", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Publisher", property: "LABEL", type: AsfAttributeType.UnicodeType },
+  { name: "WM/CatalogNo", property: "CATALOGNUMBER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Barcode", property: "BARCODE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/EncodedBy", property: "ENCODEDBY", type: AsfAttributeType.UnicodeType },
+  { name: "WM/EncodingSettings", property: "ENCODING", type: AsfAttributeType.UnicodeType },
+  { name: "WM/EncodingTime", property: "ENCODINGTIME", type: AsfAttributeType.QWordType },
+  { name: "WM/AudioFileURL", property: "FILEWEBPAGE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/AlbumSortOrder", property: "ALBUMSORT", type: AsfAttributeType.UnicodeType },
+  { name: "WM/AlbumArtistSortOrder", property: "ALBUMARTISTSORT", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ArtistSortOrder", property: "ARTISTSORT", type: AsfAttributeType.UnicodeType },
+  { name: "WM/TitleSortOrder", property: "TITLESORT", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Script", property: "SCRIPT", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Language", property: "LANGUAGE", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ARTISTS", property: "ARTISTS", type: AsfAttributeType.UnicodeType },
+  { name: "ASIN", property: "ASIN", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Track Id", property: "MUSICBRAINZ_TRACKID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Artist Id", property: "MUSICBRAINZ_ARTISTID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Album Id", property: "MUSICBRAINZ_ALBUMID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Album Artist Id", property: "MUSICBRAINZ_ALBUMARTISTID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Album Release Country", property: "RELEASECOUNTRY", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Album Status", property: "RELEASESTATUS", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Album Type", property: "RELEASETYPE", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Release Group Id", property: "MUSICBRAINZ_RELEASEGROUPID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Release Track Id", property: "MUSICBRAINZ_RELEASETRACKID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicBrainz/Work Id", property: "MUSICBRAINZ_WORKID", type: AsfAttributeType.UnicodeType },
+  { name: "MusicIP/PUID", property: "MUSICIP_PUID", type: AsfAttributeType.UnicodeType },
+  { name: "Acoustid/Id", property: "ACOUSTID_ID", type: AsfAttributeType.UnicodeType },
+  { name: "Acoustid/Fingerprint", property: "ACOUSTID_FINGERPRINT", type: AsfAttributeType.UnicodeType },
+  { name: "replaygain_track_gain", property: "REPLAYGAIN_TRACK_GAIN", type: AsfAttributeType.UnicodeType },
+  { name: "replaygain_track_peak", property: "REPLAYGAIN_TRACK_PEAK", type: AsfAttributeType.UnicodeType },
+  { name: "replaygain_album_gain", property: "REPLAYGAIN_ALBUM_GAIN", type: AsfAttributeType.UnicodeType },
+  { name: "replaygain_album_peak", property: "REPLAYGAIN_ALBUM_PEAK", type: AsfAttributeType.UnicodeType },
+  { name: "WM/MediaClassPrimaryID", property: "MEDIACLASSPRIMARYID", type: AsfAttributeType.GuidType },
+  { name: "WM/MediaClassSecondaryID", property: "MEDIACLASSSECONDARYID", type: AsfAttributeType.GuidType },
+  { name: "WM/WMCollectionGroupID", property: "COLLECTIONGROUPID", type: AsfAttributeType.GuidType },
+  { name: "WM/WMCollectionID", property: "COLLECTIONID", type: AsfAttributeType.GuidType },
+  { name: "WM/WMContentID", property: "CONTENTID", type: AsfAttributeType.GuidType },
+  { name: "WM/ContentDistributor", property: "CONTENTDISTRIBUTOR", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ParentalRating", property: "PARENTALRATING", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Period", property: "PERIOD", type: AsfAttributeType.UnicodeType },
+  { name: "WM/PromotionURL", property: "PROMOTIONURL", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ToolName", property: "TOOLNAME", type: AsfAttributeType.UnicodeType },
+  { name: "WM/ToolVersion", property: "TOOLVERSION", type: AsfAttributeType.UnicodeType },
+  { name: "WM/Provider", property: "PROVIDER", type: AsfAttributeType.UnicodeType },
+  { name: "WM/UniqueFileIdentifier", property: "UNIQUEFILEIDENTIFIER", type: AsfAttributeType.UnicodeType },
+  { name: "WMFSDKVersion", property: "WMFSDKVERSION", type: AsfAttributeType.UnicodeType },
+  { name: "WMFSDKNeeded", property: "WMFSDKNEEDED", type: AsfAttributeType.UnicodeType },
+  { name: "DeviceConformanceTemplate", property: "DEVICECONFORMANCETEMPLATE", type: AsfAttributeType.UnicodeType },
+  { name: "MediaFoundationVersion", property: "MEDIAFOUNDATIONVERSION", type: AsfAttributeType.UnicodeType },
+  { name: "IsVBR", property: "ISVBR", type: AsfAttributeType.BoolType },
+  { name: "PeakValue", property: "PEAKVALUE", type: AsfAttributeType.DWordType },
+  { name: "AverageLevel", property: "AVERAGELEVEL", type: AsfAttributeType.DWordType },
 ];
 
 /**
@@ -79,26 +113,62 @@ const keyTranslation: [string, string][] = [
  * @returns The corresponding property key, or `null` when not mapped.
  */
 function translateKey(key: string): string | null {
-  for (const [k, t] of keyTranslation) {
-    if (key === k) return t;
+  const upperKey = key.toUpperCase();
+  for (const entry of keyTranslation) {
+    if (entry.name.toUpperCase() === upperKey) return entry.property;
   }
   return null;
 }
 
-/** Lazily initialised reverse lookup (property key → ASF attribute name). */
-let reverseKeyMap: Map<string, string> | null = null;
+/** Lazily initialised reverse lookup (property key → ASF attribute metadata). */
+let reverseKeyMap: Map<string, KeyTranslationEntry> | null = null;
 /**
  * Return (and cache) the reverse mapping from standard property key to ASF
  * attribute name.
  */
-function getReverseKeyMap(): Map<string, string> {
+function getReverseKeyMap(): Map<string, KeyTranslationEntry> {
   if (!reverseKeyMap) {
     reverseKeyMap = new Map();
-    for (const [k, t] of keyTranslation) {
-      reverseKeyMap.set(t, k);
+    for (const entry of keyTranslation) {
+      reverseKeyMap.set(entry.property, entry);
     }
   }
   return reverseKeyMap;
+}
+
+/**
+ * Remove all attributes whose names match `name` case-insensitively.
+ *
+ * @param attributeListMap - The ASF attribute map to update.
+ * @param name - Canonical attribute name to remove.
+ */
+function eraseAttribute(attributeListMap: Map<string, AsfAttribute[]>, name: string): void {
+  const upperName = name.toUpperCase();
+  for (const key of [...attributeListMap.keys()]) {
+    if (key.toUpperCase() === upperName) {
+      attributeListMap.delete(key);
+    }
+  }
+}
+
+/**
+ * Convert an ASF attribute value to the PropertyMap string representation used by TagLib.
+ *
+ * @param attribute - Attribute to stringify.
+ * @returns PropertyMap string value.
+ */
+function attributeToString(attribute: AsfAttribute): string {
+  switch (attribute.type) {
+    case AsfAttributeType.WordType:
+    case AsfAttributeType.DWordType:
+    case AsfAttributeType.QWordType:
+    case AsfAttributeType.BoolType:
+      return attribute.toULongLong().toString();
+    case AsfAttributeType.GuidType:
+      return guidToString(attribute.toByteVector());
+    default:
+      return attribute.toString();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -299,14 +369,9 @@ export class AsfTag extends Tag {
       const key = translateKey(k);
       if (key) {
         for (const attr of attributes) {
-          if (key === "TRACKNUMBER") {
-            if (attr.type === AsfAttributeType.DWordType) {
-              props.insert(key, [String(attr.toUInt())]);
-            } else {
-              props.insert(key, [attr.toString()]);
-            }
-          } else {
-            props.insert(key, [attr.toString()]);
+          const value = attributeToString(attr);
+          if (value !== "" && !(props.get(key) ?? []).includes(value)) {
+            props.insert(key, [value]);
           }
         }
       } else {
@@ -334,19 +399,41 @@ export class AsfTag extends Tag {
         else if (prop === "COMMENT") this._comment = "";
         else if (prop === "COPYRIGHT") this._copyright = "";
         else {
-          const asfKey = reverse.get(prop);
-          if (asfKey) this._attributeListMap.delete(asfKey);
+          const entry = reverse.get(prop);
+          if (entry) eraseAttribute(this._attributeListMap, entry.name);
         }
       }
     }
 
     const ignoredProps = new PropertyMap();
     for (const [prop, attributes] of props.entries()) {
-      if (reverse.has(prop)) {
-        const name = reverse.get(prop)!;
-        this.removeItem(name);
+      const entry = reverse.get(prop);
+      if (entry) {
+        eraseAttribute(this._attributeListMap, entry.name);
         for (const attr of attributes) {
-          this.addAttribute(name, AsfAttribute.fromString(attr));
+          switch (entry.type) {
+            case AsfAttributeType.WordType:
+              this.addAttribute(entry.name, AsfAttribute.fromUShort(Number(BigInt(attr) & 0xffffn)));
+              break;
+            case AsfAttributeType.DWordType:
+              this.addAttribute(entry.name, AsfAttribute.fromUInt(Number(BigInt(attr) & 0xffffffffn)));
+              break;
+            case AsfAttributeType.QWordType:
+              this.addAttribute(entry.name, AsfAttribute.fromULongLong(BigInt(attr)));
+              break;
+            case AsfAttributeType.BoolType: {
+              const upper = attr.toUpperCase();
+              const value = attr !== "" && attr !== "0" && upper !== "FALSE";
+              this.addAttribute(entry.name, AsfAttribute.fromBool(value));
+              break;
+            }
+            case AsfAttributeType.GuidType:
+              this.addAttribute(entry.name, AsfAttribute.fromGuid(guidFromString(attr)));
+              break;
+            default:
+              this.addAttribute(entry.name, AsfAttribute.fromString(attr));
+              break;
+          }
         }
       } else if (prop === "TITLE") {
         this._title = attributes.join(" / ");

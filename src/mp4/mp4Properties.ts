@@ -13,6 +13,11 @@ export enum Mp4Codec {
   Unknown = 0,
   AAC = 1,
   ALAC = 2,
+  AC3 = 3,
+  EAC3 = 4,
+  FLAC = 5,
+  DTS = 6,
+  Opus = 7,
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +50,7 @@ export class Mp4Properties extends AudioProperties {
   private _bitsPerSample = 0;
   private _encrypted = false;
   private _codec: Mp4Codec = Mp4Codec.Unknown;
+  private _codecId = "";
 
   private constructor(readStyle: ReadStyle = ReadStyle.Average) {
     super(readStyle);
@@ -82,6 +88,9 @@ export class Mp4Properties extends AudioProperties {
   }
   get codec(): Mp4Codec {
     return this._codec;
+  }
+  get codecId(): string {
+    return this._codecId;
   }
 
   // -- Private parsing --
@@ -142,7 +151,10 @@ export class Mp4Properties extends AudioProperties {
     }
 
     if (unit > 0 && length > 0) {
-      this._lengthMs = Math.round((length * 1000) / unit);
+      const lengthMs = (length * 1000) / unit;
+      if (lengthMs > 0 && lengthMs < 0x7fffffff) {
+        this._lengthMs = Math.round(lengthMs);
+      }
     }
 
     // Read codec from stsd
@@ -151,6 +163,9 @@ export class Mp4Properties extends AudioProperties {
 
     await stream.seek(stsd.offset);
     data = await stream.readBlock(stsd.length);
+    if (data.length >= 24) {
+      this._codecId = data.mid(20, 4).toString(StringType.Latin1);
+    }
 
     if (data.containsAt(ByteVector.fromString("mp4a", StringType.Latin1), 20)) {
       this._codec = Mp4Codec.AAC;
@@ -212,6 +227,43 @@ export class Mp4Properties extends AudioProperties {
             (calculateMdatLength(atoms.atoms) * 8) / this._lengthMs,
           );
         }
+      }
+    } else if (data.length >= 50) {
+      const codecMap = new Map<string, Mp4Codec>([
+        ["ac-3", Mp4Codec.AC3],
+        ["ec-3", Mp4Codec.EAC3],
+        ["fLaC", Mp4Codec.FLAC],
+        ["Opus", Mp4Codec.Opus],
+        ["dtsc", Mp4Codec.DTS],
+        ["dtse", Mp4Codec.DTS],
+        ["dtsh", Mp4Codec.DTS],
+        ["dtsl", Mp4Codec.DTS],
+      ]);
+      this._codec = codecMap.get(this._codecId) ?? Mp4Codec.Unknown;
+      this._channels = data.toShort(40);
+      this._bitsPerSample = data.toShort(42);
+      this._sampleRate = data.toUInt(46);
+
+      if (this._codec === Mp4Codec.FLAC) {
+        const dfLaPos = data.find(ByteVector.fromString("dfLa", StringType.Latin1));
+        if (dfLaPos >= 0 && data.length >= dfLaPos + 26 && (data.get(dfLaPos + 8) & 0x7f) === 0) {
+          const streamInfo = data.toUInt(dfLaPos + 22);
+          const sampleRate = streamInfo >>> 12;
+          if (sampleRate !== 0) {
+            this._sampleRate = sampleRate;
+          }
+          this._channels = ((streamInfo >>> 9) & 0x7) + 1;
+          this._bitsPerSample = ((streamInfo >>> 4) & 0x1f) + 1;
+        }
+      } else if (this._codec === Mp4Codec.EAC3) {
+        const dec3Pos = data.find(ByteVector.fromString("dec3", StringType.Latin1));
+        if (dec3Pos >= 0 && data.length >= dec3Pos + 6) {
+          this._bitrate = data.toUShort(dec3Pos + 4) >> 3;
+        }
+      }
+
+      if (this._bitrate === 0 && this._lengthMs > 0) {
+        this._bitrate = Math.round((calculateMdatLength(atoms.atoms) * 8) / this._lengthMs);
       }
     }
 

@@ -281,9 +281,10 @@ export class TableOfContentsFrame extends Id3v2Frame {
 
         const subFrameData = data.mid(offset, totalFrameSize);
         const subFrame = frameParser(subFrameData, version);
-        if (subFrame) {
-          this._embeddedFrames.push(subFrame);
+        if (!subFrame) {
+          break;
         }
+        this._embeddedFrames.push(subFrame);
         offset += totalFrameSize;
       }
     }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApeFooter, ApeItem, ApeItemType, ApeTag } from "../ape/apeTag.js";
+import { ByteVector } from "../byteVector.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 
 describe("APE Tag", () => {
@@ -122,5 +123,37 @@ describe("APE Tag", () => {
     const props = tag.properties();
     expect(props.get("TITLE")).toEqual(["Prop Test"]);
     expect(props.get("ARTIST")).toEqual(["Prop Artist"]);
+  });
+
+  it("should stop parsing after the maximum item count", async () => {
+    // TypeScript-only test: port of upstream taglib's "APE: limit parsed tag
+    // item count" fix (a crafted APEv2 footer can declare far more items
+    // than the data actually holds, which must not exhaust memory).
+    const itemCount = 50005;
+    const itemData = new ByteVector();
+    for (let i = 0; i < itemCount; i++) {
+      const item = new ApeItem();
+      item.key = `K${i}`;
+      item.type = ApeItemType.Text;
+      item.values = ["v"];
+      itemData.append(item.render());
+    }
+
+    const footer = new ApeFooter();
+    footer.version = 2000;
+    footer.itemCount = itemCount;
+    footer.tagSize = itemData.length + ApeFooter.SIZE;
+    footer.flags = 0x80000000; // has header
+
+    const rendered = new ByteVector();
+    rendered.append(footer.renderHeader());
+    rendered.append(itemData);
+    rendered.append(footer.render());
+
+    const stream = new ByteVectorStream(rendered);
+    const footerOffset = rendered.length - ApeFooter.SIZE;
+    const parsed = await ApeTag.readFrom(stream, footerOffset);
+
+    expect(parsed.items.length).toBe(50000);
   });
 });

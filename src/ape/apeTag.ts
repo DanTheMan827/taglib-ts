@@ -7,6 +7,14 @@ import type { IOStream } from "../toolkit/ioStream.js";
 import type { offset_t } from "../toolkit/types.js";
 import { Position } from "../toolkit/types.js";
 
+/**
+ * Maximum number of items parsed from an APEv2 tag. A crafted tag can declare
+ * an item count far larger than its actual data, so parsing is stopped after
+ * this many items to avoid unbounded memory allocation. Matches upstream
+ * TagLib's `MAX_APE_ITEM_COUNT`.
+ */
+const MAX_APE_ITEM_COUNT = 50000;
+
 // =============================================================================
 // ApeItemType
 // =============================================================================
@@ -400,6 +408,10 @@ export class ApeTag extends Tag {
 
     let pos = 0;
     for (let i = 0; i < footer.itemCount && pos < itemData.length; i++) {
+      if (i >= MAX_APE_ITEM_COUNT) {
+        break;
+      }
+
       const result = ApeItem.parse(itemData, pos);
       if (!result) break;
       tag._items.push(result.item);

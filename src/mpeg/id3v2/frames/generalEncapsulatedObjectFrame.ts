@@ -1,5 +1,6 @@
 /** @packageDocumentation ID3v2 general encapsulated object frame (GEOB). Stores arbitrary binary objects with metadata. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { textEncodingFromByte } from "../../../toolkit/tagParsingUtils.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
@@ -122,7 +123,7 @@ export class GeneralEncapsulatedObjectFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 1) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     let offset = 1;
 
     // MIME type: null-terminated Latin1

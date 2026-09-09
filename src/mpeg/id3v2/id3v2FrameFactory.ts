@@ -96,6 +96,11 @@ const frameConversion2to4 = new Map<string, string>([
   ["GP1", "GRP1"],
 ]);
 
+/** Maximum allowed CHAP/CTOC embedded frame nesting depth. */
+const MAX_EMBEDDED_FRAME_DEPTH = 64;
+/** Shared nesting depth guard for CHAP/CTOC embedded frame parsing. */
+let embeddedFrameDepth = 0;
+
 /** Mapping from ID3v2.3 four-character frame IDs to their ID3v2.4 equivalents. */
 // ID3v2.3 → ID3v2.4 conversion table
 const frameConversion3to4 = new Map<string, string>([
@@ -180,6 +185,33 @@ export class Id3v2FrameFactory {
   }
 
   /**
+   * Parse a CHAP/CTOC-embedded frame while enforcing a shared nesting limit.
+   *
+   * @param data - Raw embedded frame bytes.
+   * @param version - ID3v2 version of the containing tag.
+   * @returns The parsed embedded frame, or `undefined` when the nesting limit is exceeded.
+   */
+  static createEmbeddedFrame(
+    data: ByteVector,
+    version: number,
+  ): Id3v2Frame | undefined {
+    if (embeddedFrameDepth >= MAX_EMBEDDED_FRAME_DEPTH) {
+      return undefined;
+    }
+
+    embeddedFrameDepth++;
+    try {
+      return Id3v2FrameFactory.instance.createFrame(
+        data,
+        { majorVersion: version } as Id3v2Header,
+        0,
+      ).frame ?? undefined;
+    } finally {
+      embeddedFrameDepth--;
+    }
+  }
+
+  /**
    * Create a frame from data at the given offset.
    *
    * @param data - The tag body data (all frame data).
@@ -216,8 +248,13 @@ export class Id3v2FrameFactory {
       const converted = Id3v2FrameFactory.convertFrameId(frameHeader.frameId);
       frameHeader.frameId = converted;
     } else if (version === 3) {
-      const converted = Id3v2FrameFactory.convertFrameIdV3(frameHeader.frameId);
-      frameHeader.frameId = converted;
+      const rawId = frameHeader.frameId;
+      const lastByte = rawId.length >= 4 ? rawId.get(3) : 0;
+      if (lastByte === 0x00 || lastByte === 0x20) {
+        frameHeader.frameId = Id3v2FrameFactory.convertFrameId(rawId.mid(0, 3));
+      } else {
+        frameHeader.frameId = Id3v2FrameFactory.convertFrameIdV3(rawId);
+      }
     }
 
     const totalFrameSize = headerSize + frameHeader.frameSize;
@@ -341,12 +378,13 @@ export class Id3v2FrameFactory {
     // so embedded TIT2 / other sub-frames inside CHAP are fully parsed.
     if (frameId === "CHAP") {
       return ChapterFrame.fromData(frameData, frameHeader, version,
-        (data, v) => this.createFrame(data, { majorVersion: v } as unknown as Id3v2Header, 0).frame ?? undefined);
+        Id3v2FrameFactory.createEmbeddedFrame);
     }
 
     // Table of contents frame
     if (frameId === "CTOC") {
-      return TableOfContentsFrame.fromData(frameData, frameHeader, version);
+      return TableOfContentsFrame.fromData(frameData, frameHeader, version,
+        Id3v2FrameFactory.createEmbeddedFrame);
     }
 
     // Podcast frame

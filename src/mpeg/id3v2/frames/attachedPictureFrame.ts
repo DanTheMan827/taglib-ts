@@ -2,6 +2,10 @@
 
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
+  pictureTypeFromByte,
+  textEncodingFromByte,
+} from "../../../toolkit/tagParsingUtils.js";
+import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
@@ -149,7 +153,7 @@ export class AttachedPictureFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, version: number): void {
     if (data.length < 1) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     let offset = 1;
 
     if (version < 3) {
@@ -165,7 +169,7 @@ export class AttachedPictureFrame extends Id3v2Frame {
     }
 
     if (offset >= data.length) return;
-    this._pictureType = data.get(offset) as PictureType;
+    this._pictureType = pictureTypeFromByte<PictureType>(data.get(offset));
     offset += 1;
 
     // Null-terminated description in the frame's encoding

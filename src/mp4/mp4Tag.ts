@@ -122,7 +122,7 @@ const NAME_HANDLER_MAP = new Map<string, ItemHandlerType>([
   ["rate", ItemHandlerType.TextOrInt],
   ["tvsn", ItemHandlerType.UInt],
   ["tves", ItemHandlerType.UInt],
-  ["cnID", ItemHandlerType.UInt],
+  ["cnID", ItemHandlerType.LongLong],
   ["sfID", ItemHandlerType.UInt],
   ["atID", ItemHandlerType.UInt],
   ["geID", ItemHandlerType.UInt],
@@ -143,6 +143,28 @@ function handlerTypeForName(name: string): ItemHandlerType {
   // Default: 4-char names are text items
   if (name.length === 4) return ItemHandlerType.Text;
   return ItemHandlerType.Unknown;
+}
+
+function detectImageFormat(payload: ByteVector): Mp4CoverArtFormat {
+  const size = payload.length;
+  if (size >= 2 && payload.get(0) === 0xff && payload.get(1) === 0xd8) {
+    return Mp4CoverArtFormat.JPEG;
+  }
+  if (size >= 8 && payload.startsWith(ByteVector.fromString("\x89PNG\x0d\x0a\x1a\x0a", StringType.Latin1))) {
+    return Mp4CoverArtFormat.PNG;
+  }
+  if (size >= 6 && payload.startsWith(ByteVector.fromString("GIF8", StringType.Latin1))) {
+    return Mp4CoverArtFormat.GIF;
+  }
+  if (
+    size >= 14 &&
+    payload.get(0) === 0x42 &&
+    payload.get(1) === 0x4d &&
+    payload.toUInt(6) === 0
+  ) {
+    return Mp4CoverArtFormat.BMP;
+  }
+  return Mp4CoverArtFormat.Unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +660,7 @@ function parseCovr(name: string, data: ByteVector): [string, Mp4Item] {
     const atomName = data.mid(pos + 4, 4).toString(StringType.Latin1);
     const flags = data.toUInt(pos + 8);
     if (atomName !== "data") break;
+    const payload = data.mid(pos + 16, length - 16);
 
     if (
       flags === AtomDataType.TypeJPEG ||
@@ -646,7 +669,9 @@ function parseCovr(name: string, data: ByteVector): [string, Mp4Item] {
       flags === AtomDataType.TypeGIF ||
       flags === AtomDataType.TypeImplicit
     ) {
-      arts.push(new Mp4CoverArt(flags as unknown as Mp4CoverArtFormat, data.mid(pos + 16, length - 16)));
+      arts.push(new Mp4CoverArt(flags as unknown as Mp4CoverArtFormat, payload));
+    } else {
+      arts.push(new Mp4CoverArt(detectImageFormat(payload), payload));
     }
     pos += length;
   }
@@ -1181,6 +1206,7 @@ export class Mp4Tag extends Tag {
       // Update stco (32-bit chunk offsets)
       for (const atom of moov.findAll("stco", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
+        if (atom.length < 16) continue;
         await this._stream.seek(atom.offset + 12);
         const data = await this._stream.readBlock(atom.length - 12);
         let count = data.toUInt();
@@ -1197,6 +1223,7 @@ export class Mp4Tag extends Tag {
       // Update co64 (64-bit chunk offsets)
       for (const atom of moov.findAll("co64", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
+        if (atom.length < 20) continue;
         await this._stream.seek(atom.offset + 12);
         const data = await this._stream.readBlock(atom.length - 12);
         let count = data.toUInt();
@@ -1216,6 +1243,7 @@ export class Mp4Tag extends Tag {
     if (moof) {
       for (const atom of moof.findAll("tfhd", true)) {
         if (atom.offset > offset) atom.addToOffset(delta);
+        if (atom.length < 24) continue;
         await this._stream.seek(atom.offset + 9);
         const data = await this._stream.readBlock(atom.length - 9);
         const flags = data.toUInt(0, 3);

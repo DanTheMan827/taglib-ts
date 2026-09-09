@@ -1,6 +1,12 @@
 /** @packageDocumentation ID3v2 event timing codes frame (ETCO). Stores timestamped event markers within the audio stream. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { boundedByteEnum } from "../../../toolkit/tagParsingUtils.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
+
+/** Unknown timestamp format. */
+const UNKNOWN_TIMESTAMP_FORMAT = 0;
+/** Highest recognised ETCO timestamp format value. */
+const MAX_TIMESTAMP_FORMAT = 0x02;
 
 /** Synched event types for the ETCO frame. */
 export enum EventType {
@@ -128,7 +134,11 @@ export class EventTimingCodesFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 1) return;
 
-    this._timestampFormat = data.get(0);
+    this._timestampFormat = boundedByteEnum(
+      data.get(0),
+      MAX_TIMESTAMP_FORMAT,
+      UNKNOWN_TIMESTAMP_FORMAT,
+    );
     this._synchedEvents = [];
 
     let offset = 1;

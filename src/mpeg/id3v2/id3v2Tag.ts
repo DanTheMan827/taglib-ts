@@ -148,6 +148,11 @@ function parseGenreString(genreStr: string): string {
 /**
  * ID3v2 tag implementation.
  */
+const MAX_ID3V2_FRAME_COUNT = 50000;
+
+/**
+ * ID3v2 tag implementation.
+ */
 export class Id3v2Tag extends Tag {
   /** The tag header (version, flags, size). */
   private _header: Id3v2Header;
@@ -218,6 +223,7 @@ export class Id3v2Tag extends Tag {
 
     // Parse frames
     const headerSize = version < 3 ? 6 : 10;
+    let frameCount = 0;
 
     while (pos + headerSize <= frameData.length) {
       // Check for padding (all zeros)
@@ -229,6 +235,10 @@ export class Id3v2Tag extends Tag {
         }
       }
       if (isPadding) break;
+
+      if (frameCount++ >= MAX_ID3V2_FRAME_COUNT) {
+        break;
+      }
 
       const result = frameFactory.createFrame(frameData, header, pos);
       if (!result.frame || result.size === 0) {

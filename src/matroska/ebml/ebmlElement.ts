@@ -121,30 +121,32 @@ export async function readElementId(stream: IOStream): Promise<[number, number]>
 
 /**
  * Read a VINT (variable-length integer) from a stream.
- * Returns [sizeLength, value] or [0, 0] on failure.
+ * Returns [sizeLength, value, unknownSize] or [0, 0, false] on failure.
  * The VINT marker bit is masked off to get the actual data value.
  */
-export async function readVint(stream: IOStream): Promise<[number, number]> {
+export async function readVint(stream: IOStream): Promise<[number, number, boolean]> {
   const firstByteVec = await stream.readBlock(1);
-  if (firstByteVec.length !== 1) return [0, 0];
+  if (firstByteVec.length !== 1) return [0, 0, false];
 
   const firstByte = firstByteVec.get(0);
   const numBytes = vintSizeLength(firstByte, 8);
-  if (!numBytes) return [0, 0];
+  if (!numBytes) return [0, 0, false];
 
   // Mask off the VINT marker bit
   const mask = (1 << (8 - numBytes)) - 1;
   let value = firstByte & mask;
+  let unknownSize = value === mask;
 
   if (numBytes > 1) {
     const rest = await stream.readBlock(numBytes - 1);
-    if (rest.length !== numBytes - 1) return [0, 0];
+    if (rest.length !== numBytes - 1) return [0, 0, false];
     for (let i = 0; i < rest.length; i++) {
       value = value * 256 + rest.get(i);
+      unknownSize = unknownSize && rest.get(i) === 0xff;
     }
   }
 
-  return [numBytes, value];
+  return [numBytes, value, unknownSize];
 }
 
 /** An EBML element header parsed from a stream. */
@@ -158,16 +160,41 @@ export interface EbmlElement {
 }
 
 /**
+ * Shared state for a recursive EBML parse walk.
+ */
+export interface EbmlReadState {
+  /** Total number of elements retained across the whole parse walk. */
+  totalElements: number;
+}
+
+/** Maximum number of EBML elements retained across the whole parse walk. */
+const MAX_EBML_ELEMENT_COUNT = 50000;
+/** Maximum number of direct children retained for a single EBML container level. */
+const MAX_EBML_ELEMENT_COUNT_PER_LEVEL = 50000;
+
+/**
  * Read the next EBML element header from the stream.
  * Returns null on failure.
  */
-export async function readElement(stream: IOStream): Promise<EbmlElement | null> {
+export async function readElement(
+  stream: IOStream,
+  maxOffset: number = Number.POSITIVE_INFINITY,
+): Promise<EbmlElement | null> {
   const offset = await stream.tell();
   const [id, idLen] = await readElementId(stream);
   if (!id) return null;
 
-  const [sizeLen, dataSize] = await readVint(stream);
+  const [sizeLen, rawDataSize, unknownSize] = await readVint(stream);
   if (!sizeLen) return null;
+
+  const currentOffset = await stream.tell();
+  let dataSize = rawDataSize;
+  if (unknownSize) {
+    dataSize = Math.max(0, maxOffset - currentOffset);
+  } else if (dataSize > maxOffset - currentOffset) {
+    await stream.seek(maxOffset, Position.Beginning);
+    return null;
+  }
 
   return {
     id,
@@ -187,9 +214,14 @@ export async function skipElement(stream: IOStream, element: EbmlElement): Promi
 /**
  * Find a specific element by ID within a range. Skips unmatched elements.
  */
-export async function findElement(stream: IOStream, targetId: number, maxOffset: number): Promise<EbmlElement | null> {
-  while ((await stream.tell()) < maxOffset) {
-    const element = await readElement(stream);
+export async function findElement(
+  stream: IOStream,
+  targetId: number,
+  maxOffset: number,
+  maxScanOffset: number = maxOffset,
+): Promise<EbmlElement | null> {
+  while ((await stream.tell()) < maxScanOffset) {
+    const element = await readElement(stream, maxOffset);
     if (!element) return null;
     if (element.id === targetId) return element;
     await skipElement(stream, element);
@@ -200,14 +232,30 @@ export async function findElement(stream: IOStream, targetId: number, maxOffset:
 /**
  * Read all child elements within a master element's data range.
  */
-export async function readChildElements(stream: IOStream, parentDataOffset: number, parentDataSize: number): Promise<EbmlElement[]> {
+export async function readChildElements(
+  stream: IOStream,
+  parentDataOffset: number,
+  parentDataSize: number,
+  state?: EbmlReadState,
+): Promise<EbmlElement[]> {
   const endOffset = parentDataOffset + parentDataSize;
   const children: EbmlElement[] = [];
   await stream.seek(parentDataOffset, Position.Beginning);
   while ((await stream.tell()) < endOffset) {
-    const element = await readElement(stream);
+    if (children.length >= MAX_EBML_ELEMENT_COUNT_PER_LEVEL) {
+      await stream.seek(endOffset, Position.Beginning);
+      break;
+    }
+    if (state && state.totalElements >= MAX_EBML_ELEMENT_COUNT) {
+      await stream.seek(endOffset, Position.Beginning);
+      break;
+    }
+    const element = await readElement(stream, endOffset);
     if (!element) break;
     children.push(element);
+    if (state) {
+      state.totalElements++;
+    }
     await skipElement(stream, element);
   }
   return children;

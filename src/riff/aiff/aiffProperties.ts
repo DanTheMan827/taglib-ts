@@ -4,6 +4,9 @@ import { ByteVector, StringType } from "../../byteVector.js";
 import { AudioProperties } from "../../audioProperties.js";
 import { ReadStyle } from "../../toolkit/types.js";
 
+/** Maximum signed 32-bit integer used for C++-compatible property clamping. */
+const INT32_MAX = 0x7fffffff;
+
 /**
  * Audio properties parsed from an AIFF/AIFC `COMM` chunk.
  *
@@ -51,7 +54,10 @@ export class AiffProperties extends AudioProperties {
     this._channels = commData.toUShort(0, true);
     this._sampleFrames = commData.toUInt(2, true);
     this._bitsPerSample = commData.toUShort(6, true);
-    this._sampleRate = commData.toFloat80BE(8);
+    const sampleRate = commData.toFloat80BE(8);
+    if (sampleRate >= 1.0 && sampleRate < INT32_MAX) {
+      this._sampleRate = sampleRate;
+    }
 
     // AIFC extension: compressionType + compressionName after byte 18
     if (commData.length >= 22) {
@@ -76,7 +82,10 @@ export class AiffProperties extends AudioProperties {
    */
   get lengthInMilliseconds(): number {
     if (this._sampleRate > 0) {
-      return Math.round((this._sampleFrames * 1000) / this._sampleRate);
+      const length = (this._sampleFrames * 1000.0) / this._sampleRate;
+      if (length > 0 && length < INT32_MAX) {
+        return Math.round(length);
+      }
     }
     return 0;
   }
@@ -89,7 +98,12 @@ export class AiffProperties extends AudioProperties {
   override get bitrate(): number {
     if (this._sampleRate > 0 && this._sampleFrames > 0) {
       const preciseLength = (this._sampleFrames * 1000.0) / this._sampleRate;
-      return Math.trunc((this._streamLength * 8.0) / preciseLength + 0.5);
+      if (preciseLength > 0 && preciseLength < INT32_MAX) {
+        const bitrate = (this._streamLength * 8.0) / preciseLength;
+        if (bitrate >= 0 && bitrate < INT32_MAX) {
+          return Math.trunc(bitrate + 0.5);
+        }
+      }
     }
     return 0;
   }
@@ -99,7 +113,7 @@ export class AiffProperties extends AudioProperties {
    * @returns Sample rate in Hz, or `0` if unknown.
    */
   override get sampleRate(): number {
-    return Math.round(this._sampleRate);
+    return this._sampleRate > 0 ? Math.round(this._sampleRate) : 0;
   }
 
   /**

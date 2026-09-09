@@ -468,11 +468,18 @@ export class ShortenFile extends File {
     while (offset + 8 <= header.length) {
       const ckId = header.toUInt(offset, true);
       offset += 4;
-      let ckSize = header.toUInt(offset, true); // big-endian
+      const ckSize = header.toUInt(offset, true); // big-endian
       offset += 4;
 
-      // AIFF chunks must have even length
-      ckSize += (ckSize & 1);
+      // AIFF chunks must have even length but the pad byte is not included
+      // in ckSize.
+      const paddedChunkSize = ckSize + (ckSize & 1);
+      if (paddedChunkSize > header.length - offset) {
+        this._valid = false;
+        return;
+      }
+
+      const chunkEnd = offset + paddedChunkSize;
 
       if (ckId === 0x434f4d4d) { // "COMM"
         if (ckSize < 18) { this._valid = false; return; }
@@ -504,9 +511,9 @@ export class ShortenFile extends File {
         }
 
         sawCommon = true;
-      } else {
-        offset += ckSize;
       }
+
+      offset = chunkEnd;
     }
 
     if (!sawCommon) { this._valid = false; return; }

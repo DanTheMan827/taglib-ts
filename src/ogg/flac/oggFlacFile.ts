@@ -14,6 +14,10 @@ const FLAC_STREAMINFO_MAGIC = ByteVector.fromString(
   "fLaC",
   StringType.Latin1,
 );
+/** Maximum number of OGG FLAC metadata blocks scanned from header packets. */
+const MAX_OGG_FLAC_METADATA_BLOCK_COUNT = 1024;
+/** Maximum OGG FLAC metadata packet size: 24-bit FLAC payload plus 17 mapping/header bytes. */
+const MAX_OGG_FLAC_METADATA_PACKET_SIZE = (1 << 24) + 17;
 
 /**
  * Implementation of a FLAC-in-OGG file.
@@ -121,7 +125,7 @@ export class OggFlacFile extends OggFile {
    * @param readStyle - Level of detail for audio property parsing.
    */
   private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
-    const headerPacket = await this.packet(0);
+    const headerPacket = await this.packet(0, MAX_OGG_FLAC_METADATA_PACKET_SIZE);
 
     // Minimum: 5 (prefix) + 2 (versions) + 2 (numHeaders) + 4 (fLaC) + 4 (block header) = 17
     if (headerPacket.length < 17) {
@@ -157,8 +161,13 @@ export class OggFlacFile extends OggFile {
     }
 
     // Search subsequent packets for the Vorbis comment block (type 4)
+    let blockCount = 1;
     for (let i = 1; i <= numHeaderPackets; i++) {
-      const pkt = await this.packet(i);
+      if (blockCount++ >= MAX_OGG_FLAC_METADATA_BLOCK_COUNT) {
+        return;
+      }
+
+      const pkt = await this.packet(i, MAX_OGG_FLAC_METADATA_PACKET_SIZE);
       if (pkt.length < 4) {
         continue;
       }

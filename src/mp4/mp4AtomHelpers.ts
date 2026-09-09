@@ -108,6 +108,7 @@ export async function updateChunkOffsets(
     // stco – 32-bit chunk offsets
     for (const atom of moov.findAll("stco", true)) {
       if (atom.offset > insertOffset) atom.addToOffset(delta);
+      if (atom.length < 16) continue;
       await stream.seek(atom.offset + 12);
       const data = await stream.readBlock(atom.length - 12);
       let count = data.toUInt();
@@ -125,6 +126,7 @@ export async function updateChunkOffsets(
     // co64 – 64-bit chunk offsets
     for (const atom of moov.findAll("co64", true)) {
       if (atom.offset > insertOffset) atom.addToOffset(delta);
+      if (atom.length < 20) continue;
       await stream.seek(atom.offset + 12);
       const data = await stream.readBlock(atom.length - 12);
       let count = data.toUInt();
@@ -144,6 +146,7 @@ export async function updateChunkOffsets(
   if (moof) {
     for (const atom of moof.findAll("tfhd", true)) {
       if (atom.offset > insertOffset) atom.addToOffset(delta);
+      if (atom.length < 24) continue;
       await stream.seek(atom.offset + 9);
       const data = await stream.readBlock(atom.length - 9);
       const flags = data.toUInt(0, 3);
