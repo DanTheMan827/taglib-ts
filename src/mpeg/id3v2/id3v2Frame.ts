@@ -1,6 +1,12 @@
 /** @packageDocumentation ID3v2 frame header and abstract base class for all ID3v2 frame types. */
 import { ByteVector, StringType } from "../../byteVector.js";
+import { unzlibSync } from "fflate";
 import { SynchData } from "./id3v2SynchData.js";
+
+/** Maximum decompressed size accepted for a compressed ID3v2 frame. */
+const MAX_COMPRESSED_FRAME_OUTPUT_SIZE = 64 * 1024 * 1024;
+/** Maximum accepted expansion ratio for compressed ID3v2 frame payloads. */
+const MAX_COMPRESSED_FRAME_RATIO = 64;
 
 /**
  * ID3v2 frame header.
@@ -415,15 +421,47 @@ export abstract class Id3v2Frame {
       data = SynchData.decode(data);
     }
 
-    if (header.dataLengthIndicator) {
-      // First 4 bytes encode the original (uncompressed) data length – skip them.
-      data = data.mid(4);
+    let frameDataOffset = 0;
+    let frameDataLength = data.length;
+
+    if (header.compression || header.dataLengthIndicator) {
+      if (data.length < 4) {
+        return new ByteVector();
+      }
+      frameDataLength = SynchData.toUInt(data.mid(0, 4));
+      frameDataOffset += 4;
     }
 
-    // Compression is flagged but actual zlib decompression is not yet implemented;
-    // return the data as-is so downstream parsers can still attempt best-effort reads.
+    if (!header.compression && frameDataOffset + frameDataLength > data.length) {
+      if (frameDataOffset > data.length) {
+        return new ByteVector();
+      }
+      frameDataLength = data.length - frameDataOffset;
+    }
 
-    return data;
+    if (header.compression && !header.encryption) {
+      if (data.length <= frameDataOffset) {
+        return new ByteVector();
+      }
+
+      const compressedData = data.mid(frameDataOffset);
+      const maxOutputSizeForInput = compressedData.length * MAX_COMPRESSED_FRAME_RATIO;
+      if (
+        frameDataLength > MAX_COMPRESSED_FRAME_OUTPUT_SIZE ||
+        frameDataLength > maxOutputSizeForInput
+      ) {
+        return new ByteVector();
+      }
+
+      try {
+        const outData = unzlibSync(compressedData.data);
+        return new ByteVector(outData);
+      } catch {
+        return new ByteVector();
+      }
+    }
+
+    return data.mid(frameDataOffset, frameDataLength);
   }
 }
 

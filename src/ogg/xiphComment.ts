@@ -7,6 +7,9 @@ import type { VariantMap } from "../toolkit/variant.js";
 import { Variant } from "../toolkit/variant.js";
 import { FlacPicture } from "../flac/flacPicture.js";
 
+/** Maximum number of parsed Xiph comment fields. */
+const MAX_XIPH_COMMENT_FIELD_COUNT = 50000;
+
 // =============================================================================
 // XiphComment
 // =============================================================================
@@ -152,25 +155,28 @@ export class XiphComment extends Tag {
     const tag = new XiphComment();
     let pos = offset;
 
-    if (pos + 4 > data.length) return tag;
+    if (data.length - pos < 8) return tag;
     const vendorLen = data.toUInt(pos, false);
     pos += 4;
 
-    if (vendorLen > 0 && pos + vendorLen <= data.length) {
-      tag._vendorId = data.mid(pos, vendorLen).toString(StringType.UTF8);
-    }
+    if (vendorLen > data.length - pos) return tag;
+    tag._vendorId = data.mid(pos, vendorLen).toString(StringType.UTF8);
     pos += vendorLen;
 
-    if (pos + 4 > data.length) return tag;
+    if (data.length - pos < 4) return tag;
     const count = data.toUInt(pos, false);
     pos += 4;
 
+    if (count > MAX_XIPH_COMMENT_FIELD_COUNT || count > Math.trunc((data.length - offset - 8) / 4)) {
+      return tag;
+    }
+
     for (let i = 0; i < count; i++) {
-      if (pos + 4 > data.length) break;
+      if (data.length - pos < 4) break;
       const strLen = data.toUInt(pos, false);
       pos += 4;
 
-      if (pos + strLen > data.length) break;
+      if (strLen > data.length - pos) break;
       const entry = data.mid(pos, strLen).toString(StringType.UTF8);
       pos += strLen;
 

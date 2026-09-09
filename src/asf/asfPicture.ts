@@ -1,6 +1,7 @@
 /** @packageDocumentation Picture type enumeration and {@link AsfPicture} class for embedded artwork in ASF files. */
 
 import { ByteVector, StringType } from "../byteVector.js";
+import { pictureTypeFromByte } from "../toolkit/tagParsingUtils.js";
 
 // ---------------------------------------------------------------------------
 // PictureType - same as ID3v2 APIC frame types
@@ -214,7 +215,7 @@ export class AsfPicture {
     if (bytes.length < 9) return;
 
     let pos = 0;
-    this._type = bytes.get(0) as AsfPictureType;
+    this._type = pictureTypeFromByte<AsfPictureType>(bytes.get(0));
     pos++;
 
     const dataLen = bytes.toUInt(pos, false);

@@ -136,6 +136,17 @@ export class AsfAttribute {
     return a;
   }
 
+  /**
+   * Create a GUID attribute.
+   * @param value - The raw 16-byte GUID value.
+   */
+  static fromGuid(value: ByteVector): AsfAttribute {
+    const a = new AsfAttribute();
+    a._type = AsfAttributeType.GuidType;
+    a._byteVectorValue = value;
+    return a;
+  }
+
   // -- Accessors --
 
   /** The discriminated type of the value held by this attribute. */
@@ -185,6 +196,7 @@ export class AsfAttribute {
   async parse(file: File, kind = 0): Promise<string> {
     let size: number;
     let nameLength: number;
+    let dataType: number;
     let name: string;
 
     this._pictureValue = AsfPicture.fromInvalid();
@@ -193,7 +205,7 @@ export class AsfAttribute {
       // Extended content descriptor
       nameLength = (await readWORD(file)).value;
       name = await readString(file, nameLength);
-      this._type = (await readWORD(file)).value as AsfAttributeType;
+      dataType = (await readWORD(file)).value;
       size = (await readWORD(file)).value;
     } else {
       // Metadata or metadata library
@@ -203,12 +215,12 @@ export class AsfAttribute {
       }
       this._stream = (await readWORD(file)).value;
       nameLength = (await readWORD(file)).value;
-      this._type = (await readWORD(file)).value as AsfAttributeType;
+      dataType = (await readWORD(file)).value;
       size = (await readDWORD(file)).value;
       name = await readString(file, nameLength);
     }
 
-    switch (this._type) {
+    switch (dataType) {
       case AsfAttributeType.WordType:
         this._numericValue = BigInt((await readWORD(file)).value);
         break;
@@ -237,7 +249,12 @@ export class AsfAttribute {
       case AsfAttributeType.GuidType:
         this._byteVectorValue = await file.readBlock(size);
         break;
+
+      default:
+        await file.readBlock(size);
+        return "";
     }
+    this._type = dataType as AsfAttributeType;
 
     if (this._type === AsfAttributeType.BytesType && name === "WM/Picture") {
       this._pictureValue = AsfPicture.create();

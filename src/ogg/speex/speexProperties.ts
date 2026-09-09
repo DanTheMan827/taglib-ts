@@ -5,6 +5,9 @@ import { ByteVector, StringType } from "../../byteVector.js";
 import { ReadStyle } from "../../toolkit/types.js";
 import type { OggFile } from "../oggFile.js";
 
+/** Maximum signed 32-bit integer used for C++-compatible property clamping. */
+const INT32_MAX = 0x7fffffff;
+
 /** The 8-byte Speex identification header magic "Speex   " (with three trailing spaces). */
 const SPEEX_HEADER = ByteVector.fromString("Speex   ", StringType.Latin1);
 
@@ -124,19 +127,20 @@ export class SpeexProperties extends AudioProperties {
         const frameCount = last.granulePosition - first.granulePosition;
         if (frameCount > 0n) {
           const durationMs = Number(frameCount) * 1000.0 / this._sampleRate;
-          this._lengthInMs = Math.trunc(durationMs + 0.5);
+          if (durationMs > 0 && durationMs < INT32_MAX) {
+            this._lengthInMs = Math.trunc(durationMs + 0.5);
 
-          // Subtract the 2 Speex header packets from the file size.
-          let fileLengthWithoutOverhead = await file.fileLength();
-          for (let i = 0; i < 2; i++) {
-            const pkt = await file.packet(i);
-            fileLengthWithoutOverhead -= pkt.length;
-          }
+            // Subtract the 2 Speex header packets from the file size.
+            let fileLengthWithoutOverhead = await file.fileLength();
+            for (let i = 0; i < 2; i++) {
+              const pkt = await file.packet(i);
+              fileLengthWithoutOverhead -= pkt.length;
+            }
 
-          if (this._lengthInMs > 0) {
-            this._bitrate = Math.trunc(
-              (fileLengthWithoutOverhead * 8.0) / durationMs + 0.5,
-            );
+            const bitrate = (fileLengthWithoutOverhead * 8.0) / durationMs;
+            if (bitrate >= 0 && bitrate < INT32_MAX) {
+              this._bitrate = Math.trunc(bitrate + 0.5);
+            }
           }
         }
       }

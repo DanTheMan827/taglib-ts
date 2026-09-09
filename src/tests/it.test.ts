@@ -99,4 +99,14 @@ describe("IT", () => {
     await stream.seek(0);
     await testRead(stream, titleAfter, commentAfter);
   });
+
+  it("should reject saving an invalid file", async () => {
+    // TypeScript-only test: mirrors upstream taglib's "IT: reject invalid
+    // files before saving (#1432)" fix (no C++ unit test was added upstream).
+    const data = readTestDataBV("test.it").mid(0, 10); // truncated, invalid
+    const stream = new ByteVectorStream(data);
+    const file = await ItFile.open(stream, true, ReadStyle.Average);
+    expect(file.isValid).toBe(false);
+    expect(await file.save()).toBe(false);
+  });
 });

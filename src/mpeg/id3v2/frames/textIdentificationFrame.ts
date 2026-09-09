@@ -1,5 +1,6 @@
 /** @packageDocumentation ID3v2 text identification frames (T*** and TXXX). Store text metadata fields with optional per-value encoding. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { textEncodingFromByte } from "../../../toolkit/tagParsingUtils.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
@@ -139,7 +140,7 @@ export class TextIdentificationFrame extends Id3v2Frame {
       return;
     }
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     const textData = data.mid(1);
 
     if (textData.isEmpty) {

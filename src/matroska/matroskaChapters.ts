@@ -5,6 +5,7 @@ import { ByteVector } from "../byteVector.js";
 import { IOStream } from "../toolkit/ioStream.js";
 import {
   EbmlId,
+  type EbmlReadState,
   readChildElements,
   readUintValue,
   readStringValue,
@@ -118,10 +119,11 @@ export class MatroskaChapters {
   static async parseFromStream(
     stream: IOStream,
     chaptersEl: EbmlElement,
+    state?: EbmlReadState,
   ): Promise<MatroskaChapters> {
     const chapters = new MatroskaChapters();
     const dataOffset = chaptersEl.offset + chaptersEl.headSize;
-    const editionEls = await readChildElements(stream, dataOffset, chaptersEl.dataSize);
+    const editionEls = await readChildElements(stream, dataOffset, chaptersEl.dataSize, state);
 
     // Collect any orphan ChapterAtom elements not wrapped in an EditionEntry.
     // The Matroska spec requires ChapterAtom to be inside an EditionEntry, but
@@ -132,10 +134,10 @@ export class MatroskaChapters {
 
     for (const edEl of editionEls) {
       if (edEl.id === EbmlId.ChapterAtom) {
-        const chapter = await MatroskaChapters.parseChapter(stream, edEl);
+        const chapter = await MatroskaChapters.parseChapter(stream, edEl, state);
         orphanChapters.push(chapter);
       } else if (edEl.id === EbmlId.EditionEntry) {
-        const edition = await MatroskaChapters.parseEdition(stream, edEl);
+        const edition = await MatroskaChapters.parseEdition(stream, edEl, state);
         chapters._editions.push(edition);
       }
     }
@@ -160,6 +162,7 @@ export class MatroskaChapters {
   private static async parseEdition(
     stream: IOStream,
     edEl: EbmlElement,
+    state?: EbmlReadState,
   ): Promise<ChapterEdition> {
     const edition: ChapterEdition = {
       uid: 0,
@@ -167,7 +170,7 @@ export class MatroskaChapters {
       isOrdered: false,
       chapters: [],
     };
-    const children = await readChildElements(stream, edEl.offset + edEl.headSize, edEl.dataSize);
+    const children = await readChildElements(stream, edEl.offset + edEl.headSize, edEl.dataSize, state);
     for (const child of children) {
       switch (child.id) {
         case EbmlId.EditionUID:
@@ -180,7 +183,7 @@ export class MatroskaChapters {
           edition.isOrdered = (await readUintValue(stream, child)) !== 0;
           break;
         case EbmlId.ChapterAtom: {
-          const chapter = await MatroskaChapters.parseChapter(stream, child);
+          const chapter = await MatroskaChapters.parseChapter(stream, child, state);
           edition.chapters.push(chapter);
           break;
         }
@@ -195,6 +198,7 @@ export class MatroskaChapters {
   private static async parseChapter(
     stream: IOStream,
     atomEl: EbmlElement,
+    state?: EbmlReadState,
   ): Promise<Chapter> {
     const chapter: Chapter = {
       uid: 0,
@@ -203,7 +207,7 @@ export class MatroskaChapters {
       isHidden: false,
       displays: [],
     };
-    const children = await readChildElements(stream, atomEl.offset + atomEl.headSize, atomEl.dataSize);
+    const children = await readChildElements(stream, atomEl.offset + atomEl.headSize, atomEl.dataSize, state);
     for (const child of children) {
       switch (child.id) {
         case EbmlId.ChapterUID:
@@ -219,7 +223,7 @@ export class MatroskaChapters {
           chapter.isHidden = (await readUintValue(stream, child)) !== 0;
           break;
         case EbmlId.ChapterDisplay: {
-          const display = await MatroskaChapters.parseDisplay(stream, child);
+          const display = await MatroskaChapters.parseDisplay(stream, child, state);
           chapter.displays.push(display);
           break;
         }
@@ -237,12 +241,14 @@ export class MatroskaChapters {
   private static async parseDisplay(
     stream: IOStream,
     displayEl: EbmlElement,
+    state?: EbmlReadState,
   ): Promise<ChapterDisplay> {
     const display: ChapterDisplay = { string: "", language: "" };
     const children = await readChildElements(
       stream,
       displayEl.offset + displayEl.headSize,
       displayEl.dataSize,
+      state,
     );
     for (const child of children) {
       switch (child.id) {

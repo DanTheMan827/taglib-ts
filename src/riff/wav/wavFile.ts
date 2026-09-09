@@ -86,6 +86,23 @@ export class WavFile extends RiffFile {
     return file;
   }
 
+  /**
+   * Quick-check whether `stream` looks like a supported WAV-family file.
+   * Accepts standard RIFF/WAVE plus long-form RF64 and BW64 variants.
+   * @param stream - The I/O stream to inspect.
+   * @returns `true` if the stream starts with a supported WAV-family header.
+   */
+  static async isSupported(stream: IOStream): Promise<boolean> {
+    await stream.seek(0);
+    const header = await stream.readBlock(12);
+    if (header.length < 12) return false;
+
+    const fileId = header.mid(0, 4).toString(StringType.Latin1);
+    const format = header.mid(8, 4).toString(StringType.Latin1);
+    return (fileId === "RIFF" || fileId === "RF64" || fileId === "BW64") &&
+      format === "WAVE";
+  }
+
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
@@ -285,7 +302,7 @@ export class WavFile extends RiffFile {
       if (name === "fmt " && readProperties && fmtData === null) {
         fmtData = await this.chunkData(i);
       } else if (name === "data" && readProperties && streamLength === 0) {
-        streamLength = this.chunkDataSize(i) + this.chunkPadding(i);
+        streamLength = this.chunkDataSize64(i) + this.chunkPadding(i);
       } else if (name === "fact" && readProperties && totalSamples === 0) {
         const factData = await this.chunkData(i);
         if (factData.length >= 4) {

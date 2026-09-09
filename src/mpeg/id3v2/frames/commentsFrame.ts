@@ -1,6 +1,7 @@
 /** @packageDocumentation ID3v2 comments frame (COMM). Stores free-form comments with language and description. */
 
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { textEncodingFromByte } from "../../../toolkit/tagParsingUtils.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
@@ -147,7 +148,7 @@ export class CommentsFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 4) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     this._language = data.mid(1, 3);
 
     const ntSize = nullTerminatorSize(this._encoding);

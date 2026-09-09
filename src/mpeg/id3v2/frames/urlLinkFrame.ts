@@ -1,5 +1,6 @@
 /** @packageDocumentation ID3v2 URL link frames (W*** and WXXX). Store hyperlinks related to the audio content. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { textEncodingFromByte } from "../../../toolkit/tagParsingUtils.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
@@ -207,7 +208,7 @@ export class UserUrlLinkFrame extends UrlLinkFrame {
 
     if (data.length < 1) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     const ntSize = nullTerminatorSize(this._encoding);
     const descEnd = findNullTerminator(data, this._encoding, 1);
 

@@ -5,6 +5,11 @@ import { File } from "../file.js";
 import type { offset_t } from "../toolkit/types.js";
 import type { IOStream } from "../toolkit/ioStream.js";
 
+/** Maximum number of top-level RIFF/FORM chunks parsed from a single file. */
+const MAX_RIFF_CHUNK_COUNT = 50000;
+/** Maximum unsigned 32-bit chunk size value. */
+const UINT32_MAX = 0xffffffff;
+
 /**
  * Returns `true` if every byte in the four-character chunk name is a printable
  * ASCII character (>= 0x20), matching C++ `RIFF::File::isValidChunkName()`.
@@ -25,7 +30,7 @@ interface ChunkInfo {
   /** Byte offset of the chunk data within the file (past the 8-byte chunk header). */
   offset: offset_t;
   /** Byte size of the chunk data as recorded in the chunk header. */
-  size: number;
+  size: offset_t;
   /** Number of pad bytes appended after the data to align to an even boundary (0 or 1). */
   padding: number;
 }
@@ -46,6 +51,14 @@ export abstract class RiffFile extends File {
   private _chunks: ChunkInfo[] = [];
   /** Format identifier read from bytes 8–11 of the file header (e.g. `"WAVE"`, `"AIFF"`). */
   private _format: string = "";
+  /** Byte offset of the 32-bit RIFF/FORM size field in the file header. */
+  private _sizeOffset: offset_t = 4;
+  /** Whether this file uses the long-form RF64/BW64 layout. */
+  private _isLongForm: boolean = false;
+  /** Byte offset of the leading `ds64` chunk payload, or `0` if none was found. */
+  private _ds64Offset: offset_t = 0;
+  /** 64-bit `"data"` chunk size read from `ds64`, if present. */
+  private _dataSize64: bigint = 0n;
 
   /**
    * Protected constructor — subclasses call this to set up the stream and endianness.
@@ -93,6 +106,15 @@ export abstract class RiffFile extends File {
    * @returns Chunk data size in bytes.
    */
   chunkDataSize(index: number): number {
+    return Math.min(this._chunks[index].size, UINT32_MAX);
+  }
+
+  /**
+   * Returns the full 64-bit-capable data size (in bytes) of the chunk at the given index.
+   * @param index - Zero-based chunk index.
+   * @returns Chunk data size in bytes without 32-bit saturation.
+   */
+  chunkDataSize64(index: number): offset_t {
     return this._chunks[index].size;
   }
 
@@ -103,7 +125,7 @@ export abstract class RiffFile extends File {
    */
   async chunkData(index: number): Promise<ByteVector> {
     await this.seek(this._chunks[index].offset);
-    return await this.readBlock(this._chunks[index].size);
+    return await this.readBlock(Math.min(this._chunks[index].size, UINT32_MAX));
   }
 
   /**
@@ -265,18 +287,28 @@ export abstract class RiffFile extends File {
     }
 
     const fileId = header.mid(0, 4).toString(StringType.Latin1);
-    if (fileId !== "RIFF" && fileId !== "FORM") {
+    this._isLongForm = !this._bigEndian && (fileId === "RF64" || fileId === "BW64");
+    if (
+      (!this._bigEndian && fileId !== "RIFF" && !this._isLongForm) ||
+      (this._bigEndian && fileId !== "FORM")
+    ) {
       this._valid = false;
       return;
     }
 
     this._format = header.mid(8, 4).toString(StringType.Latin1);
+    this._sizeOffset = 4;
 
     // Walk chunks
     let pos: offset_t = 12;
     const fileLen = await this.fileLength();
 
-    while (pos + 8 <= fileLen) {
+    while (pos >= 0 && pos <= fileLen && fileLen - pos >= 8) {
+      if (this._chunks.length >= MAX_RIFF_CHUNK_COUNT) {
+        this._valid = false;
+        return;
+      }
+
       await this.seek(pos);
       const chunkHeader = await this.readBlock(8);
       if (chunkHeader.length < 8) break;
@@ -286,13 +318,34 @@ export abstract class RiffFile extends File {
       // Reject chunks whose 4-byte ID contains non-printable characters (< 0x20).
       if (!isValidChunkName(chunkName)) break;
 
-      let chunkSize = chunkHeader.toUInt(4, this._bigEndian);
+      const declaredSize = chunkHeader.toUInt(4, this._bigEndian);
+      if (this._isLongForm && chunkName === "ds64" && this._chunks.length === 0 && declaredSize >= 28) {
+        await this.seek(pos + 8);
+        const ds64 = await this.readBlock(28);
+        if (ds64.length === 28) {
+          this._ds64Offset = pos + 8;
+          this._dataSize64 = ds64.toULongLong(8, this._bigEndian);
+        }
+      }
+
+      const available = fileLen - pos - 8;
+      let chunkSize: offset_t = declaredSize;
+      if (
+        this._isLongForm &&
+        chunkName === "data" &&
+        declaredSize === UINT32_MAX &&
+        this._dataSize64 > 0n
+      ) {
+        chunkSize = this._dataSize64 > BigInt(available)
+          ? available
+          : Number(this._dataSize64);
+      }
 
       // Clamp oversized chunks to available bytes rather than rejecting outright.
       // Some encoders write a correct data chunk but with a slightly too-large
       // declared size. Lenient parsers (ffmpeg, QuickTime) handle this by clamping.
-      if (pos + 8 + chunkSize > fileLen) {
-        chunkSize = fileLen - pos - 8;
+      if (chunkSize > available) {
+        chunkSize = available;
       }
 
       const dataOffset = pos + 8;
@@ -314,7 +367,17 @@ export abstract class RiffFile extends File {
    */
   private async updateFileSize(): Promise<void> {
     const size = (await this.fileLength()) - 8;
-    await this.seek(4);
+    if (this._isLongForm) {
+      await this.seek(this._sizeOffset);
+      await this.writeBlock(ByteVector.fromUInt(UINT32_MAX, this._bigEndian));
+      if (this._ds64Offset > 0) {
+        await this.seek(this._ds64Offset);
+        await this.writeBlock(ByteVector.fromULongLong(BigInt(size), this._bigEndian));
+      }
+      return;
+    }
+
+    await this.seek(this._sizeOffset);
     await this.writeBlock(ByteVector.fromUInt(size, this._bigEndian));
   }
 }

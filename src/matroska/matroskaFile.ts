@@ -25,6 +25,7 @@ import {
   combineByteVectors,
   renderEbmlElement,
   renderUintElement,
+  type EbmlReadState,
   type EbmlElement,
 } from "./ebml/ebmlElement.js";
 
@@ -141,6 +142,8 @@ export class MatroskaFile extends File {
    * or `null` if absent.  This space is available for expanding the SeekHead.
    */
   private _voidAfterSeekHeadEl: EbmlElement | null = null;
+  /** Segment title from the Info element, preserved even when audio properties are skipped. */
+  private _segmentTitle: string = "";
 
   /**
    * Private constructor — use {@link MatroskaFile.open} instead.
@@ -173,7 +176,27 @@ export class MatroskaFile extends File {
 
   /** Returns the Matroska tag, or `null` if not present. */
   tag(): MatroskaTag | null {
+    if (this._tag) {
+      this._tag.segmentTitle = this._segmentTitle;
+    }
     return this._tag;
+  }
+
+  /**
+   * Returns the attached files, loading deferred attachment data on demand.
+   * @param create - If `true`, creates an empty tag when absent.
+   * @returns The attached file list, or `null` if absent and `create` is `false`.
+   */
+  async attachments(create: boolean = false): Promise<AttachedFile[] | null> {
+    if (!this._tag && create) {
+      this._tag = new MatroskaTag();
+      this._tag.segmentTitle = this._segmentTitle;
+    }
+    if (!this._tag) {
+      return null;
+    }
+    await this.loadAttachedFileData();
+    return this._tag.attachedFiles;
   }
 
   /**
@@ -194,6 +217,33 @@ export class MatroskaFile extends File {
   }
 
   /**
+   * Loads any deferred attachment payloads into memory.
+   */
+  private async loadAttachedFileData(): Promise<void> {
+    if (!this._tag) {
+      return;
+    }
+    const deferred = this._tag.attachedFiles.filter(
+      af => af._deferredDataOffset !== undefined && af._deferredDataSize !== undefined,
+    );
+    if (deferred.length === 0) {
+      return;
+    }
+
+    const savedPos = await this._stream.tell();
+    try {
+      for (const af of deferred) {
+        await this._stream.seek(af._deferredDataOffset!, Position.Beginning);
+        af.data = await this._stream.readBlock(af._deferredDataSize!);
+        delete af._deferredDataOffset;
+        delete af._deferredDataSize;
+      }
+    } finally {
+      await this._stream.seek(savedPos, Position.Beginning);
+    }
+  }
+
+  /**
    * Write the current tag, attachments, and chapters back to the file.
    * @param writeStyle - Controls how elements are written.  Defaults to
    *   {@link MatroskaWriteStyle.Compact} (same as C++ TagLib default).
@@ -204,6 +254,8 @@ export class MatroskaFile extends File {
     if (!this._valid) return false;
 
     if (!this._tag) this._tag = new MatroskaTag();
+    this._tag.segmentTitle = this._segmentTitle;
+    await this.loadAttachedFileData();
 
     const newTagsData = this._tag.renderTags();
     const newAttachmentsData = this._tag.renderAttachments();
@@ -865,10 +917,11 @@ export class MatroskaFile extends File {
    */
   private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
     const fileLength = await this.fileLength();
+    const ebmlState: EbmlReadState = { totalElements: 0 };
     await this._stream.seek(0, Position.Beginning);
 
     // Read EBML header element
-    const header = await readElement(this._stream);
+    const header = await readElement(this._stream, fileLength);
     if (!header || header.id !== EbmlId.EBMLHeader) {
       this._valid = false;
       return;
@@ -882,6 +935,7 @@ export class MatroskaFile extends File {
         this._stream,
         header.offset + header.headSize,
         header.dataSize,
+        ebmlState,
       );
       for (const child of headerChildren) {
         switch (child.id) {
@@ -927,16 +981,16 @@ export class MatroskaFile extends File {
     let seekHeadFound = false;
 
     while ((await this._stream.tell()) < maxScanOffset) {
-      const el = await readElement(this._stream);
+      const el = await readElement(this._stream, segmentEnd);
       if (!el) break;
 
       if (el.id === EbmlId.SeekHead) {
         this._seekHeadEl = el;
-        await this.parseSeekHead(segmentDataOffset, el, elementPositions);
+        await this.parseSeekHead(segmentDataOffset, el, elementPositions, ebmlState);
         // Check if the element immediately after SeekHead is a Void (SeekHead padding)
         const afterSeekHead = el.offset + el.headSize + el.dataSize;
         await this._stream.seek(afterSeekHead, Position.Beginning);
-        const maybeVoid = await readElement(this._stream);
+        const maybeVoid = await readElement(this._stream, segmentEnd);
         if (maybeVoid && maybeVoid.id === EbmlId.VoidElement) {
           this._voidAfterSeekHeadEl = maybeVoid;
         }
@@ -962,7 +1016,7 @@ export class MatroskaFile extends File {
       const scanFrom = await this._stream.tell();
       await this._stream.seek(scanFrom, Position.Beginning);
       while ((await this._stream.tell()) < segmentEnd) {
-        const el = await readElement(this._stream);
+        const el = await readElement(this._stream, segmentEnd);
         if (!el) break;
         if (el.id === EbmlId.Tags || el.id === EbmlId.Attachments ||
             el.id === EbmlId.Chapters) {
@@ -974,11 +1028,11 @@ export class MatroskaFile extends File {
 
     // Parse Info
     const infoOffset = elementPositions.get(EbmlId.Info);
-    if (infoOffset !== undefined && readProperties) {
+    if (infoOffset !== undefined) {
       await this._stream.seek(infoOffset, Position.Beginning);
-      const infoEl = await readElement(this._stream);
+      const infoEl = await readElement(this._stream, segmentEnd);
       if (infoEl && infoEl.id === EbmlId.Info) {
-        await this.parseInfo(infoEl, readProperties);
+        await this.parseInfo(infoEl, readProperties, ebmlState);
       }
     }
 
@@ -986,9 +1040,9 @@ export class MatroskaFile extends File {
     const tracksOffset = elementPositions.get(EbmlId.Tracks);
     if (tracksOffset !== undefined && readProperties) {
       await this._stream.seek(tracksOffset, Position.Beginning);
-      const tracksEl = await readElement(this._stream);
+      const tracksEl = await readElement(this._stream, segmentEnd);
       if (tracksEl && tracksEl.id === EbmlId.Tracks) {
-        await this.parseTracks(tracksEl);
+        await this.parseTracks(tracksEl, ebmlState);
       }
     }
 
@@ -996,12 +1050,12 @@ export class MatroskaFile extends File {
     const tagsOffset = elementPositions.get(EbmlId.Tags);
     if (tagsOffset !== undefined) {
       await this._stream.seek(tagsOffset, Position.Beginning);
-      const tagsEl = await readElement(this._stream);
+      const tagsEl = await readElement(this._stream, segmentEnd);
       if (tagsEl && tagsEl.id === EbmlId.Tags) {
         this._tagsEl = tagsEl;
         this._tagsAllocatedSize = tagsEl.headSize + tagsEl.dataSize
           + await this.scanTrailingVoids(tagsEl.offset + tagsEl.headSize + tagsEl.dataSize, segmentEnd);
-        this._tag = await MatroskaTag.parseFromStream(this._stream, tagsEl);
+        this._tag = await MatroskaTag.parseFromStream(this._stream, tagsEl, ebmlState);
       }
     }
 
@@ -1009,13 +1063,13 @@ export class MatroskaFile extends File {
     const attachmentsOffset = elementPositions.get(EbmlId.Attachments);
     if (attachmentsOffset !== undefined) {
       await this._stream.seek(attachmentsOffset, Position.Beginning);
-      const attachmentsEl = await readElement(this._stream);
+      const attachmentsEl = await readElement(this._stream, segmentEnd);
       if (attachmentsEl && attachmentsEl.id === EbmlId.Attachments) {
         this._attachmentsEl = attachmentsEl;
         this._attachmentsAllocatedSize = attachmentsEl.headSize + attachmentsEl.dataSize
           + await this.scanTrailingVoids(attachmentsEl.offset + attachmentsEl.headSize + attachmentsEl.dataSize, segmentEnd);
         if (!this._tag) this._tag = new MatroskaTag();
-        await this._tag.parseAttachments(this._stream, attachmentsEl);
+        await this._tag.parseAttachments(this._stream, attachmentsEl, readStyle === ReadStyle.Fast, ebmlState);
       }
     }
 
@@ -1023,12 +1077,12 @@ export class MatroskaFile extends File {
     const chaptersOffset = elementPositions.get(EbmlId.Chapters);
     if (chaptersOffset !== undefined) {
       await this._stream.seek(chaptersOffset, Position.Beginning);
-      const chaptersEl = await readElement(this._stream);
+      const chaptersEl = await readElement(this._stream, segmentEnd);
       if (chaptersEl && chaptersEl.id === EbmlId.Chapters) {
         this._chaptersEl = chaptersEl;
         this._chaptersAllocatedSize = chaptersEl.headSize + chaptersEl.dataSize
           + await this.scanTrailingVoids(chaptersEl.offset + chaptersEl.headSize + chaptersEl.dataSize, segmentEnd);
-        this._chapters = await MatroskaChapters.parseFromStream(this._stream, chaptersEl);
+        this._chapters = await MatroskaChapters.parseFromStream(this._stream, chaptersEl, ebmlState);
         if (this._chapters.isEmpty()) {
           this._chapters = null;
         }
@@ -1043,15 +1097,15 @@ export class MatroskaFile extends File {
       this._properties.setDocType(docType);
       this._properties.setDocTypeVersion(docTypeVersion);
       this._properties.setFileLength(fileLength);
-
-      if (this._tag) {
-        this._tag.segmentTitle = this._properties.title;
-      }
+    }
+    if (this._tag) {
+      this._tag.segmentTitle = this._segmentTitle;
     }
 
     // Ensure a tag object always exists (even if empty)
     if (!this._tag) {
       this._tag = new MatroskaTag();
+      this._tag.segmentTitle = this._segmentTitle;
     }
 
     // In Accurate mode: validate that each SeekHead entry actually points to the
@@ -1084,7 +1138,7 @@ export class MatroskaFile extends File {
     if (seek.has(EbmlId.Tags) && this._segmentDataOffset >= 0) {
       const absOff = this._segmentDataOffset + seek.get(EbmlId.Tags)!;
       await this._stream.seek(absOff, Position.Beginning);
-      const el = await readElement(this._stream);
+      const el = await readElement(this._stream, fileLength);
       if (el && el.id === EbmlId.Tags) {
         this._tagsEl = el;
         this._tagsAllocatedSize = el.headSize + el.dataSize
@@ -1099,7 +1153,7 @@ export class MatroskaFile extends File {
     if (seek.has(EbmlId.Attachments) && this._segmentDataOffset >= 0) {
       const absOff = this._segmentDataOffset + seek.get(EbmlId.Attachments)!;
       await this._stream.seek(absOff, Position.Beginning);
-      const el = await readElement(this._stream);
+      const el = await readElement(this._stream, fileLength);
       if (el && el.id === EbmlId.Attachments) {
         this._attachmentsEl = el;
         this._attachmentsAllocatedSize = el.headSize + el.dataSize
@@ -1114,7 +1168,7 @@ export class MatroskaFile extends File {
     if (seek.has(EbmlId.Chapters) && this._segmentDataOffset >= 0) {
       const absOff = this._segmentDataOffset + seek.get(EbmlId.Chapters)!;
       await this._stream.seek(absOff, Position.Beginning);
-      const el = await readElement(this._stream);
+      const el = await readElement(this._stream, fileLength);
       if (el && el.id === EbmlId.Chapters) {
         this._chaptersEl = el;
         this._chaptersAllocatedSize = el.headSize + el.dataSize
@@ -1144,7 +1198,7 @@ export class MatroskaFile extends File {
     await this._stream.seek(startOffset, Position.Beginning);
     while ((await this._stream.tell()) < maxOffset) {
       const savedPos = await this._stream.tell();
-      const el = await readElement(this._stream);
+      const el = await readElement(this._stream, maxOffset);
       if (!el || el.id !== EbmlId.VoidElement) {
         // Not a Void: put stream back and stop scanning
         await this._stream.seek(savedPos, Position.Beginning);
@@ -1166,13 +1220,14 @@ export class MatroskaFile extends File {
     segmentDataOffset: number,
     seekHeadEl: EbmlElement,
     positions: Map<number, number>,
+    state?: EbmlReadState,
   ): Promise<void> {
     const dataOffset = seekHeadEl.offset + seekHeadEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, seekHeadEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, seekHeadEl.dataSize, state);
 
     for (const child of children) {
       if (child.id === EbmlId.Seek) {
-        await this.parseSeekEntry(segmentDataOffset, child, positions);
+        await this.parseSeekEntry(segmentDataOffset, child, positions, state);
       }
     }
   }
@@ -1187,12 +1242,13 @@ export class MatroskaFile extends File {
     segmentDataOffset: number,
     seekEl: EbmlElement,
     positions: Map<number, number>,
+    state?: EbmlReadState,
   ): Promise<void> {
     const dataOffset = seekEl.offset + seekEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, seekEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, seekEl.dataSize, state);
 
     let seekId = 0;
-    let seekPosition = 0;
+    let seekPosition = -1;
 
     for (const child of children) {
       switch (child.id) {
@@ -1205,7 +1261,7 @@ export class MatroskaFile extends File {
       }
     }
 
-    if (seekId) {
+    if (seekId && seekPosition >= 0) {
       positions.set(seekId, segmentDataOffset + seekPosition);
     }
   }
@@ -1215,14 +1271,19 @@ export class MatroskaFile extends File {
    * @param infoEl - The Info EBML element to parse.
    * @param readProperties - Whether to populate audio properties.
    */
-  private async parseInfo(infoEl: EbmlElement, readProperties: boolean): Promise<void> {
-    if (!readProperties) return;
+  private async parseInfo(
+    infoEl: EbmlElement,
+    readProperties: boolean,
+    state?: EbmlReadState,
+  ): Promise<void> {
     if (!this._properties) {
-      this._properties = new MatroskaProperties(this._readStyle);
+      if (readProperties) {
+        this._properties = new MatroskaProperties(this._readStyle);
+      }
     }
 
     const dataOffset = infoEl.offset + infoEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, infoEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, infoEl.dataSize, state);
 
     let timestampScale = 1000000; // Default: 1ms in nanoseconds
     let duration = 0;
@@ -1245,30 +1306,29 @@ export class MatroskaFile extends File {
     // Duration is in TimestampScale units; convert to milliseconds
     if (duration > 0) {
       const durationMs = Math.round((duration * timestampScale) / 1000000);
-      this._properties.setLengthInMilliseconds(durationMs);
+      this._properties?.setLengthInMilliseconds(durationMs);
     }
-    if (title) {
-      this._properties.setTitle(title);
-    }
+    this._segmentTitle = title;
+    this._properties?.setTitle(title);
   }
 
   /**
    * Parse the Tracks element to locate the first audio track.
    * @param tracksEl - The Tracks EBML element to parse.
    */
-  private async parseTracks(tracksEl: EbmlElement): Promise<void> {
+  private async parseTracks(tracksEl: EbmlElement, state?: EbmlReadState): Promise<void> {
     if (!this._properties) {
       this._properties = new MatroskaProperties(this._readStyle);
     }
 
     const dataOffset = tracksEl.offset + tracksEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, tracksEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, tracksEl.dataSize, state);
 
     let foundAudioTrack = false;
 
     for (const child of children) {
       if (child.id === EbmlId.TrackEntry) {
-        await this.parseTrackEntry(child, foundAudioTrack);
+        await this.parseTrackEntry(child, foundAudioTrack, state);
         if (!foundAudioTrack && this._properties!.codecName) {
           foundAudioTrack = true;
         }
@@ -1281,9 +1341,13 @@ export class MatroskaFile extends File {
    * @param trackEntryEl - The TrackEntry EBML element to parse.
    * @param audioAlreadyFound - Whether an audio track has already been processed.
    */
-  private async parseTrackEntry(trackEntryEl: EbmlElement, audioAlreadyFound: boolean): Promise<void> {
+  private async parseTrackEntry(
+    trackEntryEl: EbmlElement,
+    audioAlreadyFound: boolean,
+    state?: EbmlReadState,
+  ): Promise<void> {
     const dataOffset = trackEntryEl.offset + trackEntryEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, trackEntryEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, trackEntryEl.dataSize, state);
 
     let trackType = 0;
     let codecId = "";
@@ -1306,7 +1370,7 @@ export class MatroskaFile extends File {
       // Parse Audio sub-element
       for (const child of children) {
         if (child.id === EbmlId.Audio) {
-          await this.parseAudioElement(child);
+          await this.parseAudioElement(child, state);
           break;
         }
       }
@@ -1318,9 +1382,9 @@ export class MatroskaFile extends File {
    * channel count, and bit depth on the audio properties.
    * @param audioEl - The Audio EBML element to parse.
    */
-  private async parseAudioElement(audioEl: EbmlElement): Promise<void> {
+  private async parseAudioElement(audioEl: EbmlElement, state?: EbmlReadState): Promise<void> {
     const dataOffset = audioEl.offset + audioEl.headSize;
-    const children = await readChildElements(this._stream, dataOffset, audioEl.dataSize);
+    const children = await readChildElements(this._stream, dataOffset, audioEl.dataSize, state);
 
     for (const child of children) {
       switch (child.id) {

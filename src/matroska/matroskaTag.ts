@@ -7,6 +7,7 @@ import { ByteVector } from "../byteVector.js";
 import { IOStream } from "../toolkit/ioStream.js";
 import {
   EbmlId,
+  type EbmlReadState,
   readChildElements,
   readUintValue,
   readStringValue,
@@ -60,6 +61,10 @@ export interface AttachedFile {
   mediaType: string;
   data: ByteVector;
   uid: number;
+  /** @internal Absolute byte offset of deferred attachment data, when present. */
+  _deferredDataOffset?: number;
+  /** @internal Byte length of deferred attachment data, when present. */
+  _deferredDataSize?: number;
 }
 
 /**
@@ -616,14 +621,18 @@ export class MatroskaTag extends Tag {
   /**
    * Parse Tags element (0x1254C367) from the stream.
    */
-  static async parseFromStream(stream: IOStream, tagsElement: EbmlElement): Promise<MatroskaTag> {
+  static async parseFromStream(
+    stream: IOStream,
+    tagsElement: EbmlElement,
+    state?: EbmlReadState,
+  ): Promise<MatroskaTag> {
     const tag = new MatroskaTag();
     const dataOffset = tagsElement.offset + tagsElement.headSize;
-    const tagElements = await readChildElements(stream, dataOffset, tagsElement.dataSize);
+    const tagElements = await readChildElements(stream, dataOffset, tagsElement.dataSize, state);
 
     for (const tagEl of tagElements) {
       if (tagEl.id === EbmlId.Tag) {
-        await tag.parseTagElement(stream, tagEl);
+        await tag.parseTagElement(stream, tagEl, state);
       }
     }
     return tag;
@@ -632,13 +641,18 @@ export class MatroskaTag extends Tag {
   /**
    * Parse Attachments element (0x1941A469) from the stream.
    */
-  async parseAttachments(stream: IOStream, attachmentsElement: EbmlElement): Promise<void> {
+  async parseAttachments(
+    stream: IOStream,
+    attachmentsElement: EbmlElement,
+    deferData: boolean = false,
+    state?: EbmlReadState,
+  ): Promise<void> {
     const dataOffset = attachmentsElement.offset + attachmentsElement.headSize;
-    const children = await readChildElements(stream, dataOffset, attachmentsElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, attachmentsElement.dataSize, state);
 
     for (const child of children) {
       if (child.id === EbmlId.AttachedFile) {
-        await this.parseAttachedFile(stream, child);
+        await this.parseAttachedFile(stream, child, deferData, state);
       }
     }
   }
@@ -648,9 +662,13 @@ export class MatroskaTag extends Tag {
    * @param stream - The I/O stream to read from.
    * @param tagElement - The Tag EBML element to parse.
    */
-  private async parseTagElement(stream: IOStream, tagElement: EbmlElement): Promise<void> {
+  private async parseTagElement(
+    stream: IOStream,
+    tagElement: EbmlElement,
+    state?: EbmlReadState,
+  ): Promise<void> {
     const dataOffset = tagElement.offset + tagElement.headSize;
-    const children = await readChildElements(stream, dataOffset, tagElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, tagElement.dataSize, state);
 
     let targetTypeValue = TargetTypeValue.None;
     let trackUid = 0;
@@ -662,7 +680,7 @@ export class MatroskaTag extends Tag {
     for (const child of children) {
       if (child.id === EbmlId.Targets) {
         const targetChildren = await readChildElements(stream,
-          child.offset + child.headSize, child.dataSize);
+          child.offset + child.headSize, child.dataSize, state);
         for (const tc of targetChildren) {
           switch (tc.id) {
             case EbmlId.TargetTypeValue:
@@ -689,6 +707,7 @@ export class MatroskaTag extends Tag {
     for (const child of children) {
       if (child.id === EbmlId.SimpleTag) {
         await this.parseSimpleTag(stream, child, targetTypeValue,
+          state,
           trackUid, editionUid, chapterUid, attachmentUid);
       }
     }
@@ -708,13 +727,14 @@ export class MatroskaTag extends Tag {
     stream: IOStream,
     simpleTagElement: EbmlElement,
     targetTypeValue: TargetTypeValue,
+    state: EbmlReadState | undefined,
     trackUid: number,
     editionUid: number,
     chapterUid: number,
     attachmentUid: number,
   ): Promise<void> {
     const dataOffset = simpleTagElement.offset + simpleTagElement.headSize;
-    const children = await readChildElements(stream, dataOffset, simpleTagElement.dataSize);
+    const children = await readChildElements(stream, dataOffset, simpleTagElement.dataSize, state);
 
     let name = "";
     let value = "";
@@ -763,15 +783,22 @@ export class MatroskaTag extends Tag {
    * @param stream - The I/O stream to read from.
    * @param element - The AttachedFile EBML element to parse.
    */
-  private async parseAttachedFile(stream: IOStream, element: EbmlElement): Promise<void> {
+  private async parseAttachedFile(
+    stream: IOStream,
+    element: EbmlElement,
+    deferData: boolean,
+    state?: EbmlReadState,
+  ): Promise<void> {
     const dataOffset = element.offset + element.headSize;
-    const children = await readChildElements(stream, dataOffset, element.dataSize);
+    const children = await readChildElements(stream, dataOffset, element.dataSize, state);
 
     let description = "";
     let fileName = "";
     let mediaType = "";
     let data = new ByteVector();
     let uid = 0;
+    let deferredDataOffset = -1;
+    let deferredDataSize = -1;
 
     for (const child of children) {
       switch (child.id) {
@@ -785,7 +812,12 @@ export class MatroskaTag extends Tag {
           mediaType = await readStringValue(stream, child);
           break;
         case EbmlId.AttachedFileData:
-          data = await readElementData(stream, child);
+          if (deferData) {
+            deferredDataOffset = child.offset + child.headSize;
+            deferredDataSize = child.dataSize;
+          } else {
+            data = await readElementData(stream, child);
+          }
           break;
         case EbmlId.AttachedFileUID:
           uid = await readUintValue(stream, child);
@@ -793,6 +825,18 @@ export class MatroskaTag extends Tag {
       }
     }
 
-    this._attachedFiles.push({ description, fileName, mediaType, data, uid });
+    this._attachedFiles.push({
+      description,
+      fileName,
+      mediaType,
+      data,
+      uid,
+      ...(deferredDataOffset >= 0 && deferredDataSize >= 0
+        ? {
+            _deferredDataOffset: deferredDataOffset,
+            _deferredDataSize: deferredDataSize,
+          }
+        : {}),
+    });
   }
 }

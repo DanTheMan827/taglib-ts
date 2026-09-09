@@ -18,8 +18,10 @@ const META_CHILDREN_NAMES = new Set(["hdlr", "ilst", "mhdr", "ctry", "lang"]);
 /** Maximum allowed MP4 atom nesting depth (mirrors C++ MAX_MP4_ATOM_DEPTH). */
 const MAX_MP4_ATOM_DEPTH = 64;
 
+/** Maximum number of MP4 atoms retained across the whole parse walk. */
+const MAX_MP4_ATOM_COUNT = 50000;
 /** Maximum number of sibling atoms allowed at the top level (mirrors C++ MAX_MP4_ATOM_COUNT_PER_LEVEL). */
-const MAX_MP4_ATOM_COUNT_PER_LEVEL = 5000;
+const MAX_MP4_ATOM_COUNT_PER_LEVEL = 50000;
 
 // ---------------------------------------------------------------------------
 // Mp4Atom
@@ -41,9 +43,20 @@ export class Mp4Atom {
   }
 
   /** Parse one atom from the current stream position. */
-  static async parse(stream: IOStream, depth: number = 0): Promise<Mp4Atom> {
+  static async parse(
+    stream: IOStream,
+    depth: number = 0,
+    state: { count: number } = { count: 0 },
+  ): Promise<Mp4Atom> {
     const atom = new Mp4Atom();
     atom.offset = await stream.tell();
+    state.count++;
+    if (state.count > MAX_MP4_ATOM_COUNT) {
+      atom.name = "";
+      atom.length = 0;
+      await stream.seek(0, Position.End);
+      return atom;
+    }
 
     const header = await stream.readBlock(8);
     if (header.length !== 8) {
@@ -77,7 +90,7 @@ export class Mp4Atom {
 
     // "stem" is not parsed as a container (per C++ reference)
     if (atom.name === "stem") {
-      await stream.seek(atom.length - 8, Position.Current);
+      await stream.seek(atom.offset + atom.length);
       return atom;
     }
 
@@ -102,7 +115,13 @@ export class Mp4Atom {
       }
 
       while ((await stream.tell()) < atom.offset + atom.length) {
-        const child = await Mp4Atom.parse(stream, depth + 1);
+        if (atom.children.length >= MAX_MP4_ATOM_COUNT_PER_LEVEL) {
+          atom.children = [];
+          atom.length = 0;
+          await stream.seek(0, Position.End);
+          return atom;
+        }
+        const child = await Mp4Atom.parse(stream, depth + 1, state);
         atom.children.push(child);
         if (child.length === 0) return atom;
       }
@@ -178,11 +197,12 @@ export class Mp4Atoms {
 
   static async create(stream: IOStream): Promise<Mp4Atoms> {
     const mp4Atoms = new Mp4Atoms();
+    const state = { count: 0 };
     await stream.seek(0, Position.End);
     const end = await stream.tell();
     await stream.seek(0);
     while ((await stream.tell()) + 8 <= end) {
-      const atom = await Mp4Atom.parse(stream);
+      const atom = await Mp4Atom.parse(stream, 0, state);
       mp4Atoms.atoms.push(atom);
       if (atom.length === 0) break;
       if (mp4Atoms.atoms.length > MAX_MP4_ATOM_COUNT_PER_LEVEL) {

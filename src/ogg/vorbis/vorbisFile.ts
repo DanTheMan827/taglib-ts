@@ -97,6 +97,8 @@ export class OggVorbisFile extends OggFile {
    * @param readStyle - Level of detail for audio property parsing.
    */
   private async read(readProperties: boolean, readStyle: ReadStyle): Promise<void> {
+    await this.selectStream(ByteVector.fromString("\x01vorbis", StringType.Latin1));
+
     // Parse comment header (packet 1)
     const commentPacket = await this.packet(1);
     if (

@@ -4,7 +4,7 @@ import { OggSpeexFile } from "../ogg/speex/speexFile.js";
 import { OggVorbisFile } from "../ogg/vorbis/vorbisFile.js";
 import { ByteVectorStream } from "../toolkit/byteVectorStream.js";
 import { ReadStyle } from "../toolkit/types.js";
-import { openTestStream, readTestData } from "./testHelper.js";
+import { openTestStream, readTestData, readTestDataBV } from "./testHelper.js";
 
 /** Build a reproducible ASCII string of exactly `length` characters (matches C++ `longText`). */
 function longText(length: number): string {
@@ -171,6 +171,40 @@ describe("OGG Vorbis", () => {
         expect(tag2.artist).toBe("Test Artist");
       }
     }
+  });
+
+  it("should read and preserve a multiplexed Ogg Vorbis stream", async () => {
+    // C++: test_ogg.cpp – TestOGG::testMultiplexed
+    const origData = readTestDataBV("multiplex.ogg");
+    const stream = new ByteVectorStream(origData);
+
+    {
+      const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      expect(f.tag().title).toBe("Paper Lights");
+      expect(f.audioProperties()?.channels).toBe(2);
+      expect(f.audioProperties()?.sampleRate).toBe(48000);
+      f.tag().title = "Changed Title";
+      expect(await f.save()).toBe(true);
+    }
+
+    await stream.seek(0);
+    {
+      const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      expect(f.tag().title).toBe("Changed Title");
+      f.tag().title = "Paper Lights";
+      expect(await f.save()).toBe(true);
+    }
+
+    await stream.seek(0);
+    {
+      const f = await OggVorbisFile.open(stream, true, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      expect(f.tag().title).toBe("Paper Lights");
+    }
+
+    expect(stream.data().equals(origData)).toBe(true);
   });
 });
 

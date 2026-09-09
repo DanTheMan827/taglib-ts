@@ -1,5 +1,6 @@
 /** @packageDocumentation ID3v2 ownership frame (OWNE). Records purchase and ownership information. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { textEncodingFromByte } from "../../../toolkit/tagParsingUtils.js";
 import {
   Id3v2Frame,
   Id3v2FrameHeader,
@@ -107,7 +108,7 @@ export class OwnershipFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 1) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     let offset = 1;
 
     // Price paid: null-terminated Latin1

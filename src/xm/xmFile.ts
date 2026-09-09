@@ -186,11 +186,14 @@ export class XmFile extends File {
 
       pos += instrumentHeaderSize;
 
+      let sampleDataSize = 0;
       for (let j = 0; j < sampleCount; j++) {
         if (sampleHeaderSize > 4) {
           await this.seek(pos);
           const slData = await this.readBlock(4);
           if (slData.length < 4) return false;
+          const sampleLength = slData.toUInt(0, false);
+          sampleDataSize += sampleLength;
 
           if (sampleHeaderSize > 18) {
             await this.seek(pos + 18);
@@ -205,6 +208,8 @@ export class XmFile extends File {
         }
         pos += sampleHeaderSize;
       }
+
+      pos += sampleDataSize;
     }
 
     return true;
@@ -359,7 +364,12 @@ export class XmFile extends File {
         if (instrumentHeaderSize < inCnt + 4) { this._valid = false; return; }
         const shsData = await this.readBlock(4);
         if (shsData.length < 4) { this._valid = false; return; }
-        const sampleHeaderSize = shsData.toUInt(0, false);
+        let sampleHeaderSize = shsData.toUInt(0, false);
+        // Some trackers wrote zero here even though 40-byte sample headers
+        // follow. The value is ignored by FastTracker 2 and other loaders.
+        if (sampleHeaderSize === 0) {
+          sampleHeaderSize = 40;
+        }
 
         // Skip rest of instrument header
         const remaining = instrumentHeaderSize - inCnt - 4;

@@ -3,6 +3,9 @@ import { AudioProperties } from "../audioProperties.js";
 import { ByteVector } from "../byteVector.js";
 import { ReadStyle } from "../toolkit/types.js";
 
+/** Maximum signed 32-bit integer used for C++-compatible property clamping. */
+const INT32_MAX = 0x7fffffff;
+
 /**
  * FLAC audio properties, parsed from the STREAMINFO metadata block.
  *
@@ -119,10 +122,15 @@ export class FlacProperties extends AudioProperties {
     if (this._sampleFrames > 0n && this._sampleRate > 0) {
       const length =
         Number(this._sampleFrames) * 1000.0 / this._sampleRate;
-      this._lengthInMs = Math.trunc(length + 0.5);
-      this._bitrate = streamLength > 0
-        ? Math.trunc((streamLength * 8.0) / length + 0.5)
-        : 0;
+      if (length > 0 && length < INT32_MAX) {
+        this._lengthInMs = Math.trunc(length + 0.5);
+        const bitrate = streamLength > 0
+          ? (streamLength * 8.0) / length
+          : 0;
+        if (bitrate >= 0 && bitrate < INT32_MAX) {
+          this._bitrate = Math.trunc(bitrate + 0.5);
+        }
+      }
     }
 
     if (data.length >= pos + 16) {

@@ -1,6 +1,10 @@
 /** @packageDocumentation ID3v2 synchronized lyrics frame (SYLT). Stores timestamped lyrics or text. */
 import { ByteVector, StringType } from "../../../byteVector.js";
 import {
+  boundedByteEnum,
+  textEncodingFromByte,
+} from "../../../toolkit/tagParsingUtils.js";
+import {
   Id3v2Frame,
   Id3v2FrameHeader,
   findNullTerminator,
@@ -195,10 +199,10 @@ export class SynchronizedLyricsFrame extends Id3v2Frame {
   protected parseFields(data: ByteVector, _version: number): void {
     if (data.length < 6) return;
 
-    this._encoding = data.get(0) as StringType;
+    this._encoding = textEncodingFromByte(data.get(0));
     this._language = data.mid(1, 3);
-    this._timestampFormat = data.get(4);
-    this._textType = data.get(5) as SynchedTextType;
+    this._timestampFormat = boundedByteEnum(data.get(4), 0x02, 0);
+    this._textType = boundedByteEnum(data.get(5), SynchedTextType.ImageUrls, SynchedTextType.Other);
 
     const ntSize = nullTerminatorSize(this._encoding);
     let offset = 6;

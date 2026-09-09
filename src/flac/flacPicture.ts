@@ -1,5 +1,6 @@
 /** @packageDocumentation FLAC picture metadata block — parsing and rendering. */
 import { ByteVector, StringType } from "../byteVector.js";
+import { pictureTypeFromUInt } from "../toolkit/tagParsingUtils.js";
 
 /**
  * FLAC picture type codes (matching FLAC__STREAM_METADATA_PICTURE_TYPE_*).
@@ -90,7 +91,7 @@ export class FlacPicture {
       return pic;
     }
 
-    pic.pictureType = data.toUInt(pos, true);
+    pic.pictureType = pictureTypeFromUInt<FlacPictureType>(data.toUInt(pos, true));
     pos += 4;
 
     const mimeLen = data.toUInt(pos, true);

@@ -1,5 +1,6 @@
 /** @packageDocumentation ID3v2 relative volume adjustment frame (RVA2). Stores per-channel volume adjustment and peak volume data. */
 import { ByteVector, StringType } from "../../../byteVector.js";
+import { boundedByteEnum } from "../../../toolkit/tagParsingUtils.js";
 import { Id3v2Frame, Id3v2FrameHeader } from "../id3v2Frame.js";
 
 /** Channel types for the RVA2 frame. */
@@ -190,7 +191,11 @@ export class RelativeVolumeFrame extends Id3v2Frame {
 
     // Parse channel blocks
     while (offset + 4 <= data.length) {
-      const channelType = data.get(offset) as ChannelType;
+      const channelType = boundedByteEnum(
+        data.get(offset),
+        ChannelType.Subwoofer,
+        ChannelType.Other,
+      );
       offset += 1;
 
       // Volume adjustment: signed 16-bit big-endian

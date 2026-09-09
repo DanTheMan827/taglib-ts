@@ -10,6 +10,8 @@ const FORMAT_PCM = 1;
 const FORMAT_IEEE_FLOAT = 3;
 /** WAVE format tag for WAVE_FORMAT_EXTENSIBLE. */
 const FORMAT_EXTENSIBLE = 0xfffe;
+/** Maximum unsigned 32-bit value used for saturating frame counts. */
+const UINT32_MAX = 0xffffffff;
 
 /**
  * Audio properties parsed from a WAV `"fmt "` chunk.
@@ -81,7 +83,9 @@ export class WavProperties extends AudioProperties {
       this._sampleFrames = totalSamples;
     } else if (this._channels > 0 && this._bitsPerSample > 0) {
       const bytesPerFrame = this._channels * Math.trunc((this._bitsPerSample + 7) / 8);
-      this._sampleFrames = bytesPerFrame > 0 ? Math.trunc(streamLength / bytesPerFrame) : 0;
+      this._sampleFrames = bytesPerFrame > 0
+        ? Math.min(Math.trunc(streamLength / bytesPerFrame), UINT32_MAX)
+        : 0;
     }
 
     // Compute duration and bitrate using exact floating-point arithmetic (matches C++).

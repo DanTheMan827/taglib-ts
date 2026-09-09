@@ -263,6 +263,89 @@ describe("WAV", () => {
     expect(f.hasId3v2Tag).toBe(false);
   });
 
+  it("should detect RF64 and BW64 headers", async () => {
+    // C++: test_wav.cpp – TestWAV::testRF64IsSupported
+    const stream = openTestStream("rf64.wav");
+    expect(await WavFile.isSupported(stream)).toBe(true);
+
+    await stream.seek(0);
+    await stream.writeBlock(ByteVector.fromString("BW64", StringType.Latin1));
+    expect(await WavFile.isSupported(stream)).toBe(true);
+
+    await stream.seek(0);
+    await stream.writeBlock(ByteVector.fromString("XX64", StringType.Latin1));
+    expect(await WavFile.isSupported(stream)).toBe(false);
+  });
+
+  it("should read RF64 properties from ds64", async () => {
+    // C++: test_wav.cpp – TestWAV::testRF64Properties
+    const wavData = readTestDataBV("rf64.wav");
+    wavData.append(ByteVector.fromString("junk", StringType.Latin1));
+    wavData.append(ByteVector.fromUInt(1000, false));
+    wavData.append(ByteVector.fromSize(1000));
+
+    const stream = new ByteVectorStream(wavData);
+    const f = await WavFile.open(stream, true, ReadStyle.Average);
+    expect(f.isValid).toBe(true);
+    expect(f.audioProperties()?.lengthInMilliseconds).toBe(50);
+    expect(f.audioProperties()?.sampleRate).toBe(48000);
+    expect(f.audioProperties()?.channels).toBe(2);
+  });
+
+  it("should preserve RF64 sentinels and ds64 on save", async () => {
+    // C++: test_wav.cpp – TestWAV::testRF64Save
+    const stream = openTestStream("rf64.wav");
+    const originalLength = await stream.length();
+
+    {
+      const f = await WavFile.open(stream, true, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      f.infoTag.title = "Title";
+      f.infoTag.artist = "Artist";
+      expect(await f.save()).toBe(true);
+    }
+
+    await stream.seek(0);
+    {
+      const f = await WavFile.open(stream, true, ReadStyle.Average);
+      expect(f.infoTag.title).toBe("Title");
+      expect(f.infoTag.artist).toBe("Artist");
+      expect(f.audioProperties()?.lengthInMilliseconds).toBe(50);
+    }
+
+    const length = await stream.length();
+    expect(length).toBeGreaterThan(originalLength);
+    await stream.seek(4);
+    expect((await stream.readBlock(4)).toUInt(0, false)).toBe(0xffffffff);
+    await stream.seek(20);
+    expect((await stream.readBlock(8)).toULongLong(0, false)).toBe(BigInt(length - 8));
+    await stream.seek(28);
+    expect((await stream.readBlock(8)).toULongLong(0, false)).toBe(9600n);
+  });
+
+  it("should repair a clobbered RF64 size sentinel on save", async () => {
+    // C++: test_wav.cpp – TestWAV::testRF64SaveRepairsClobberedSize
+    const stream = openTestStream("rf64.wav");
+
+    await stream.seek(4);
+    await stream.writeBlock(ByteVector.fromUInt(5230, false));
+
+    {
+      const f = await WavFile.open(stream, true, ReadStyle.Average);
+      expect(f.isValid).toBe(true);
+      f.infoTag.title = "Title";
+      expect(await f.save()).toBe(true);
+    }
+
+    const length = await stream.length();
+    await stream.seek(4);
+    expect((await stream.readBlock(4)).toUInt(0, false)).toBe(0xffffffff);
+    await stream.seek(20);
+    expect((await stream.readBlock(8)).toULongLong(0, false)).toBe(BigInt(length - 8));
+    await stream.seek(28);
+    expect((await stream.readBlock(8)).toULongLong(0, false)).toBe(9600n);
+  });
+
   it("should read and write BEXT chunk", async () => {
     // C++: test_wav.cpp – TestWAV::testBEXTTag
     const origData = readTestDataBV("empty.wav");
@@ -395,4 +478,3 @@ describe("WAV", () => {
     expect(finalData.equals(origData)).toBe(true);
   });
 });
-

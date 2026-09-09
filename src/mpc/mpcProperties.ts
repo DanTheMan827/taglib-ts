@@ -266,7 +266,18 @@ export class MpcProperties extends AudioProperties {
       const { size: packetSize, sizeLength, eof } = await readSizeFromFile(file);
       if (eof) break;
 
-      const dataSize = packetSize - 2 - sizeLength;
+      const headerSize = 2 + sizeLength;
+      const offset = await file.tell();
+      if (packetSize < headerSize || offset < 0 || offset > streamLength) {
+        break;
+      }
+
+      const dataSize = packetSize - headerSize;
+      const remaining = streamLength - offset;
+      if (dataSize > remaining) {
+        break;
+      }
+
       const data = await file.readBlock(dataSize);
       if (data.length !== dataSize) break;
 
