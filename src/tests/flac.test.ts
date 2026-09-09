@@ -314,6 +314,39 @@ describe("FLAC", () => {
     }
   });
 
+  it("testHasiXMLAndBEXTReflectFileState", async () => {
+    // C++: test_flac.cpp – TestFLAC::testHasiXMLAndBEXTReflectFileState
+    const fileData = readTestData("silence-44-s.flac");
+    const stream = new ByteVectorStream(ByteVector.fromUint8Array(fileData));
+
+    {
+      const f = await FlacFile.open(stream, false);
+      expect(f.hasiXMLData).toBe(false);
+      expect(f.hasBEXTData).toBe(false);
+      f.iXMLData = "<BWFXML/>";
+      f.BEXTData = ByteVector.fromString("bext", StringType.Latin1);
+      expect(f.hasiXMLData).toBe(false);
+      expect(f.hasBEXTData).toBe(false);
+      await f.save();
+      expect(f.hasiXMLData).toBe(true);
+      expect(f.hasBEXTData).toBe(true);
+    }
+
+    await stream.seek(0);
+    {
+      const f = await FlacFile.open(stream, false);
+      expect(f.hasiXMLData).toBe(true);
+      expect(f.hasBEXTData).toBe(true);
+      f.iXMLData = "";
+      f.BEXTData = ByteVector.fromSize(0);
+      expect(f.hasiXMLData).toBe(true);
+      expect(f.hasBEXTData).toBe(true);
+      await f.save();
+      expect(f.hasiXMLData).toBe(false);
+      expect(f.hasBEXTData).toBe(false);
+    }
+  });
+
   it("testRoundTripPreservesUnknownApplicationBlock", async () => {
     // C++: test_flac.cpp – TestFLAC::testRoundTripPreservesUnknownApplicationBlock
     const smedExtra = ByteVector.fromString("opaque sequoia metadata payload", StringType.Latin1);

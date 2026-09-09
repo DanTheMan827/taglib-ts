@@ -98,8 +98,12 @@ export class FlacFile extends File {
 
   /** iXML metadata extracted from an APPLICATION block; empty string if absent. */
   private _iXMLData: string = "";
+  /** Whether the file currently carries an iXML APPLICATION block. */
+  private _hasIXML: boolean = false;
   /** Raw BEXT (Broadcast Audio Extension) payload from an APPLICATION block; empty if absent. */
   private _bextData: ByteVector = ByteVector.fromSize(0);
+  /** Whether the file currently carries a BEXT APPLICATION block. */
+  private _hasBEXT: boolean = false;
 
   // Bookkeeping for tag / block locations
   /** File offset of the ID3v2 tag, or -1 if not present. */
@@ -224,6 +228,9 @@ export class FlacFile extends File {
       payload.append(ByteVector.fromUInt(xml.length, false));
       payload.append(xml);
       newBlocks.push({ code: BlockType.Application, data: payload });
+      this._hasIXML = true;
+    } else {
+      this._hasIXML = false;
     }
     if (this._bextData.length > 0) {
       const payload = ByteVector.fromString("riff", StringType.Latin1);
@@ -231,6 +238,9 @@ export class FlacFile extends File {
       payload.append(ByteVector.fromUInt(this._bextData.length, false));
       payload.append(this._bextData);
       newBlocks.push({ code: BlockType.Application, data: payload });
+      this._hasBEXT = true;
+    } else {
+      this._hasBEXT = false;
     }
 
     // -----------------------------------------------------------------------
@@ -493,13 +503,13 @@ export class FlacFile extends File {
   }
 
   /**
-   * Returns `true` if iXML data is currently set (i.e. {@link iXMLData} is
-   * non-empty).
+   * Returns `true` if the current file state includes an iXML APPLICATION
+   * block.
    *
    * @see {@link iXMLData}
    */
   get hasiXMLData(): boolean {
-    return this._iXMLData.length > 0;
+    return this._hasIXML;
   }
 
   /**
@@ -530,13 +540,13 @@ export class FlacFile extends File {
   }
 
   /**
-   * Returns `true` if BEXT data is currently set (i.e. {@link BEXTData} is
-   * non-empty).
+   * Returns `true` if the current file state includes a BEXT APPLICATION
+   * block.
    *
    * @see {@link BEXTData}
    */
   get hasBEXTData(): boolean {
-    return this._bextData.length > 0;
+    return this._hasBEXT;
   }
 
   // ---------------------------------------------------------------------------
@@ -792,12 +802,14 @@ export class FlacFile extends File {
         }
 
         if (innerId === "iXML") {
-          if (this._iXMLData.length === 0) {
+          if (!this._hasIXML) {
+            this._hasIXML = true;
             this._iXMLData = innerData.toString(StringType.UTF8);
           }
           // Duplicate iXML blocks are discarded
         } else if (innerId === "bext") {
-          if (this._bextData.length === 0) {
+          if (!this._hasBEXT) {
+            this._hasBEXT = true;
             this._bextData = innerData;
           }
           // Duplicate bext blocks are discarded
